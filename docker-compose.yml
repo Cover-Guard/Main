@@ -1,0 +1,64 @@
+version: '3.9'
+
+# CoverGuard — local development stack
+#
+# Usage:
+#   cp .env.example .env   # fill in Supabase credentials
+#   docker compose up
+#
+# Services exposed:
+#   web  → http://localhost:3000
+#   api  → http://localhost:4000
+#
+# Note: The database is Supabase (external). This compose file does NOT
+# spin up a local Postgres instance. Point DATABASE_URL at your Supabase
+# project connection string.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: build-api    # dev: skip production runner
+    command: ["npx", "tsx", "watch", "apps/api/src/index.ts"]
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: builder
+    command: ["npx", "next", "dev", "--port", "3000"]
+    working_dir: /app/apps/web
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
+    env_file: .env
+    environment:
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  default:
+    name: coverguard

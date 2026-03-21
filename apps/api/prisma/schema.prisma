@@ -1,0 +1,291 @@
+// Prisma schema for CoverGuard
+// Database: Supabase (PostgreSQL)
+// Connection via DATABASE_URL environment variable
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+// Auth is handled by Supabase Auth; this table extends the auth.users record.
+
+model User {
+  id                String    @id @default(uuid()) // matches auth.users.id
+  email             String    @unique
+  firstName         String
+  lastName          String
+  role              UserRole  @default(BUYER)
+  company           String?
+  licenseNumber     String?   // agents / lenders
+  avatarUrl         String?
+  termsAcceptedAt   DateTime? // null = has not yet accepted terms
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  savedProperties SavedProperty[]
+  reports         PropertyReport[]
+  clients         Client[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  BUYER
+  AGENT
+  LENDER
+  ADMIN
+}
+
+// ─── Properties ───────────────────────────────────────────────────────────────
+
+model Property {
+  id             String       @id @default(uuid())
+  address        String
+  city           String
+  state          String       @db.Char(2)
+  zip            String       @db.VarChar(10)
+  county         String
+  lat            Float
+  lng            Float
+  propertyType   PropertyType @default(SINGLE_FAMILY)
+  yearBuilt      Int?
+  squareFeet     Int?
+  bedrooms       Int?
+  bathrooms      Float?
+  lotSize        Float?       // sq ft
+  estimatedValue Int?
+  lastSalePrice  Int?
+  lastSaleDate   DateTime?
+  parcelId       String?      @unique
+  externalId     String?      @unique // ATTOM or other data provider id
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  riskProfile     RiskProfile?
+  insuranceEstimate InsuranceEstimate?
+  savedBy         SavedProperty[]
+  reports         PropertyReport[]
+
+  @@index([zip])
+  @@index([state, city])
+  @@index([lat, lng])
+  @@map("properties")
+}
+
+enum PropertyType {
+  SINGLE_FAMILY
+  MULTI_FAMILY
+  CONDO
+  TOWNHOUSE
+  MOBILE_HOME
+  COMMERCIAL
+  LAND
+}
+
+// ─── Risk Profile ─────────────────────────────────────────────────────────────
+
+model RiskProfile {
+  id                String    @id @default(uuid())
+  propertyId        String    @unique
+  overallRiskLevel  RiskLevel @default(MODERATE)
+  overallRiskScore  Int       // 0–100
+
+  // Flood
+  floodRiskLevel         RiskLevel @default(LOW)
+  floodRiskScore         Int
+  floodZone              String?
+  floodFirmPanelId       String?
+  floodBaseElevation     Float?
+  inSFHA                 Boolean   @default(false)
+  floodAnnualChance      Float?
+
+  // Fire
+  fireRiskLevel          RiskLevel @default(LOW)
+  fireRiskScore          Int
+  firHazardZone          String?
+  wildlandUrbanInterface Boolean   @default(false)
+  nearestFireStation     Float?    // miles
+
+  // Wind
+  windRiskLevel     RiskLevel @default(LOW)
+  windRiskScore     Int
+  designWindSpeed   Int?
+  hurricaneRisk     Boolean   @default(false)
+  tornadoRisk       Boolean   @default(false)
+  hailRisk          Boolean   @default(false)
+
+  // Earthquake
+  earthquakeRiskLevel   RiskLevel @default(LOW)
+  earthquakeRiskScore   Int
+  seismicZone           String?
+  nearestFaultLine      Float?    // miles
+
+  // Crime
+  crimeRiskLevel       RiskLevel @default(LOW)
+  crimeRiskScore       Int
+  violentCrimeIndex    Int
+  propertyCrimeIndex   Int
+  nationalAvgDiff      Float     // percentage diff
+
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("risk_profiles")
+}
+
+enum RiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  VERY_HIGH
+  EXTREME
+}
+
+// ─── Insurance Estimates ──────────────────────────────────────────────────────
+
+model InsuranceEstimate {
+  id                      String          @id @default(uuid())
+  propertyId              String          @unique
+  estimatedAnnualTotal    Int
+  estimatedMonthlyTotal   Int
+  confidenceLevel         ConfidenceLevel @default(MEDIUM)
+  homeownersLow           Int
+  homeownersHigh          Int
+  homeownersAvg           Int
+  floodRequired           Boolean         @default(false)
+  floodLow                Int?
+  floodHigh               Int?
+  floodAvg                Int?
+  earthquakeRequired      Boolean         @default(false)
+  earthquakeLow           Int?
+  earthquakeHigh          Int?
+  earthquakeAvg           Int?
+  windRequired            Boolean         @default(false)
+  windLow                 Int?
+  windHigh                Int?
+  windAvg                 Int?
+  generatedAt             DateTime        @default(now())
+  expiresAt               DateTime
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("insurance_estimates")
+}
+
+enum ConfidenceLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ─── Saved Properties ─────────────────────────────────────────────────────────
+
+model SavedProperty {
+  id         String   @id @default(uuid())
+  userId     String
+  propertyId String
+  notes      String?
+  tags       String[] @default([])
+  savedAt    DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@map("saved_properties")
+}
+
+// ─── Property Reports ─────────────────────────────────────────────────────────
+
+model PropertyReport {
+  id          String     @id @default(uuid())
+  userId      String
+  propertyId  String
+  reportType  ReportType @default(FULL)
+  pdfUrl      String?
+  generatedAt DateTime   @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_reports")
+}
+
+enum ReportType {
+  FULL
+  RISK_SUMMARY
+  INSURANCE_ESTIMATE
+}
+
+// ─── Clients (Agent → Client relationship) ────────────────────────────────────
+
+model Client {
+  id          String       @id @default(uuid())
+  agentId     String
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  notes       String?
+  status      ClientStatus @default(PROSPECT)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  agent User @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@map("clients")
+}
+
+enum ClientStatus {
+  ACTIVE
+  PROSPECT
+  CLOSED
+  INACTIVE
+}
+
+// ─── Quote Requests ───────────────────────────────────────────────────────────
+
+model QuoteRequest {
+  id            String             @id @default(uuid())
+  userId        String
+  propertyId    String
+  carrierId     String
+  coverageTypes String[]
+  notes         String?
+  status        QuoteRequestStatus @default(PENDING)
+  submittedAt   DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([propertyId])
+  @@map("quote_requests")
+}
+
+enum QuoteRequestStatus {
+  PENDING
+  SENT
+  RESPONDED
+  DECLINED
+}
+
+// ─── Search History ───────────────────────────────────────────────────────────
+
+model SearchHistory {
+  id          String   @id @default(uuid())
+  userId      String?  // nullable for anonymous searches
+  query       String
+  resultCount Int      @default(0)
+  searchedAt  DateTime @default(now())
+
+  @@index([userId])
+  @@map("search_history")
+}

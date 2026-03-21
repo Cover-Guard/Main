@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "name": "coverguard-web",
+  "framework": "nextjs",
+  "buildCommand": "cd ../.. && npm run build -- --filter=@coverguard/web",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && npm install",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@coverguard-supabase-url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@coverguard-supabase-anon-key",
+    "NEXT_PUBLIC_API_URL": "@coverguard-api-url",
+    "NEXT_PUBLIC_MAPBOX_TOKEN": "@coverguard-mapbox-token"
+  }
+}

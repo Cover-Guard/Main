@@ -1,0 +1,92 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # ── Database migrations (run first, before deploying code) ───────────────────
+  migrate:
+    name: Run DB Migrations
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --workspace=@coverguard/api
+      - name: Run Prisma migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  # ── Deploy API to Vercel ─────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API → api.coverguard.io
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install -g vercel
+      - name: Deploy API
+        working-directory: apps/api
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  # ── Deploy Web to Vercel ─────────────────────────────────────────────────────
+  deploy-web:
+    name: Deploy Web → coverguard.io
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install -g vercel
+      - name: Build shared package first
+        run: npm ci && npm run build --workspace=@coverguard/shared
+      - name: Deploy Web
+        working-directory: apps/web
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
+
+  # ── Deployment summary ───────────────────────────────────────────────────────
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-web, deploy-api]
+    if: always()
+    steps:
+      - name: Write summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | URL | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Web | https://coverguard.io | ${{ needs.deploy-web.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| API | https://api.coverguard.io | ${{ needs.deploy-api.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} | — |" >> $GITHUB_STEP_SUMMARY
