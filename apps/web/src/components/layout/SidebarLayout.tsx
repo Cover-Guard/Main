@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Download,
   X,
+  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AIAdvisor } from './AIAdvisor'
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/',          label: 'New Check',  icon: Search,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
+  { href: '/reports',   label: 'Reports',    icon: FileText,        exact: false },
   { href: '/compare',   label: 'Compare',    icon: GitCompare,      exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
   { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },
