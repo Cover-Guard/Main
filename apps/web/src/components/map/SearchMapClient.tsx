@@ -14,11 +14,7 @@ export function SearchMapClient({ query }: SearchMapClientProps) {
   const [selected, setSelected] = useState<Property | null>(null)
 
   useEffect(() => {
-    if (!query) {
-      setProperties([])
-      setSelected(null)
-      return
-    }
+    if (!query) return
 
     const params: Record<string, string> = {}
     const zipMatch = query.match(/\b(\d{5})\b/)
@@ -37,13 +33,16 @@ export function SearchMapClient({ query }: SearchMapClientProps) {
       .catch(() => setProperties([]))
   }, [query])
 
+  const visibleProperties = query ? properties : []
+  const visibleSelected = query ? selected : null
+
   return (
     <PropertyMap
-      properties={properties}
-      selectedProperty={selected}
+      properties={visibleProperties}
+      selectedProperty={visibleSelected}
       onSelectProperty={setSelected}
       className="h-full w-full"
-      zoom={properties.length === 1 ? 15 : 12}
+      zoom={visibleProperties.length === 1 ? 15 : 12}
     />
   )
 }
