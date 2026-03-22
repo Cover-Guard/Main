@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Shield, Search, LayoutDashboard, BarChart2, User, LogOut, ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -13,10 +13,33 @@ const navLinks = [
   { href: '/analytics', label: 'Analytics', icon: BarChart2 },
 ]
 
+function getInitials(name?: string | null, email?: string | null): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+  if (email) return email.slice(0, 2).toUpperCase()
+  return 'CG'
+}
+
 export function Navbar() {
   const pathname = usePathname()
-  const router = useRouter()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const router   = useRouter()
+  const [menuOpen,  setMenuOpen]  = useState(false)
+  const [initials,  setInitials]  = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return
+      const meta = data.user.user_metadata as Record<string, string> | undefined
+      const name = meta?.full_name ?? meta?.name ?? null
+      setInitials(getInitials(name, data.user.email))
+      setUserEmail(data.user.email ?? null)
+    })
+  }, [])
 
   async function signOut() {
     const supabase = createClient()
@@ -57,10 +80,14 @@ export function Navbar() {
         <div className="relative">
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="btn-ghost flex items-center gap-1 px-3 py-2"
+            className="btn-ghost flex items-center gap-1.5 px-3 py-2"
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-              <User className="h-4 w-4" />
+              {initials ? (
+                <span className="text-[11px] font-bold leading-none">{initials}</span>
+              ) : (
+                <User className="h-4 w-4" />
+              )}
             </div>
             <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
           </button>
@@ -69,7 +96,16 @@ export function Navbar() {
             <>
               {/* Backdrop */}
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+                {userEmail && (
+                  <>
+                    <div className="px-4 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Signed in as</p>
+                      <p className="mt-0.5 truncate text-xs font-medium text-gray-700">{userEmail}</p>
+                    </div>
+                    <div className="my-1 border-t border-gray-100" />
+                  </>
+                )}
                 <Link
                   href="/account"
                   onClick={() => setMenuOpen(false)}

@@ -90,14 +90,17 @@ function LineChart({
   function pts(key: 'checks' | 'quotes') {
     return data
       .map((d, i) => {
-        const x = pad + (i / (data.length - 1)) * (W - 2 * pad)
+        const x = pad + (i / Math.max(data.length - 1, 1)) * (W - 2 * pad)
         const y = H - pad - ((d[key] ?? 0) / maxVal) * (H - 2 * pad)
         return `${x},${y}`
       })
       .join(' ')
   }
 
-  const xLabels = [data[0], data[Math.floor(data.length / 4)], data[Math.floor(data.length / 2)], data[Math.floor(3 * data.length / 4)], data[data.length - 1]].filter(Boolean)
+  const step = Math.max(Math.floor(data.length / 4), 1)
+  const xLabels = [0, step, step * 2, step * 3, data.length - 1]
+    .filter((i, pos, arr) => arr.indexOf(i) === pos && i < data.length)
+    .map((i) => ({ idx: i, d: data[i] }))
 
   return (
     <div className="w-full overflow-hidden">
@@ -117,23 +120,22 @@ function LineChart({
           strokeLinejoin="round"
           strokeDasharray="4 2"
         />
-        {xLabels.map((d, i) => {
-          const idx = data.indexOf(d!)
-          const x = pad + (idx / (data.length - 1)) * (W - 2 * pad)
+        {xLabels.map(({ idx, d }) => {
+          const x = pad + (idx / Math.max(data.length - 1, 1)) * (W - 2 * pad)
           return (
-            <text key={i} x={x} y={H + 14} textAnchor="middle" fontSize="10" fill="#9ca3af">
-              {d!.date.slice(5)}
+            <text key={idx} x={x} y={H + 14} textAnchor="middle" fontSize="10" fill="#9ca3af">
+              {d.date.slice(5)}
             </text>
           )
         })}
       </svg>
-      <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+      <div className="mt-1 flex items-center gap-4 text-xs text-gray-500">
         <div className="flex items-center gap-1.5">
-          <span className="h-0.5 w-5 bg-blue-500 inline-block" />
+          <span className="inline-block h-0.5 w-5 bg-blue-500" />
           Checks
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="h-0.5 w-5 bg-emerald-500 inline-block" />
+          <span className="inline-block h-0.5 w-5 bg-emerald-500" />
           Quotes
         </div>
       </div>
@@ -141,24 +143,62 @@ function LineChart({
   )
 }
 
-// ── Bar chart (4-week avg score) ───────────────────────────────────────────
+// ── Bar chart (4-week avg search count) ────────────────────────────────────
 function WeekBarChart({ data }: { data: Array<{ label: string; value: number }> }) {
   const max = Math.max(...data.map((d) => d.value), 1)
   return (
-    <div className="flex items-end gap-2 h-24">
+    <div className="flex h-24 items-end gap-2">
       {data.map(({ label, value }) => (
-        <div key={label} className="flex flex-col items-center gap-1 flex-1">
+        <div key={label} className="flex flex-1 flex-col items-center gap-1">
+          <span className="text-[10px] font-semibold text-gray-600">{value || ''}</span>
           <div
-            className="w-full rounded-t bg-amber-400 transition-all min-h-[4px]"
-            style={{ height: `${(value / max) * 100}%` }}
+            className="w-full rounded-t bg-amber-400 transition-all"
+            style={{ height: `${Math.max((value / max) * 100, value > 0 ? 4 : 0)}%`, minHeight: value > 0 ? 4 : 0 }}
           />
-          <span className="text-[10px] text-gray-500 truncate w-full text-center">
-            {label}
-          </span>
+          <span className="w-full truncate text-center text-[9px] text-gray-500">{label}</span>
         </div>
       ))}
     </div>
   )
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+const LEVEL_MIDPOINT: Record<string, number> = {
+  LOW: 15, MODERATE: 38, HIGH: 60, VERY_HIGH: 80, EXTREME: 95,
+}
+
+function computeAvgScore(dist: Array<{ level: string; count: number }>): number {
+  const total = dist.reduce((s, r) => s + r.count, 0)
+  if (!total) return 0
+  const weighted = dist.reduce((s, r) => s + (LEVEL_MIDPOINT[r.level] ?? 50) * r.count, 0)
+  return Math.round(weighted / total)
+}
+
+function buildWeekBars(searchesByDay: Array<{ date: string; count: number }>): Array<{ label: string; value: number }> {
+  // Build 4 complete-week buckets ending today
+  const today = new Date()
+  const buckets: Array<{ label: string; start: Date; end: Date; value: number }> = []
+  for (let w = 3; w >= 0; w--) {
+    const end   = new Date(today)
+    end.setDate(today.getDate() - w * 7)
+    const start = new Date(end)
+    start.setDate(end.getDate() - 6)
+    const label = `${(start.getMonth() + 1).toString().padStart(2, '0')}/${start.getDate().toString().padStart(2, '0')}–${(end.getMonth() + 1).toString().padStart(2, '0')}/${end.getDate().toString().padStart(2, '0')}`
+    buckets.push({ label, start, end, value: 0 })
+  }
+
+  for (const { date, count } of searchesByDay) {
+    const d = new Date(date)
+    for (const b of buckets) {
+      if (d >= b.start && d <= b.end) {
+        b.value += count
+        break
+      }
+    }
+  }
+
+  return buckets.map(({ label, value }) => ({ label, value }))
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
@@ -176,82 +216,61 @@ export function AnalyticsDashboard() {
 
   if (loading) return <AnalyticsSkeleton />
 
-  // Build mock/derived data
-  const totalChecks = data?.totalSearches ?? 9
-  const avgScore = 67
-  const highRisk = 1
-  const activeClients = data?.totalClients ?? 0
+  const totalChecks    = data?.totalSearches ?? 0
+  const activeClients  = data?.totalClients ?? 0
+  const totalReports   = data?.totalReports ?? 0
+  const dist           = data?.riskDistribution ?? []
+  const avgScore       = dist.length ? computeAvgScore(dist) : 0
+  const highRisk       = dist
+    .filter((r) => ['HIGH', 'VERY_HIGH', 'EXTREME'].includes(r.level))
+    .reduce((s, r) => s + r.count, 0)
 
-  // Activity last 30 days — generate placeholder if no data
+  // Activity last 30 days
   const activityData: Array<{ date: string; checks: number; quotes: number }> =
-    data?.searchesByDay?.map((d) => ({ date: d.date, checks: d.count, quotes: 0 })) ??
-    Array.from({ length: 30 }, (_, i) => {
-      const d = new Date('2026-02-10')
-      d.setDate(d.getDate() + i)
-      return {
-        date: d.toISOString().slice(0, 10),
-        checks: i === 26 ? 4 : i === 27 ? 2 : 0,
-        quotes: 0,
-      }
-    })
+    data?.searchesByDay?.map((d) => ({ date: d.date, checks: d.count, quotes: 0 })) ?? []
 
   // Risk distribution donut
-  const riskSegments =
-    data?.riskDistribution?.map((r) => ({
-      value: r.count,
-      color:
-        r.level === 'LOW'
-          ? '#22c55e'
-          : r.level === 'MODERATE'
-          ? '#3b82f6'
-          : r.level === 'HIGH'
-          ? '#ef4444'
-          : '#f97316',
-      label: `${r.level.charAt(0) + r.level.slice(1).toLowerCase()} ${r.count}`,
-    })) ?? [
-      { value: 5, color: '#f97316', label: 'Elevated 5' },
-      { value: 1, color: '#ef4444', label: 'High 1' },
-      { value: 3, color: '#3b82f6', label: 'Moderate 3' },
-    ]
+  const riskSegments = dist.length
+    ? dist.map((r) => ({
+        value: r.count,
+        color:
+          r.level === 'LOW'       ? '#22c55e' :
+          r.level === 'MODERATE'  ? '#3b82f6' :
+          r.level === 'HIGH'      ? '#f97316' :
+          r.level === 'VERY_HIGH' ? '#ef4444' : '#7f1d1d',
+        label: `${r.level.replace('_', ' ')} (${r.count})`,
+      }))
+    : [{ value: 1, color: '#e5e7eb', label: 'No data' }]
 
-  // Status donut (all completed)
-  const statusSegments = [{ value: totalChecks, color: '#3b82f6', label: `Completed ${totalChecks}` }]
+  // Status donut
+  const statusSegments = totalChecks > 0
+    ? [{ value: totalChecks, color: '#3b82f6', label: `Completed ${totalChecks}` }]
+    : [{ value: 1, color: '#e5e7eb', label: 'No checks yet' }]
 
   // 4-week bar
-  const weekBars = [
-    { label: 'Feb 20-26', value: 0 },
-    { label: 'Feb 27-Mar 6', value: 0 },
-    { label: 'Mar 6-Mar 12', value: 0 },
-    { label: 'Mar 13-Mar 19', value: 72 },
-  ]
+  const weekBars = buildWeekBars(data?.searchesByDay ?? [])
 
   // Checks by state
-  const stateChecks: Array<{ state: string; count: number; avgScore?: number }> =
-    data?.topStates?.slice(0, 5) ?? [
-      { state: 'CA', count: 8, avgScore: 64 },
-      { state: 'NV', count: 1, avgScore: 85 },
-    ]
+  const stateChecks = data?.topStates?.slice(0, 5) ?? []
   const maxStateCount = Math.max(...stateChecks.map((s) => s.count), 1)
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl p-8">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-1">
+      <div className="mb-1 flex items-center gap-2">
         <Activity className="h-6 w-6 text-blue-600" />
         <h1 className="text-2xl font-bold text-gray-900">Analytics &amp; Trends</h1>
       </div>
-      <p className="text-sm text-gray-500 mb-5">
+      <p className="mb-5 text-sm text-gray-500">
         Key metrics, pipeline insights, and regional risk trends
       </p>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6">
+      <div className="mb-6 flex items-center gap-1">
         <button
           onClick={() => setTab('overview')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            tab === 'overview'
-              ? 'bg-blue-50 text-blue-700'
-              : 'text-gray-500 hover:text-gray-700'
+          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            tab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           <Activity className="h-3.5 w-3.5" />
@@ -259,10 +278,8 @@ export function AnalyticsDashboard() {
         </button>
         <button
           onClick={() => setTab('regional')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            tab === 'regional'
-              ? 'bg-blue-50 text-blue-700'
-              : 'text-gray-500 hover:text-gray-700'
+          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            tab === 'regional' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           <TrendingUp className="h-3.5 w-3.5" />
@@ -271,42 +288,54 @@ export function AnalyticsDashboard() {
       </div>
 
       {/* Top stat rows */}
-      <div className="grid grid-cols-4 gap-3 mb-3">
-        <MiniStat label="TOTAL CHECKS" sub="all time" value={totalChecks} icon={<Shield className="h-4 w-4 text-blue-500" />} />
-        <MiniStat label="AVG SCORE" sub="insurability" value={avgScore} icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} />
-        <MiniStat label="HIGH RISK" sub="score < 40" value={highRisk} icon={<AlertTriangle className="h-4 w-4 text-red-400" />} />
-        <MiniStat label="ACTIVE CLIENTS" sub="0 total" value={activeClients} icon={<Users className="h-4 w-4 text-purple-400" />} />
+      <div className="mb-3 grid grid-cols-4 gap-3">
+        <MiniStat label="TOTAL CHECKS"   sub="all time"     value={totalChecks}   icon={<Shield       className="h-4 w-4 text-blue-500"   />} />
+        <MiniStat label="AVG RISK SCORE" sub="across saved" value={avgScore || '—'} icon={<TrendingUp  className="h-4 w-4 text-emerald-500" />} />
+        <MiniStat label="HIGH RISK"      sub="HIGH or above" value={highRisk}      icon={<AlertTriangle className="h-4 w-4 text-red-400"    />} />
+        <MiniStat label="ACTIVE CLIENTS" sub="total"        value={activeClients}  icon={<Users        className="h-4 w-4 text-purple-400"  />} />
       </div>
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        <MiniStat label="QUOTES" sub="all time" value={0} icon={<FileText className="h-4 w-4 text-orange-400" />} />
-        <MiniStat label="BOUND" sub="converted" value={0} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />
-        <MiniStat label="PIPELINE" sub="under contract" value={0} icon={<Activity className="h-4 w-4 text-red-400" />} />
-        <MiniStat label="LEADS" sub="awaiting contact" value={0} icon={<Clock className="h-4 w-4 text-gray-400" />} />
+      <div className="mb-6 grid grid-cols-4 gap-3">
+        <MiniStat label="QUOTES"   sub="all time"        value={0} icon={<FileText     className="h-4 w-4 text-orange-400" />} />
+        <MiniStat label="BOUND"    sub="converted"       value={0} icon={<CheckCircle  className="h-4 w-4 text-emerald-500" />} />
+        <MiniStat label="PIPELINE" sub="under contract"  value={0} icon={<Activity     className="h-4 w-4 text-red-400"    />} />
+        <MiniStat label="REPORTS"  sub="generated"       value={totalReports} icon={<Clock className="h-4 w-4 text-gray-400" />} />
       </div>
 
       {/* Activity line chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-5">
+        <div className="mb-3 flex items-center gap-2">
           <Activity className="h-4 w-4 text-emerald-500" />
-          <h3 className="text-sm font-semibold text-gray-800">
-            Activity — Last 30 Days
-          </h3>
+          <h3 className="text-sm font-semibold text-gray-800">Activity — Last 30 Days</h3>
         </div>
-        <LineChart data={activityData} />
+        {activityData.length > 0 ? (
+          <LineChart data={activityData} />
+        ) : (
+          <p className="py-4 text-center text-sm text-gray-400">No activity yet</p>
+        )}
       </div>
 
       {/* Three donut charts */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="mb-4 grid grid-cols-3 gap-4">
         <ChartCard title="Risk Level Distribution">
           <div className="flex flex-col items-center gap-3">
             <DonutChart segments={riskSegments} size={100} />
             <div className="space-y-1">
-              {riskSegments.map((s) => (
-                <div key={s.label} className="flex items-center gap-1.5 text-xs">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
-                  <span className="text-gray-500">{s.label}</span>
+              {dist.map((r) => (
+                <div key={r.level} className="flex items-center gap-1.5 text-xs">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{
+                      background:
+                        r.level === 'LOW'       ? '#22c55e' :
+                        r.level === 'MODERATE'  ? '#3b82f6' :
+                        r.level === 'HIGH'      ? '#f97316' :
+                        r.level === 'VERY_HIGH' ? '#ef4444' : '#7f1d1d',
+                    }}
+                  />
+                  <span className="text-gray-500">{r.level.replace('_', ' ')} ({r.count})</span>
                 </div>
               ))}
+              {dist.length === 0 && <p className="text-xs text-gray-400">No data yet</p>}
             </div>
           </div>
         </ChartCard>
@@ -317,7 +346,7 @@ export function AnalyticsDashboard() {
             <div className="space-y-1">
               {statusSegments.map((s) => (
                 <div key={s.label} className="flex items-center gap-1.5 text-xs">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
                   <span className="text-gray-500">{s.label}</span>
                 </div>
               ))}
@@ -327,48 +356,42 @@ export function AnalyticsDashboard() {
 
         <ChartCard title="Client Pipeline">
           {activeClients === 0 ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex h-full items-center justify-center">
               <p className="text-xs text-gray-400">No clients yet</p>
             </div>
           ) : (
-            <DonutChart segments={[{ value: activeClients, color: '#3b82f6', label: `Active ${activeClients}` }]} size={100} />
+            <DonutChart
+              segments={[{ value: activeClients, color: '#3b82f6', label: `Active ${activeClients}` }]}
+              size={100}
+            />
           )}
         </ChartCard>
       </div>
 
       {/* Bottom two panels */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">
-            Avg Insurability Score — 4 Weeks
-          </h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-gray-800">Property Checks — 4 Weeks</h3>
           <WeekBarChart data={weekBars} />
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">
-            Checks by State
-          </h3>
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <h3 className="mb-4 text-sm font-semibold text-gray-800">Checks by State</h3>
           {stateChecks.length === 0 ? (
             <p className="text-sm text-gray-400">No data yet.</p>
           ) : (
             <div className="space-y-3">
               {stateChecks.map((s, i) => (
                 <div key={s.state} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400 w-4">{i + 1}</span>
-                  <span className="text-xs font-semibold text-gray-700 w-6">{s.state}</span>
-                  <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <span className="w-4 text-xs text-gray-400">{i + 1}</span>
+                  <span className="w-6 text-xs font-semibold text-gray-700">{s.state}</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <div
                       className="h-2 rounded-full bg-emerald-400"
                       style={{ width: `${(s.count / maxStateCount) * 100}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-400 w-6 text-right">{s.count}</span>
-                  {s.avgScore != null && (
-                    <span className="text-xs font-bold text-gray-700 bg-gray-100 rounded px-1.5 py-0.5 w-8 text-center">
-                      {s.avgScore}
-                    </span>
-                  )}
+                  <span className="w-6 text-right text-xs text-gray-400">{s.count}</span>
                 </div>
               ))}
             </div>
@@ -387,18 +410,16 @@ function MiniStat({
 }: {
   label: string
   sub: string
-  value: number
+  value: number | string
   icon: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-            {label}
-          </p>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{value}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+          <p className="mt-0.5 text-2xl font-bold text-gray-900">{value}</p>
+          <p className="mt-0.5 text-[10px] text-gray-400">{sub}</p>
         </div>
         <div>{icon}</div>
       </div>
@@ -408,8 +429,8 @@ function MiniStat({
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h3 className="text-xs font-semibold text-gray-600 mb-3">{title}</h3>
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h3 className="mb-3 text-xs font-semibold text-gray-600">{title}</h3>
       <div className="flex flex-col items-center">{children}</div>
     </div>
   )
@@ -417,16 +438,16 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function AnalyticsSkeleton() {
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4 p-8">
       <div className="grid grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />
+          <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100" />
         ))}
       </div>
-      <div className="h-48 rounded-xl bg-gray-100 animate-pulse" />
+      <div className="h-48 animate-pulse rounded-xl bg-gray-100" />
       <div className="grid grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-48 rounded-xl bg-gray-100 animate-pulse" />
+          <div key={i} className="h-48 animate-pulse rounded-xl bg-gray-100" />
         ))}
       </div>
     </div>

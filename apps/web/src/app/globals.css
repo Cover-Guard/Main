@@ -104,6 +104,7 @@
 
   html {
     @apply antialiased;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -113,19 +114,28 @@
   * {
     @apply border-border;
   }
+
+  /* Premium thin scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+           transition-all duration-150 focus-visible:outline-none focus-visible:ring-2
+           focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50
+           active:scale-[0.97];
   }
 
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-sm hover:shadow active:bg-brand-800;
   }
 
   .btn-secondary {
-    @apply btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50;
+    @apply btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 shadow-sm hover:shadow;
   }
 
   .btn-ghost {
@@ -133,14 +143,81 @@
   }
 
   .input {
-    @apply block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:opacity-50;
+    @apply block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm
+           placeholder:text-muted-foreground focus:border-ring focus:outline-none
+           focus:ring-2 focus:ring-ring/20 disabled:opacity-50 transition-colors duration-150;
   }
 
   .card {
     @apply rounded-xl border border-border bg-card shadow-sm;
   }
 
+  /* Clickable card — lifts on hover */
+  .card-hover {
+    @apply card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
+  }
+
   .label {
     @apply block text-sm font-medium text-foreground;
   }
+
+  /* Richer shimmer for skeleton screens */
+  .skeleton {
+    background: linear-gradient(90deg, #f3f4f6 25%, #e9ebee 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s infinite;
+    border-radius: 0.5rem;
+  }
+}
+
+/* ── Keyframe animations ──────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+
+@keyframes shimmer {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Three-dot typing indicator */
+@keyframes typingDot {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
+  30%           { transform: translateY(-4px); opacity: 1;    }
+}
+
+@layer utilities {
+  .animate-fade-in  { animation: fadeIn  0.30s ease both; }
+  .animate-slide-up { animation: slideUp 0.35s ease both; }
+  .animate-scale-in { animation: scaleIn 0.25s ease both; }
+
+  /* Stagger children — add these to sibling elements */
+  .stagger-1 { animation-delay:  50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
+
+  /* Typing indicator dots — use three <span class="typing-dot"> */
+  .typing-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 9999px;
+    background: currentColor;
+    animation: typingDot 1.2s ease infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 }
