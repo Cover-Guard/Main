@@ -36,7 +36,8 @@ import { prisma } from '../../utils/prisma'
 import { insuranceCache } from '../../utils/cache'
 import { getOrComputeInsuranceEstimate } from '../../services/insuranceService'
 
-const mockPrisma = prisma as jest.Mocked<typeof prisma>
+const mockFindProperty = prisma.property.findUniqueOrThrow as jest.Mock
+const mockUpsertEstimate = prisma.insuranceEstimate.upsert as jest.Mock
 
 const PROP_ID = 'prop-ins'
 
@@ -97,27 +98,27 @@ describe('getOrComputeInsuranceEstimate', () => {
     const result = await getOrComputeInsuranceEstimate(PROP_ID)
 
     expect(result).toBe(cached)
-    expect(mockPrisma.property.findUniqueOrThrow).not.toHaveBeenCalled()
+    expect(mockFindProperty).not.toHaveBeenCalled()
   })
 
   it('uses DB-cached estimate when expiresAt is in the future', async () => {
     const estimate = mockEstimate()
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue({
+    mockFindProperty.mockResolvedValue({
       ...baseProperty(),
       insuranceEstimate: estimate,
     } as any)
 
     const result = await getOrComputeInsuranceEstimate(PROP_ID)
 
-    expect(mockPrisma.insuranceEstimate.upsert).not.toHaveBeenCalled()
+    expect(mockUpsertEstimate).not.toHaveBeenCalled()
     expect(result.propertyId).toBe(PROP_ID)
     expect(result.estimatedAnnualTotal).toBe(3_000)
   })
 
   it('skips flood and wind coverage when risk is below thresholds', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(baseProperty() as any)
+    mockFindProperty.mockResolvedValue(baseProperty() as any)
     const upserted = mockEstimate({ floodRequired: false, windRequired: false })
-    mockPrisma.insuranceEstimate.upsert.mockResolvedValue(upserted as any)
+    mockUpsertEstimate.mockResolvedValue(upserted as any)
 
     const result = await getOrComputeInsuranceEstimate(PROP_ID)
 
@@ -127,7 +128,7 @@ describe('getOrComputeInsuranceEstimate', () => {
   })
 
   it('includes FLOOD coverage when property is in SFHA', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       baseProperty({ inSFHA: true, floodRiskScore: 80 }) as any,
     )
     const upserted = mockEstimate({
@@ -136,7 +137,7 @@ describe('getOrComputeInsuranceEstimate', () => {
       floodLow: 700,
       floodHigh: 2_200,
     })
-    mockPrisma.insuranceEstimate.upsert.mockResolvedValue(upserted as any)
+    mockUpsertEstimate.mockResolvedValue(upserted as any)
 
     const result = await getOrComputeInsuranceEstimate(PROP_ID)
     const flood = result.coverages.find((c) => c.type === 'FLOOD')
@@ -145,7 +146,7 @@ describe('getOrComputeInsuranceEstimate', () => {
   })
 
   it('includes WIND_HURRICANE coverage when hurricaneRisk=true', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       baseProperty({ hurricaneRisk: true, windRiskScore: 75 }) as any,
     )
     const upserted = mockEstimate({
@@ -154,7 +155,7 @@ describe('getOrComputeInsuranceEstimate', () => {
       windLow: 2_100,
       windHigh: 4_200,
     })
-    mockPrisma.insuranceEstimate.upsert.mockResolvedValue(upserted as any)
+    mockUpsertEstimate.mockResolvedValue(upserted as any)
 
     const result = await getOrComputeInsuranceEstimate(PROP_ID)
     const wind = result.coverages.find((c) => c.type === 'WIND_HURRICANE')
@@ -168,7 +169,7 @@ describe('getOrComputeInsuranceEstimate', () => {
     const caProp = { ...baseProperty({}, { state: 'CA' }), insuranceEstimate: null }
 
     // Both DB queries return no existing estimate
-    mockPrisma.property.findUniqueOrThrow
+    mockFindProperty
       .mockResolvedValueOnce(flProp as any)
       .mockResolvedValueOnce(caProp as any)
 
@@ -176,7 +177,7 @@ describe('getOrComputeInsuranceEstimate', () => {
     const flEstimate = mockEstimate({ homeownersAvg: 8_000, estimatedAnnualTotal: 8_000 })
     const caEstimate = mockEstimate({ homeownersAvg: 2_400, estimatedAnnualTotal: 2_400 })
 
-    mockPrisma.insuranceEstimate.upsert
+    mockUpsertEstimate
       .mockResolvedValueOnce(flEstimate as any)
       .mockResolvedValueOnce(caEstimate as any)
 
@@ -192,16 +193,16 @@ describe('getOrComputeInsuranceEstimate', () => {
   })
 
   it('includes non-empty disclaimers in result', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(baseProperty() as any)
-    mockPrisma.insuranceEstimate.upsert.mockResolvedValue(mockEstimate() as any)
+    mockFindProperty.mockResolvedValue(baseProperty() as any)
+    mockUpsertEstimate.mockResolvedValue(mockEstimate() as any)
 
     const result = await getOrComputeInsuranceEstimate(PROP_ID)
     expect(result.disclaimers.length).toBeGreaterThan(0)
   })
 
   it('caches result in L1 cache after computation', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(baseProperty() as any)
-    mockPrisma.insuranceEstimate.upsert.mockResolvedValue(mockEstimate() as any)
+    mockFindProperty.mockResolvedValue(baseProperty() as any)
+    mockUpsertEstimate.mockResolvedValue(mockEstimate() as any)
 
     await getOrComputeInsuranceEstimate(PROP_ID)
     expect(insuranceCache.has(PROP_ID)).toBe(true)

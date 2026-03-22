@@ -32,7 +32,7 @@ import { prisma } from '../../utils/prisma'
 import { insurabilityCache } from '../../utils/cache'
 import { getInsurabilityStatus } from '../../services/insurabilityService'
 
-const mockPrisma = prisma as jest.Mocked<typeof prisma>
+const mockFindProperty = prisma.property.findUniqueOrThrow as jest.Mock
 
 const PROP_ID = 'prop-abc'
 
@@ -66,11 +66,11 @@ describe('getInsurabilityStatus', () => {
     const result = await getInsurabilityStatus(PROP_ID)
 
     expect(result).toBe(cached)
-    expect(mockPrisma.property.findUniqueOrThrow).not.toHaveBeenCalled()
+    expect(mockFindProperty).not.toHaveBeenCalled()
   })
 
   it('returns LOW difficulty for a low-risk property', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(mockProperty() as any)
+    mockFindProperty.mockResolvedValue(mockProperty() as any)
     const result = await getInsurabilityStatus(PROP_ID)
 
     expect(result.difficultyLevel).toBe('LOW')
@@ -82,7 +82,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('returns MODERATE difficulty for overall score 35-54', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ overallRiskScore: 40 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -91,7 +91,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('returns HIGH difficulty when property is in SFHA', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ inSFHA: true, overallRiskScore: 30 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -101,7 +101,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('returns HIGH difficulty when hurricaneRisk is true', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ hurricaneRisk: true, windRiskScore: 65, overallRiskScore: 30 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -109,7 +109,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('flags hurricane wind coverage issue when hurricaneRisk=true and windScore>60', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ hurricaneRisk: true, windRiskScore: 70, overallRiskScore: 50 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -118,7 +118,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('flags WUI and recommends surplus lines for wildlandUrbanInterface property', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ wildlandUrbanInterface: true, fireRiskScore: 55, overallRiskScore: 40 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -127,7 +127,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('returns VERY_HIGH difficulty for overall >= 75', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ overallRiskScore: 80 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -136,7 +136,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('returns EXTREME difficulty and isInsurable=false for overall >= 90', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ overallRiskScore: 92 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -145,7 +145,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('recommends earthquake policy for eq score > 70', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ earthquakeRiskScore: 80, overallRiskScore: 30 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -154,7 +154,7 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('flags flood risk when flood score > 50 but not in SFHA', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(
+    mockFindProperty.mockResolvedValue(
       mockProperty({ floodRiskScore: 60, inSFHA: false, overallRiskScore: 20 }) as any,
     )
     const result = await getInsurabilityStatus(PROP_ID)
@@ -162,13 +162,13 @@ describe('getInsurabilityStatus', () => {
   })
 
   it('caches the result in L1 cache', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue(mockProperty() as any)
+    mockFindProperty.mockResolvedValue(mockProperty() as any)
     await getInsurabilityStatus(PROP_ID)
     expect(insurabilityCache.has(PROP_ID)).toBe(true)
   })
 
   it('uses defaults when property has no riskProfile', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue({
+    mockFindProperty.mockResolvedValue({
       id: PROP_ID,
       riskProfile: null,
     } as any)

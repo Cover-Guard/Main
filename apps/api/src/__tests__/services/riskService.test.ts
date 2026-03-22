@@ -52,7 +52,10 @@ import {
 } from '../../integrations/riskData'
 import { getOrComputeRiskProfile } from '../../services/riskService'
 
-const mockPrisma = prisma as jest.Mocked<typeof prisma>
+// Cast each Prisma method individually — jest.Mocked<typeof prisma> doesn't
+// resolve deeply enough for Prisma's fluent client types.
+const mockFindProperty = prisma.property.findUniqueOrThrow as jest.Mock
+const mockUpsertRisk = prisma.riskProfile.upsert as jest.Mock
 const mockFetchFlood = fetchFloodRisk as jest.Mock
 const mockFetchFire = fetchFireRisk as jest.Mock
 const mockFetchEq = fetchEarthquakeRisk as jest.Mock
@@ -120,12 +123,12 @@ describe('getOrComputeRiskProfile', () => {
     const result = await getOrComputeRiskProfile(PROPERTY_ID)
 
     expect(result).toBe(cached)
-    expect(mockPrisma.property.findUniqueOrThrow).not.toHaveBeenCalled()
+    expect(mockFindProperty).not.toHaveBeenCalled()
   })
 
   it('uses DB-cached profile when expiresAt is in the future', async () => {
     const profile = mockRiskProfile()
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue({
+    mockFindProperty.mockResolvedValue({
       ...baseProperty,
       riskProfile: profile,
     } as any)
@@ -139,7 +142,7 @@ describe('getOrComputeRiskProfile', () => {
 
   it('fetches external data when DB cache is expired and upserts new profile', async () => {
     const expiredProfile = mockRiskProfile({ expiresAt: new Date(Date.now() - 1000) })
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue({
+    mockFindProperty.mockResolvedValue({
       ...baseProperty,
       riskProfile: expiredProfile,
     } as any)
@@ -151,12 +154,12 @@ describe('getOrComputeRiskProfile', () => {
     mockFetchCrime.mockResolvedValue({ violentCrimeIndex: 380, propertyCrimeIndex: 2110 })
 
     const upsertedProfile = mockRiskProfile()
-    mockPrisma.riskProfile.upsert.mockResolvedValue(upsertedProfile as any)
+    mockUpsertRisk.mockResolvedValue(upsertedProfile as any)
 
     const result = await getOrComputeRiskProfile(PROPERTY_ID)
 
     expect(mockFetchFlood).toHaveBeenCalledWith(baseProperty.lat, baseProperty.lng, baseProperty.zip)
-    expect(mockPrisma.riskProfile.upsert).toHaveBeenCalledWith(
+    expect(mockUpsertRisk).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { propertyId: PROPERTY_ID },
         update: expect.objectContaining({ overallRiskLevel: expect.any(String) }),
@@ -167,7 +170,7 @@ describe('getOrComputeRiskProfile', () => {
   })
 
   it('computes HIGH overall score for V flood zone (score=95)', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue({
+    mockFindProperty.mockResolvedValue({
       ...baseProperty,
       riskProfile: null,
     } as any)
@@ -187,7 +190,7 @@ describe('getOrComputeRiskProfile', () => {
       overallRiskLevel: 'HIGH',
       overallRiskScore: 42,
     })
-    mockPrisma.riskProfile.upsert.mockResolvedValue(expectedUpserted as any)
+    mockUpsertRisk.mockResolvedValue(expectedUpserted as any)
 
     const result = await getOrComputeRiskProfile(PROPERTY_ID)
     expect(result.flood.floodZone).toBe('VE')
@@ -195,7 +198,7 @@ describe('getOrComputeRiskProfile', () => {
   })
 
   it('stores result in L1 cache after computation', async () => {
-    mockPrisma.property.findUniqueOrThrow.mockResolvedValue({
+    mockFindProperty.mockResolvedValue({
       ...baseProperty,
       riskProfile: mockRiskProfile(),
     } as any)
