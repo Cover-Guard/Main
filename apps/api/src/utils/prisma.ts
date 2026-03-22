@@ -8,13 +8,14 @@ declare global {
 const isProduction = process.env.NODE_ENV === 'production'
 
 /**
- * Connection pool sizing:
- * - Supabase Session Mode (port 5432): supports real connections, use a modest pool.
- * - Supabase Transaction Mode / pgBouncer (port 6543): stateless pooling; keep pool_size=1
- *   per Prisma process and let pgBouncer multiplex.
+ * Connection configuration:
+ * - DATABASE_URL should point to the Supabase pgBouncer (Transaction Mode, port 6543)
+ *   for all runtime queries. Use ?pgbouncer=true&connection_limit=1 in the URL.
+ * - DIRECT_URL should point to the direct PostgreSQL connection (port 5432).
+ *   Prisma uses DIRECT_URL for migrations and schema introspection (via directUrl in
+ *   schema.prisma) while using DATABASE_URL for all application queries.
  *
- * Set DATABASE_URL to the pgBouncer URL for production deployments.
- * Add ?connection_limit=5&pool_timeout=20 to the URL in Session Mode.
+ * Set DATABASE_URL to the pgBouncer URL for all production deployments.
  */
 export const prisma =
   global.__prisma ??
