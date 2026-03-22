@@ -104,26 +104,26 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
     // Risk distribution
     const riskOrder = ['LOW', 'MODERATE', 'HIGH', 'VERY_HIGH', 'EXTREME']
     const riskDistribution = riskDistributionRaw
-      .filter((r) => r.level && riskOrder.includes(r.level))
-      .sort((a, b) => riskOrder.indexOf(a.level) - riskOrder.indexOf(b.level))
-      .map((r) => ({ level: r.level, count: Number(r.count) }))
+      .filter((r: { level: string; count: bigint }) => r.level && riskOrder.includes(r.level))
+      .sort((a: { level: string; count: bigint }, b: { level: string; count: bigint }) => riskOrder.indexOf(a.level) - riskOrder.indexOf(b.level))
+      .map((r: { level: string; count: bigint }) => ({ level: r.level, count: Number(r.count) }))
 
     // Top states
-    const topStates = topStatesRaw.map((r) => ({ state: r.state, count: Number(r.count) }))
+    const topStates = topStatesRaw.map((r: { state: string; count: bigint }) => ({ state: r.state, count: Number(r.count) }))
 
     // Recent activity (merge and sort the three small slices)
     const recentActivity = [
-      ...recentSearches.map((s) => ({
+      ...recentSearches.map((s: { query: string; searchedAt: Date }) => ({
         type: 'search',
         description: `Searched "${s.query}"`,
         timestamp: s.searchedAt.toISOString(),
       })),
-      ...recentSaved.map(({ property, savedAt }) => ({
+      ...recentSaved.map(({ property, savedAt }: { property: { address: string; city: string }; savedAt: Date }) => ({
         type: 'save',
         description: `Saved ${property.address}, ${property.city}`,
         timestamp: savedAt.toISOString(),
       })),
-      ...recentReports.map((r) => ({
+      ...recentReports.map((r: { reportType: string; generatedAt: Date }) => ({
         type: 'report',
         description: `Generated ${r.reportType.replace('_', ' ').toLowerCase()} report`,
         timestamp: r.generatedAt.toISOString(),

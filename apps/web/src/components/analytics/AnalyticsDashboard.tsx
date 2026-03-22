@@ -45,30 +45,31 @@ function DonutChart({
   const cx = size / 2
   const cy = size / 2
 
-  function arc(value: number, cumulativeBefore: number) {
-    const angle = (value / total) * 2 * Math.PI
-    const startAngle = cumulativeBefore * 2 * Math.PI - Math.PI / 2
-    const endAngle = (cumulativeBefore + value / total) * 2 * Math.PI - Math.PI / 2
-    const x1 = cx + R * Math.cos(startAngle)
-    const y1 = cy + R * Math.sin(startAngle)
-    const x2 = cx + R * Math.cos(endAngle)
-    const y2 = cy + R * Math.sin(endAngle)
-    const ix1 = cx + r * Math.cos(startAngle)
-    const iy1 = cy + r * Math.sin(startAngle)
-    const ix2 = cx + r * Math.cos(endAngle)
-    const iy2 = cy + r * Math.sin(endAngle)
-    const large = angle > Math.PI ? 1 : 0
-    return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${r} ${r} 0 ${large} 0 ${ix1} ${iy1} Z`
-  }
-
-  const cumulativeStarts = segments.map((_, i) =>
-    segments.slice(0, i).reduce((sum, s) => sum + s.value / total, 0)
-  )
+  const arcPaths = segments.reduce<{ paths: string[]; cumulative: number }>(
+    ({ paths, cumulative }, seg) => {
+      const angle = (seg.value / total) * 2 * Math.PI
+      const startAngle = cumulative * 2 * Math.PI - Math.PI / 2
+      const newCumulative = cumulative + seg.value / total
+      const endAngle = newCumulative * 2 * Math.PI - Math.PI / 2
+      const x1 = cx + R * Math.cos(startAngle)
+      const y1 = cy + R * Math.sin(startAngle)
+      const x2 = cx + R * Math.cos(endAngle)
+      const y2 = cy + R * Math.sin(endAngle)
+      const ix1 = cx + r * Math.cos(startAngle)
+      const iy1 = cy + r * Math.sin(startAngle)
+      const ix2 = cx + r * Math.cos(endAngle)
+      const iy2 = cy + r * Math.sin(endAngle)
+      const large = angle > Math.PI ? 1 : 0
+      const d = `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${r} ${r} 0 ${large} 0 ${ix1} ${iy1} Z`
+      return { paths: [...paths, d], cumulative: newCumulative }
+    },
+    { paths: [], cumulative: 0 },
+  ).paths
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {segments.map((seg, i) => (
-        <path key={i} d={arc(seg.value, cumulativeStarts[i] ?? 0)} fill={seg.color} />
+        <path key={i} d={arcPaths[i]} fill={seg.color} />
       ))}
     </svg>
   )

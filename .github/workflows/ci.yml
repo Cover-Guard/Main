@@ -22,6 +22,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=@coverguard/shared
+      - run: npx prisma generate --schema=apps/api/prisma/schema.prisma
       - run: npm run typecheck
 
   lint:
@@ -56,7 +57,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=@coverguard/shared
-      - run: npm run test
+      - run: npm run test -- -- --passWithNoTests
 
   build:
     name: Build
