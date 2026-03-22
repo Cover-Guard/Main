@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -18,10 +18,14 @@ import {
   X,
   FileText,
   Menu,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AIAdvisor } from './AIAdvisor'
 import { MobileDrawer } from '@/components/mobile/MobileDrawer'
+import { getMe } from '@/lib/api'
+import { createClient } from '@/lib/supabase/client'
+import type { User } from '@coverguard/shared'
 
 const navItems = [
   { href: '/',          label: 'New Check',  icon: Search,          exact: true },
@@ -38,7 +42,26 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [bannerVisible, setBannerVisible] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
   const pathname = usePathname()
+
+  useEffect(() => {
+    getMe().then(setUser).catch(() => {})
+  }, [])
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
+  const initials = user?.firstName && user?.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`
+    : user?.email?.[0]?.toUpperCase() ?? '?'
+
+  const displayName = user?.firstName
+    ? `${user.firstName}${user.lastName ? ` ${user.lastName[0]}.` : ''}`
+    : user?.email?.split('@')[0] ?? ''
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href || pathname === '/search'
@@ -111,6 +134,38 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               )
             })}
           </nav>
+
+          {/* User profile footer */}
+          {user && (
+            <div className="border-t border-white/10 px-2 py-2">
+              {collapsed ? (
+                <button
+                  onClick={handleSignOut}
+                  title="Sign out"
+                  className="w-full flex justify-center p-2 rounded-md text-white/50 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 px-1 py-1">
+                  <div className="h-7 w-7 shrink-0 rounded-full bg-teal-500 flex items-center justify-center text-[10px] font-bold text-white">
+                    {initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-white truncate">{displayName}</p>
+                    <p className="text-[9px] text-white/40 capitalize truncate">{user.role?.toLowerCase()}</p>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    title="Sign out"
+                    className="text-white/30 hover:text-white transition-colors shrink-0"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </aside>
 
         {/* ── Main content ─────────────────────────────────────────────── */}
