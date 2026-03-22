@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { SearchBar } from '@/components/search/SearchBar'
 import { SearchResults } from '@/components/search/SearchResults'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
+import { MobileSearchToggle } from '@/components/mobile/MobileSearchToggle'
 
 export const metadata: Metadata = { title: 'Search Properties' }
 
@@ -12,6 +13,25 @@ interface SearchPageProps {
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q, page } = await searchParams
+
+  const resultsList = q ? (
+    <Suspense fallback={<SearchSkeleton />}>
+      <SearchResults query={q} page={parseInt(page ?? '1', 10)} />
+    </Suspense>
+  ) : (
+    <div className="flex h-48 items-center justify-center">
+      <div className="text-center text-gray-400">
+        <p className="text-base font-medium">Search any US property</p>
+        <p className="mt-1 text-sm">Enter an address, ZIP code, or APN / Parcel ID</p>
+      </div>
+    </div>
+  )
+
+  const mapPanel = (
+    <Suspense fallback={<MapSkeleton />}>
+      <SearchMapPanel query={q ?? null} />
+    </Suspense>
+  )
 
   return (
     <SidebarLayout>
@@ -23,30 +43,18 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </div>
         </div>
 
-        {/* Body: results list + map */}
-        <div className="flex flex-1 overflow-hidden">
+        {/* ── Mobile: toggleable list / map ─────────────────────────── */}
+        <MobileSearchToggle listContent={resultsList} mapContent={mapPanel} />
+
+        {/* ── Desktop: side-by-side list + map ─────────────────────── */}
+        <div className="hidden flex-1 overflow-hidden md:flex">
           {/* Left: results list */}
-          <div className="w-full overflow-y-auto px-4 py-6 md:w-[420px] md:shrink-0 lg:w-[480px]">
-            {q ? (
-              <Suspense fallback={<SearchSkeleton />}>
-                <SearchResults query={q} page={parseInt(page ?? '1', 10)} />
-              </Suspense>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <p className="text-lg font-medium">Search any US property</p>
-                  <p className="mt-1 text-sm">Enter an address, ZIP code, or APN / Parcel ID</p>
-                </div>
-              </div>
-            )}
+          <div className="w-[420px] shrink-0 overflow-y-auto px-4 py-6 lg:w-[480px]">
+            {resultsList}
           </div>
 
           {/* Right: map */}
-          <div className="hidden flex-1 md:block">
-            <Suspense fallback={<MapSkeleton />}>
-              <SearchMapPanel query={q ?? null} />
-            </Suspense>
-          </div>
+          <div className="flex-1">{mapPanel}</div>
         </div>
       </div>
     </SidebarLayout>

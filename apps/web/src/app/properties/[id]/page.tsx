@@ -9,6 +9,7 @@ import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
+import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
 
 interface PropertyPageProps {
@@ -46,73 +47,115 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
 
   const fullAddress = `${prop.address}, ${prop.city}, ${prop.state} ${prop.zip}`
 
+  // ── Mobile tab content ─────────────────────────────────────────────────
+  const overviewPanel = (
+    <div className="space-y-4 p-4">
+      <PropertyMapInline property={prop} riskProfile={riskProfile} />
+      {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
+    </div>
+  )
+
+  const riskPanel = (
+    <div className="space-y-4 p-4">
+      {riskProfile ? (
+        <>
+          <RiskSummary profile={riskProfile} />
+          <RiskBreakdown profile={riskProfile} />
+        </>
+      ) : (
+        <p className="text-sm text-gray-500">Risk data unavailable.</p>
+      )}
+    </div>
+  )
+
+  const carriersPanel = (
+    <div className="space-y-4 p-4">
+      {carriersData ? (
+        <ActiveCarriers data={carriersData} propertyId={prop.id} propertyAddress={fullAddress} />
+      ) : (
+        <p className="text-sm text-gray-500">Carrier data unavailable.</p>
+      )}
+      {insuranceEstimate && <InsuranceCostEstimate estimate={insuranceEstimate} />}
+    </div>
+  )
+
+  const detailsPanel = (
+    <div className="p-4">
+      <PropertyDetails property={prop} />
+    </div>
+  )
+
   return (
     <SidebarLayout>
       <div className="min-h-screen bg-[#f2f4f7]">
 
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-7xl px-4 py-6">
-          <p className="text-sm text-gray-500">Property Report</p>
-          <h1 className="text-2xl font-bold text-gray-900">{prop.address}</h1>
-          <p className="text-gray-600">{formatAddress(prop)}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-4">
-            {prop.estimatedValue && (
-              <p className="text-lg font-semibold text-brand-700">
-                Est. {formatCurrency(prop.estimatedValue)}
-              </p>
-            )}
-            {prop.parcelId && (
-              <p className="text-sm text-gray-500">
-                APN / Parcel: <span className="font-mono font-medium text-gray-700">{prop.parcelId}</span>
-              </p>
-            )}
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="mx-auto max-w-7xl px-4 py-5 md:py-6">
+            <p className="text-sm text-gray-500">Property Report</p>
+            <h1 className="text-xl font-bold text-gray-900 md:text-2xl">{prop.address}</h1>
+            <p className="text-gray-600">{formatAddress(prop)}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              {prop.estimatedValue && (
+                <p className="text-lg font-semibold text-brand-700">
+                  Est. {formatCurrency(prop.estimatedValue)}
+                </p>
+              )}
+              {prop.parcelId && (
+                <p className="text-sm text-gray-500">
+                  APN / Parcel: <span className="font-mono font-medium text-gray-700">{prop.parcelId}</span>
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Left / main column */}
-          <div className="space-y-8 lg:col-span-2">
-            {/* Map */}
-            <PropertyMapInline property={prop} riskProfile={riskProfile} />
+        {/* ── Mobile: tabbed layout ────────────────────────────────── */}
+        <MobilePropertyTabs
+          tabs={[
+            { id: 'overview',  label: 'Overview' },
+            { id: 'risk',      label: 'Risk' },
+            { id: 'carriers',  label: 'Carriers' },
+            { id: 'details',   label: 'Details' },
+          ]}
+          panels={{
+            overview: overviewPanel,
+            risk:     riskPanel,
+            carriers: carriersPanel,
+            details:  detailsPanel,
+          }}
+        />
 
-            {/* Insurability — the hero feature */}
-            {insurabilityStatus && (
-              <InsurabilityPanel status={insurabilityStatus} />
-            )}
+        {/* ── Desktop: 3-column grid ───────────────────────────────── */}
+        <div className="mx-auto hidden max-w-7xl px-4 py-8 md:block">
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Left / main column */}
+            <div className="space-y-8 lg:col-span-2">
+              <PropertyMapInline property={prop} riskProfile={riskProfile} />
+              {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
+              {riskProfile && (
+                <>
+                  <RiskSummary profile={riskProfile} />
+                  <RiskBreakdown profile={riskProfile} />
+                </>
+              )}
+              <PropertyDetails property={prop} />
+            </div>
 
-            {/* Risk scores */}
-            {riskProfile && (
-              <>
-                <RiskSummary profile={riskProfile} />
-                <RiskBreakdown profile={riskProfile} />
-              </>
-            )}
-
-            {/* Property details */}
-            <PropertyDetails property={prop} />
-          </div>
-
-          {/* Right sidebar */}
-          <div className="space-y-6">
-            {/* Active carriers + quote request — primary CTA */}
-            {carriersData && (
-              <ActiveCarriers
-                data={carriersData}
-                propertyId={prop.id}
-                propertyAddress={fullAddress}
-              />
-            )}
-
-            {/* Insurance cost estimate */}
-            {insuranceEstimate && (
-              <InsuranceCostEstimate estimate={insuranceEstimate} />
-            )}
+            {/* Right sidebar */}
+            <div className="space-y-6">
+              {carriersData && (
+                <ActiveCarriers
+                  data={carriersData}
+                  propertyId={prop.id}
+                  propertyAddress={fullAddress}
+                />
+              )}
+              {insuranceEstimate && <InsuranceCostEstimate estimate={insuranceEstimate} />}
+            </div>
           </div>
         </div>
-      </div>
+
       </div>
     </SidebarLayout>
   )

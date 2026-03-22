@@ -104,14 +104,50 @@
 
   html {
     @apply antialiased;
+    /* Smooth momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
     @apply bg-background text-foreground;
+    /* Prevent text size adjustment on orientation change (iOS) */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   * {
     @apply border-border;
+    /* Remove 300ms tap delay on mobile */
+    touch-action: manipulation;
+  }
+}
+
+/* ── Safe-area utilities ───────────────────────────────────────────────── */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* Inset-aware full-height — accounts for browser chrome on mobile */
+  .h-screen-safe {
+    height: 100dvh;
+  }
+  /* Scrollable container that respects overscroll bounce on iOS */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  /* Tap highlight removal for custom interactive elements */
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
