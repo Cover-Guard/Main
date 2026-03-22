@@ -5,6 +5,7 @@ import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
+import { generatePropertyPDF } from '../services/reportService'
 import { requireAuth } from '../middleware/auth'
 import { prisma } from '../utils/prisma'
 import type { AuthenticatedRequest } from '../middleware/auth'
@@ -136,6 +137,65 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
     }
     setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: { property, risk, insurance } })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Generate report record (authenticated) ───────────────────────────────────
+
+propertiesRouter.post('/:id/report', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const propertyId = String(req.params.id)
+
+    const property = await getPropertyById(propertyId)
+    if (!property) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+
+    const report = await prisma.propertyReport.create({
+      data: {
+        userId,
+        propertyId,
+        reportType: 'FULL',
+        pdfUrl: `/api/properties/${propertyId}/report/pdf`,
+      },
+    })
+
+    res.status(201).json({ success: true, data: report })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Download PDF (authenticated) ─────────────────────────────────────────────
+
+propertiesRouter.get('/:id/report/pdf', requireAuth, async (req: Request, res, next) => {
+  try {
+    const propertyId = String(req.params.id)
+
+    const [property, risk, insurance, insurability, carriers] = await Promise.all([
+      getPropertyById(propertyId),
+      getOrComputeRiskProfile(propertyId).catch(() => null),
+      getOrComputeInsuranceEstimate(propertyId).catch(() => null),
+      getInsurabilityStatus(propertyId).catch(() => null),
+      getCarriersForProperty(propertyId).catch(() => null),
+    ])
+
+    if (!property) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+
+    generatePropertyPDF({ property, risk, insurance, insurability, carriers }, res)
   } catch (err) {
     next(err)
   }

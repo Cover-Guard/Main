@@ -11,6 +11,7 @@ import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
+import { GenerateReportButton } from '@/components/property/GenerateReportButton'
 
 interface PropertyPageProps {
   params: Promise<{ id: string }>
@@ -95,17 +96,20 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
             <p className="text-sm text-gray-500">Property Report</p>
             <h1 className="text-xl font-bold text-gray-900 md:text-2xl">{prop.address}</h1>
             <p className="text-gray-600">{formatAddress(prop)}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-4">
-              {prop.estimatedValue && (
-                <p className="text-lg font-semibold text-brand-700">
-                  Est. {formatCurrency(prop.estimatedValue)}
-                </p>
-              )}
-              {prop.parcelId && (
-                <p className="text-sm text-gray-500">
-                  APN / Parcel: <span className="font-mono font-medium text-gray-700">{prop.parcelId}</span>
-                </p>
-              )}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4">
+                {prop.estimatedValue && (
+                  <p className="text-lg font-semibold text-brand-700">
+                    Est. {formatCurrency(prop.estimatedValue)}
+                  </p>
+                )}
+                {prop.parcelId && (
+                  <p className="text-sm text-gray-500">
+                    APN / Parcel: <span className="font-mono font-medium text-gray-700">{prop.parcelId}</span>
+                  </p>
+                )}
+              </div>
+              <GenerateReportButton propertyId={prop.id} />
             </div>
           </div>
         </div>

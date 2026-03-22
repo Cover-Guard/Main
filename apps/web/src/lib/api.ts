@@ -162,6 +162,10 @@ export async function getMyReports(): Promise<PropertyReportRecord[]> {
   return apiFetch('/api/auth/me/reports')
 }
 
+export async function generatePropertyReport(propertyId: string): Promise<PropertyReportRecord> {
+  return apiFetch(`/api/properties/${propertyId}/report`, { method: 'POST' })
+}
+
 // ─── Quote Requests ────────────────────────────────────────────────────────────
 
 export interface QuoteRequestRecord {

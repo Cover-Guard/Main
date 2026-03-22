@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import type { Property } from '@coverguard/shared'
-import { getSavedProperties } from '@/lib/api'
-import { formatCurrency, formatAddress } from '@coverguard/shared'
+import { getMyReports, generatePropertyReport, type PropertyReportRecord } from '@/lib/api'
+import { formatAddress, formatCurrency } from '@coverguard/shared'
 import {
   FileText,
   Search,
@@ -14,33 +13,55 @@ import {
   ArrowRight,
   Shield,
   Clock,
+  FileDown,
+  Loader2,
+  CheckCircle,
+  ExternalLink,
 } from 'lucide-react'
 
-interface SavedPropertyRow {
-  id: string
-  propertyId: string
-  notes?: string
-  tags?: string[]
-  savedAt?: string
-  property: Property
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+
+async function downloadPdf(propertyId: string, reportId: string) {
+  const { createClient } = await import('@/lib/supabase/client')
+  const supabase = createClient()
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+
+  const res = await fetch(`${API_URL}/api/properties/${propertyId}/report/pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error('Download failed')
+
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `coverguard-report-${reportId}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 export function ReportsContent() {
-  const [saved, setSaved] = useState<SavedPropertyRow[]>([])
+  const [reports, setReports] = useState<PropertyReportRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [generating, setGenerating] = useState<Record<string, boolean>>({})
+  const [downloading, setDownloading] = useState<Record<string, boolean>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    getSavedProperties()
-      .then((data) => setSaved(data as SavedPropertyRow[]))
-      .catch(() => setSaved([]))
+    getMyReports()
+      .then(setReports)
+      .catch(() => setReports([]))
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = saved.filter((row) => {
+  const filtered = reports.filter((r) => {
     if (!search.trim()) return true
     const q = search.toLowerCase()
-    const p = row.property
+    const p = r.property
     return (
       (p.address ?? '').toLowerCase().includes(q) ||
       (p.city ?? '').toLowerCase().includes(q) ||
@@ -48,6 +69,31 @@ export function ReportsContent() {
       (p.zip ?? '').toLowerCase().includes(q)
     )
   })
+
+  async function handleDownload(report: PropertyReportRecord) {
+    setDownloading((d) => ({ ...d, [report.id]: true }))
+    setErrors((e) => ({ ...e, [report.id]: '' }))
+    try {
+      await downloadPdf(report.propertyId, report.id)
+    } catch {
+      setErrors((e) => ({ ...e, [report.id]: 'Download failed. Please try again.' }))
+    } finally {
+      setDownloading((d) => ({ ...d, [report.id]: false }))
+    }
+  }
+
+  async function handleGenerate(propertyId: string) {
+    setGenerating((g) => ({ ...g, [propertyId]: true }))
+    setErrors((e) => ({ ...e, [propertyId]: '' }))
+    try {
+      const report = await generatePropertyReport(propertyId)
+      setReports((prev) => [report, ...prev])
+    } catch {
+      setErrors((e) => ({ ...e, [propertyId]: 'Failed to generate report.' }))
+    } finally {
+      setGenerating((g) => ({ ...g, [propertyId]: false }))
+    }
+  }
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -59,7 +105,7 @@ export function ReportsContent() {
             <h1 className="text-2xl font-bold text-gray-900">Property Reports</h1>
           </div>
           <p className="text-sm text-gray-500">
-            All properties you&apos;ve saved — access full risk, insurability, and carrier reports.
+            Download full PDF reports for your saved properties — risk, insurability, carriers, and cost estimates.
           </p>
         </div>
         <Link
@@ -87,7 +133,7 @@ export function ReportsContent() {
       {/* Count */}
       {!loading && (
         <p className="text-xs text-gray-400 mb-4">
-          {filtered.length} of {saved.length} report{saved.length !== 1 ? 's' : ''}
+          {filtered.length} of {reports.length} report{reports.length !== 1 ? 's' : ''}
         </p>
       )}
 
@@ -98,12 +144,12 @@ export function ReportsContent() {
             <div key={i} className="h-28 rounded-xl bg-gray-100 animate-pulse" />
           ))}
         </div>
-      ) : saved.length === 0 ? (
+      ) : reports.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Shield className="h-14 w-14 text-gray-200 mb-4" />
-          <p className="text-base font-semibold text-gray-500">No saved reports yet</p>
+          <p className="text-base font-semibold text-gray-500">No reports generated yet</p>
           <p className="text-sm text-gray-400 mt-1">
-            Run a property check and save properties to generate reports.
+            Open a property page and click &quot;Generate PDF Report&quot; to create your first report.
           </p>
           <Link
             href="/"
@@ -115,21 +161,30 @@ export function ReportsContent() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-sm text-gray-400">No properties match &ldquo;{search}&rdquo;</p>
+          <p className="text-sm text-gray-400">No reports match &ldquo;{search}&rdquo;</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((row) => {
-            const p = row.property
+          {filtered.map((report) => {
+            const p = report.property
+            const isDownloading = downloading[report.id]
+            const isGenerating = generating[report.propertyId]
+            const errMsg = errors[report.id] || errors[report.propertyId]
+
             return (
               <div
-                key={row.id}
+                key={report.id}
                 className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
               >
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">{p.address}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900 truncate">{p.address}</h3>
+                        <span className="shrink-0 text-[10px] font-medium bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                          {report.reportType.replace(/_/g, ' ')}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-500 mt-0.5">{formatAddress(p)}</p>
 
                       <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-gray-500">
@@ -151,39 +206,48 @@ export function ReportsContent() {
                             Est. {formatCurrency(p.estimatedValue)}
                           </span>
                         )}
-                        {row.savedAt && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5 text-gray-400" />
-                            Saved {new Date(row.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </span>
-                        )}
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5 text-gray-400" />
+                          Generated {new Date(report.generatedAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
                       </div>
 
-                      {row.tags && row.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-3">
-                          {row.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="bg-blue-50 text-blue-700 text-[10px] font-medium px-2 py-0.5 rounded-full"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {row.notes && (
-                        <p className="text-xs text-gray-400 italic mt-2 truncate">{row.notes}</p>
+                      {errMsg && (
+                        <p className="text-xs text-red-600 mt-2">{errMsg}</p>
                       )}
                     </div>
 
-                    <Link
-                      href={`/properties/${p.id}`}
-                      className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 hover:border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg shrink-0 transition-colors"
-                    >
-                      View Report
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <button
+                        onClick={() => handleDownload(report)}
+                        disabled={isDownloading}
+                        className="flex items-center gap-1.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {isDownloading ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Downloading…
+                          </>
+                        ) : (
+                          <>
+                            <FileDown className="h-3.5 w-3.5" />
+                            Download PDF
+                          </>
+                        )}
+                      </button>
+
+                      <Link
+                        href={`/properties/${p.id}`}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View property
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
