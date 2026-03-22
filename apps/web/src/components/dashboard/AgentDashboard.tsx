@@ -35,10 +35,15 @@ function DonutChart({
   const cx = 64
   const cy = 64
 
-  function arc(value: number, cumulativeBefore: number) {
-    const angle = (value / total) * 2 * Math.PI
-    const startAngle = cumulativeBefore * 2 * Math.PI - Math.PI / 2
-    const endAngle = (cumulativeBefore + value / total) * 2 * Math.PI - Math.PI / 2
+  const fracs = segments.reduce<Array<[number, number]>>((acc, seg) => {
+    const start = acc.length > 0 ? acc[acc.length - 1]![1] : 0
+    return [...acc, [start, start + seg.value / total]]
+  }, [])
+
+  function arc(startFrac: number, endFrac: number) {
+    const angle = (endFrac - startFrac) * 2 * Math.PI
+    const startAngle = startFrac * 2 * Math.PI - Math.PI / 2
+    const endAngle = endFrac * 2 * Math.PI - Math.PI / 2
 
     const x1 = cx + R * Math.cos(startAngle)
     const y1 = cy + R * Math.sin(startAngle)
@@ -53,15 +58,11 @@ function DonutChart({
     return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${r} ${r} 0 ${large} 0 ${ix1} ${iy1} Z`
   }
 
-  const cumulativeStarts = segments.map((_, i) =>
-    segments.slice(0, i).reduce((sum, s) => sum + s.value / total, 0)
-  )
-
   return (
     <div className="flex items-center gap-4">
       <svg width={128} height={128} viewBox="0 0 128 128">
-        {segments.map((seg, i) => (
-          <path key={i} d={arc(seg.value, cumulativeStarts[i] ?? 0)} fill={seg.color} />
+        {fracs.map(([start, end], i) => (
+          <path key={i} d={arc(start, end)} fill={segments[i]!.color} />
         ))}
       </svg>
       <div className="space-y-1.5">
