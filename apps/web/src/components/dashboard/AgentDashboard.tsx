@@ -11,9 +11,10 @@ import {
   TrendingUp,
   FileText,
   ArrowRight,
+  Users,
 } from 'lucide-react'
-import { getSavedProperties } from '@/lib/api'
-import type { SavedProperty } from '@coverguard/shared'
+import { getSavedProperties, getClients } from '@/lib/api'
+import type { SavedProperty, Client } from '@coverguard/shared'
 
 // ── Donut SVG ──────────────────────────────────────────────────────────────
 function DonutChart({
@@ -142,13 +143,17 @@ function RiskBadge({ level }: { level: string }) {
 // ── Main component ─────────────────────────────────────────────────────────
 export function AgentDashboard() {
   const [properties, setProperties] = useState<SavedProperty[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getSavedProperties()
-      .then((data) => setProperties(data as SavedProperty[]))
-      .catch(() => setProperties([]))
-      .finally(() => setLoading(false))
+    Promise.allSettled([
+      getSavedProperties(),
+      getClients(),
+    ]).then(([propsResult, clientsResult]) => {
+      if (propsResult.status === 'fulfilled') setProperties(propsResult.value as SavedProperty[])
+      if (clientsResult.status === 'fulfilled') setClients(clientsResult.value)
+    }).finally(() => setLoading(false))
   }, [])
 
   const totalProps = properties.length
@@ -202,6 +207,13 @@ export function AgentDashboard() {
             Compare
           </Link>
           <Link
+            href="/clients"
+            className="flex items-center gap-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          >
+            <Users className="h-4 w-4" />
+            Clients
+          </Link>
+          <Link
             href="/toolkit"
             className="flex items-center gap-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
           >
@@ -229,8 +241,8 @@ export function AgentDashboard() {
           icon={<TrendingUp className="h-5 w-5 text-green-500" />}
         />
         <StatCard
-          label="UNDER CONTRACT"
-          value={0}
+          label="TOTAL CLIENTS"
+          value={loading ? '—' : clients.length}
           icon={<FileText className="h-5 w-5 text-purple-400" />}
         />
       </div>

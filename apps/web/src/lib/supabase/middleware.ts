@@ -29,7 +29,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Protected routes that require authentication
-  const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/saved', '/reports']
+  const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/saved', '/reports', '/clients']
   const isProtected = protectedRoutes.some((r) => pathname.startsWith(r))
 
   // Allow /onboarding without auth redirect (handles post-signup flow)
