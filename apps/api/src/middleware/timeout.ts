@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
+import { logger } from '../utils/logger'
 
 /**
  * Adds a per-request timeout.  If the handler does not call res.end() within
@@ -13,10 +14,12 @@ export function requestTimeout(ms: number) {
     const timer = setTimeout(() => {
       if (!res.headersSent) {
         const elapsed = Date.now() - start
-        // Log the slow path so it can be investigated
-        console.warn(
-          `Request timeout: ${req.method} ${req.originalUrl ?? req.url} took ${elapsed}ms (timeout set to ${ms}ms)`
-        )
+        logger.warn('Request timeout', {
+          method: req.method,
+          route: req.originalUrl ?? req.url,
+          elapsedMs: elapsed,
+          timeoutMs: ms,
+        })
         res.status(503).json({
           success: false,
           error: { code: 'REQUEST_TIMEOUT', message: 'Request took too long. Please try again.' },

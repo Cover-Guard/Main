@@ -78,6 +78,7 @@ model Property {
   @@index([lat, lng])
   @@index([state])
   @@index([createdAt])
+  @@index([state, createdAt(sort: Desc)])
   @@map("properties")
 }
 

@@ -78,7 +78,7 @@ export async function getOrComputeInsuranceEstimate(
   propertyId: string,
 ): Promise<InsuranceCostEstimate> {
   // L1 cache hit
-  const l1 = insuranceCache.get(propertyId) as InsuranceCostEstimate | undefined
+  const l1 = insuranceCache.get(propertyId)
   if (l1) return l1
 
   // Deduplicate concurrent requests
@@ -146,7 +146,7 @@ export async function getOrComputeInsuranceEstimate(
     const dto = prismaEstimateToDto(estimate, propertyId)
     insuranceCache.set(propertyId, dto, INSURANCE_ESTIMATE_CACHE_TTL_SECONDS * 1000)
     return dto
-  }) as Promise<InsuranceCostEstimate>
+  })
 }
 
 function prismaEstimateToDto(
