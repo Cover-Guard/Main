@@ -8,9 +8,15 @@ import type { Request, Response, NextFunction } from 'express'
  * Default: 30 s for normal endpoints, 60 s for expensive external-API routes.
  */
 export function requestTimeout(ms: number) {
-  return (_req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const start = Date.now()
     const timer = setTimeout(() => {
       if (!res.headersSent) {
+        const elapsed = Date.now() - start
+        // Log the slow path so it can be investigated
+        console.warn(
+          `Request timeout: ${req.method} ${req.originalUrl ?? req.url} took ${elapsed}ms (timeout set to ${ms}ms)`
+        )
         res.status(503).json({
           success: false,
           error: { code: 'REQUEST_TIMEOUT', message: 'Request took too long. Please try again.' },
