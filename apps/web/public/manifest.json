@@ -1,0 +1,57 @@
+{
+  "name": "CoverGuard — Property Insurability Intelligence",
+  "short_name": "CoverGuard",
+  "description": "Instantly check flood, fire, earthquake, and crime risks for any US property — and see which carriers are actively writing coverage.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d1929",
+  "theme_color": "#0d1929",
+  "categories": ["finance", "real-estate", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Check",
+      "short_name": "Check",
+      "description": "Run a new property insurability check",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-search.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Search any US property"
+    },
+    {
+      "src": "/screenshots/mobile-property.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Property risk report"
+    }
+  ]
+}
