@@ -13,8 +13,8 @@ export interface AuthenticatedRequest extends Request {
  *
  * Performance: tokens are cached in-process for 5 minutes using tokenCache so
  * every authenticated request does NOT hit Supabase Auth + the DB on every
- * call. Cache is invalidated on 401 responses from Supabase, ensuring stale
- * tokens are evicted promptly.
+ * call. Invalid or expired tokens (401 from Supabase) are never cached; valid
+ * tokens are evicted automatically by the cache TTL.
  */
 export async function requireAuth(
   req: Request,
