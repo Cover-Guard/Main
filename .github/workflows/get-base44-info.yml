@@ -1,0 +1,22 @@
+name: Get Base44 Project Info
+
+on:
+  workflow_dispatch:   # run manually from the Actions tab any time
+
+permissions:
+  contents:      read
+  actions:       read   # secrets/variables names
+  deployments:   read   # environments
+  administration: read  # deploy keys, webhooks
+
+jobs:
+  get-base44-info:
+    name: Fetch Base44 connection info
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run get-base44-info script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/get-base44-info.sh
