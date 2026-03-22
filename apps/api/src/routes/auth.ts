@@ -195,3 +195,19 @@ authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
     next(err)
   }
 })
+
+// ─── Quote requests for authenticated user ────────────────────────────────────
+
+authRouter.get('/me/quote-requests', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const requests = await prisma.quoteRequest.findMany({
+      where: { userId },
+      orderBy: { submittedAt: 'desc' },
+      take: 100,
+    })
+    res.json({ success: true, data: requests })
+  } catch (err) {
+    next(err)
+  }
+})

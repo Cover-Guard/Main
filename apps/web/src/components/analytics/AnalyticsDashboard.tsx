@@ -175,62 +175,51 @@ export function AnalyticsDashboard() {
 
   if (loading) return <AnalyticsSkeleton />
 
-  // Build mock/derived data
-  const totalChecks = data?.totalSearches ?? 9
-  const avgScore = 67
-  const highRisk = 1
+  const totalChecks = data?.totalSearches ?? 0
   const activeClients = data?.totalClients ?? 0
+  const totalSaved = data?.totalSavedProperties ?? 0
+  const totalReports = data?.totalReports ?? 0
 
-  // Activity last 30 days — generate placeholder if no data
+  const highRiskCount = data?.riskDistribution
+    ?.filter((r) => r.level === 'HIGH' || r.level === 'VERY_HIGH' || r.level === 'EXTREME')
+    .reduce((s, r) => s + r.count, 0) ?? 0
+
+  // Activity last 30 days from real data
   const activityData: Array<{ date: string; checks: number; quotes: number }> =
-    data?.searchesByDay?.map((d) => ({ date: d.date, checks: d.count, quotes: 0 })) ??
-    Array.from({ length: 30 }, (_, i) => {
-      const d = new Date('2026-02-10')
-      d.setDate(d.getDate() + i)
-      return {
-        date: d.toISOString().slice(0, 10),
-        checks: i === 26 ? 4 : i === 27 ? 2 : 0,
-        quotes: 0,
-      }
-    })
+    (data?.searchesByDay ?? []).map((d) => ({ date: d.date, checks: d.count, quotes: 0 }))
 
-  // Risk distribution donut
-  const riskSegments =
-    data?.riskDistribution?.map((r) => ({
+  // Risk distribution donut — real data
+  const RISK_COLORS: Record<string, string> = {
+    LOW: '#22c55e', MODERATE: '#f59e0b', HIGH: '#f97316', VERY_HIGH: '#ef4444', EXTREME: '#a855f7',
+  }
+  const riskSegments = (data?.riskDistribution ?? [])
+    .filter((r) => r.count > 0)
+    .map((r) => ({
       value: r.count,
-      color:
-        r.level === 'LOW'
-          ? '#22c55e'
-          : r.level === 'MODERATE'
-          ? '#3b82f6'
-          : r.level === 'HIGH'
-          ? '#ef4444'
-          : '#f97316',
-      label: `${r.level.charAt(0) + r.level.slice(1).toLowerCase()} ${r.count}`,
-    })) ?? [
-      { value: 5, color: '#f97316', label: 'Elevated 5' },
-      { value: 1, color: '#ef4444', label: 'High 1' },
-      { value: 3, color: '#3b82f6', label: 'Moderate 3' },
-    ]
+      color: RISK_COLORS[r.level] ?? '#94a3b8',
+      label: `${r.level.replace('_', ' ')} (${r.count})`,
+    }))
 
-  // Status donut (all completed)
-  const statusSegments = [{ value: totalChecks, color: '#3b82f6', label: `Completed ${totalChecks}` }]
-
-  // 4-week bar
-  const weekBars = [
-    { label: 'Feb 20-26', value: 0 },
-    { label: 'Feb 27-Mar 6', value: 0 },
-    { label: 'Mar 6-Mar 12', value: 0 },
-    { label: 'Mar 13-Mar 19', value: 72 },
-  ]
-
-  // Checks by state
-  const stateChecks: Array<{ state: string; count: number; avgScore?: number }> =
-    data?.topStates?.slice(0, 5) ?? [
-      { state: 'CA', count: 8, avgScore: 64 },
-      { state: 'NV', count: 1, avgScore: 85 },
-    ]
+  // Searches by state
+  const stateChecks = data?.topStates?.slice(0, 8) ?? []
   const maxStateCount = Math.max(...stateChecks.map((s) => s.count), 1)
+
+  // 4-week search bars derived from searchesByDay
+  const now = new Date()
+  const weekBars = [3, 2, 1, 0].map((weeksAgo) => {
+    const weekStart = new Date(now)
+    weekStart.setDate(weekStart.getDate() - (weeksAgo + 1) * 7)
+    const weekEnd = new Date(now)
+    weekEnd.setDate(weekEnd.getDate() - weeksAgo * 7)
+    const count = (data?.searchesByDay ?? [])
+      .filter((d) => {
+        const dt = new Date(d.date)
+        return dt >= weekStart && dt < weekEnd
+      })
+      .reduce((s, d) => s + d.count, 0)
+    const label = `W-${weeksAgo + 1}`
+    return { label, value: count }
+  })
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -270,17 +259,11 @@ export function AnalyticsDashboard() {
       </div>
 
       {/* Top stat rows */}
-      <div className="grid grid-cols-4 gap-3 mb-3">
-        <MiniStat label="TOTAL CHECKS" sub="all time" value={totalChecks} icon={<Shield className="h-4 w-4 text-blue-500" />} />
-        <MiniStat label="AVG SCORE" sub="insurability" value={avgScore} icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} />
-        <MiniStat label="HIGH RISK" sub="score < 40" value={highRisk} icon={<AlertTriangle className="h-4 w-4 text-red-400" />} />
-        <MiniStat label="ACTIVE CLIENTS" sub="0 total" value={activeClients} icon={<Users className="h-4 w-4 text-purple-400" />} />
-      </div>
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        <MiniStat label="QUOTES" sub="all time" value={0} icon={<FileText className="h-4 w-4 text-orange-400" />} />
-        <MiniStat label="BOUND" sub="converted" value={0} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />
-        <MiniStat label="PIPELINE" sub="under contract" value={0} icon={<Activity className="h-4 w-4 text-red-400" />} />
-        <MiniStat label="LEADS" sub="awaiting contact" value={0} icon={<Clock className="h-4 w-4 text-gray-400" />} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <MiniStat label="TOTAL SEARCHES" sub="all time" value={totalChecks} icon={<Shield className="h-4 w-4 text-blue-500" />} />
+        <MiniStat label="SAVED PROPERTIES" sub="in portfolio" value={totalSaved} icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} />
+        <MiniStat label="HIGH/SEVERE RISK" sub="require attention" value={highRiskCount} icon={<AlertTriangle className="h-4 w-4 text-red-400" />} />
+        <MiniStat label="CLIENTS" sub="managed" value={activeClients} icon={<Users className="h-4 w-4 text-purple-400" />} />
       </div>
 
       {/* Activity line chart */}
@@ -310,46 +293,46 @@ export function AnalyticsDashboard() {
           </div>
         </ChartCard>
 
-        <ChartCard title="Check Status Breakdown">
-          <div className="flex flex-col items-center gap-3">
-            <DonutChart segments={statusSegments} size={100} />
-            <div className="space-y-1">
-              {statusSegments.map((s) => (
-                <div key={s.label} className="flex items-center gap-1.5 text-xs">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
-                  <span className="text-gray-500">{s.label}</span>
-                </div>
-              ))}
-            </div>
+        <ChartCard title="Saved Properties">
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-4xl font-bold text-blue-600">{totalSaved}</p>
+            <p className="text-xs text-gray-500">properties tracked</p>
+            <p className="text-xs text-gray-400 mt-1">{totalReports} reports generated</p>
           </div>
         </ChartCard>
 
-        <ChartCard title="Client Pipeline">
-          {activeClients === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-xs text-gray-400">No clients yet</p>
-            </div>
-          ) : (
-            <DonutChart segments={[{ value: activeClients, color: '#3b82f6', label: `Active ${activeClients}` }]} size={100} />
-          )}
+        <ChartCard title="Clients">
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-4xl font-bold text-purple-600">{activeClients}</p>
+            <p className="text-xs text-gray-500">managed clients</p>
+            {activeClients === 0 && (
+              <p className="text-xs text-gray-400 mt-1">Add clients in the Clients tab</p>
+            )}
+          </div>
         </ChartCard>
       </div>
 
       {/* Bottom two panels */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-800 mb-4">
-            Avg Insurability Score — 4 Weeks
+            Searches — Weekly
           </h3>
-          <WeekBarChart data={weekBars} />
+          {weekBars.every((w) => w.value === 0) ? (
+            <div className="flex items-center justify-center h-24 text-sm text-gray-400">
+              No search activity yet
+            </div>
+          ) : (
+            <WeekBarChart data={weekBars} />
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-800 mb-4">
-            Checks by State
+            Saved Properties by State
           </h3>
           {stateChecks.length === 0 ? (
-            <p className="text-sm text-gray-400">No data yet.</p>
+            <p className="text-sm text-gray-400">No saved properties yet.</p>
           ) : (
             <div className="space-y-3">
               {stateChecks.map((s, i) => (
@@ -362,18 +345,37 @@ export function AnalyticsDashboard() {
                       style={{ width: `${(s.count / maxStateCount) * 100}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-400 w-6 text-right">{s.count}</span>
-                  {s.avgScore != null && (
-                    <span className="text-xs font-bold text-gray-700 bg-gray-100 rounded px-1.5 py-0.5 w-8 text-center">
-                      {s.avgScore}
-                    </span>
-                  )}
+                  <span className="text-xs text-gray-500 w-6 text-right font-medium">{s.count}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* Recent activity */}
+      {data?.recentActivity && data.recentActivity.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">Recent Activity</h3>
+          <div className="space-y-2">
+            {data.recentActivity.slice(0, 10).map((a, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm">
+                <span className="text-base shrink-0">
+                  {a.type === 'search' ? '🔍' : a.type === 'save' ? '🏠' : '📄'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-700 truncate">{a.description}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(a.timestamp).toLocaleString('en-US', {
+                      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

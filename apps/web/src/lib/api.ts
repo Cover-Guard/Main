@@ -145,3 +145,41 @@ export async function deleteClient(id: string): Promise<void> {
 export async function getAnalytics(): Promise<AnalyticsSummary> {
   return apiFetch('/api/analytics')
 }
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+
+export interface PropertyReportRecord {
+  id: string
+  userId: string
+  propertyId: string
+  reportType: 'FULL' | 'RISK_SUMMARY' | 'INSURANCE_ESTIMATE'
+  pdfUrl: string | null
+  generatedAt: string
+  property: Property
+}
+
+export async function getMyReports(): Promise<PropertyReportRecord[]> {
+  return apiFetch('/api/auth/me/reports')
+}
+
+// ─── Quote Requests ────────────────────────────────────────────────────────────
+
+export interface QuoteRequestRecord {
+  id: string
+  userId: string
+  propertyId: string
+  carrierId: string
+  coverageTypes: string[]
+  notes: string | null
+  status: 'PENDING' | 'SENT' | 'RESPONDED' | 'DECLINED'
+  submittedAt: string
+  updatedAt: string
+}
+
+export async function getMyQuoteRequests(): Promise<QuoteRequestRecord[]> {
+  return apiFetch('/api/auth/me/quote-requests')
+}
+
+export async function getPropertyQuoteRequests(propertyId: string): Promise<QuoteRequestRecord[]> {
+  return apiFetch(`/api/properties/${propertyId}/quote-requests`)
+}
