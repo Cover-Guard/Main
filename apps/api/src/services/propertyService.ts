@@ -69,24 +69,16 @@ export async function searchProperties(params: PropertySearchParams): Promise<Pr
   if (result.properties.length > 0) {
     const creates = result.properties.map(dtoToPrismaCreate)
 
-    // createMany with skipDuplicates is a single INSERT … ON CONFLICT DO NOTHING
-    await prisma.property
-      .createMany({ data: creates, skipDuplicates: true })
-      .catch(() => {
-        // Fall back to individual upserts if createMany fails (e.g. unique constraint
-        // collisions on externalId vs parcelId that skipDuplicates can't handle)
-        return Promise.all(
-          creates.map((c) =>
-            prisma.property
-              .upsert({
-                where: { parcelId: c.parcelId ?? undefined },
-                update: c,
-                create: c,
-              })
-              .catch(() => null),
-          ),
-        )
-      })
+    // Perform batched upserts in a single transaction so existing rows are refreshed
+    await prisma.$transaction(
+      creates.map((c) =>
+        prisma.property.upsert({
+          where: { parcelId: c.parcelId ?? undefined },
+          update: c,
+          create: c,
+        }),
+      ),
+    )
 
     // Warm the L1 cache for the properties we just fetched
     for (const prop of result.properties) {
