@@ -1,0 +1,108 @@
+name: Sync main → base44
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync base44 with main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch main and base44 branches
+        run: |
+          git fetch origin main
+          # If base44 does not exist yet, create it pointing at main and push, then exit.
+          if ! git ls-remote --exit-code origin refs/heads/base44; then
+            echo "base44 branch does not exist – creating it from main."
+            git checkout -b base44 origin/main
+            git push origin base44
+            echo "RESULT=created" >> "$GITHUB_ENV"
+          else
+            git fetch origin base44
+            echo "RESULT=fetched" >> "$GITHUB_ENV"
+          fi
+
+      - name: Attempt fast-forward merge main into base44
+        if: env.RESULT == 'fetched'
+        id: merge
+        run: |
+          git checkout base44
+          BEHIND=$(git rev-list --count HEAD..origin/main)
+          AHEAD=$(git rev-list --count origin/main..HEAD)
+
+          echo "base44 is ${AHEAD} commit(s) ahead and ${BEHIND} commit(s) behind main."
+
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "base44 is already up-to-date with main. Nothing to do."
+            echo "MERGE_STATUS=noop" >> "$GITHUB_ENV"
+          elif git merge --ff-only origin/main 2>/dev/null; then
+            echo "Fast-forward merge succeeded."
+            echo "MERGE_STATUS=ff" >> "$GITHUB_ENV"
+          else
+            echo "Fast-forward not possible – attempting regular merge."
+            if git merge --no-edit origin/main; then
+              echo "Merge succeeded."
+              echo "MERGE_STATUS=merged" >> "$GITHUB_ENV"
+            else
+              echo "Merge conflict detected."
+              git merge --abort || true
+              echo "MERGE_STATUS=conflict" >> "$GITHUB_ENV"
+            fi
+          fi
+
+      - name: Push base44 to origin
+        if: env.MERGE_STATUS == 'ff' || env.MERGE_STATUS == 'merged'
+        run: git push origin base44
+
+      - name: Create PR for manual conflict resolution
+        if: env.MERGE_STATUS == 'conflict'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MAIN_SHA=$(git rev-parse origin/main)
+          BASE44_SHA=$(git rev-parse origin/base44)
+          BRANCH="sync/main-to-base44-$(date +%Y%m%d%H%M%S)"
+
+          git checkout -b "$BRANCH" origin/base44
+          git push origin "$BRANCH"
+
+          PR_BODY_FILE=$(mktemp)
+          {
+            echo "## Automatic sync failed due to merge conflicts"
+            echo ""
+            echo "The automated workflow attempted to merge \`main\` (${MAIN_SHA}) into \`base44\` (${BASE44_SHA}) but encountered conflicts."
+            echo ""
+            echo "Please resolve the conflicts manually:"
+            echo '```bash'
+            echo "git fetch origin"
+            echo "git checkout ${BRANCH}"
+            echo "git merge origin/main"
+            echo "# resolve conflicts"
+            echo "git push origin ${BRANCH}"
+            echo '```'
+            echo ""
+            echo "Once this PR is merged, \`base44\` will be back in sync with \`main\`."
+          } > "$PR_BODY_FILE"
+
+          gh pr create \
+            --base base44 \
+            --head "$BRANCH" \
+            --title "chore: manual sync main → base44 (conflict)" \
+            --body-file "$PR_BODY_FILE"
