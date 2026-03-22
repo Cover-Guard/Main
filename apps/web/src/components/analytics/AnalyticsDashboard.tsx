@@ -69,7 +69,7 @@ function DonutChart({
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {segments.map((seg, i) => (
-        <path key={i} d={arcPaths[i]} fill={seg.color} />
+        <path key={i} d={arcPaths[i] ?? ''} fill={seg.color} />
       ))}
     </svg>
   )

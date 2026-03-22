@@ -62,7 +62,7 @@ function DonutChart({
     <div className="flex items-center gap-4">
       <svg width={128} height={128} viewBox="0 0 128 128">
         {segments.map((seg, i) => (
-          <path key={i} d={arcPaths[i]} fill={seg.color} />
+          <path key={i} d={arcPaths[i] ?? ''} fill={seg.color} />
         ))}
       </svg>
       <div className="space-y-1.5">
