@@ -104,9 +104,12 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
     // Risk distribution
     const riskOrder = ['LOW', 'MODERATE', 'HIGH', 'VERY_HIGH', 'EXTREME']
     const riskDistribution = riskDistributionRaw
-      .filter((r: { level: string; count: bigint }) => r.level && riskOrder.includes(r.level))
-      .sort((a: { level: string; count: bigint }, b: { level: string; count: bigint }) => riskOrder.indexOf(a.level) - riskOrder.indexOf(b.level))
-      .map((r: { level: string; count: bigint }) => ({ level: r.level, count: Number(r.count) }))
+      .filter((r: { level: string | null; count: bigint }) => r.level && riskOrder.includes(r.level))
+      .sort(
+        (a: { level: string | null; count: bigint }, b: { level: string | null; count: bigint }) =>
+          riskOrder.indexOf(a.level as string) - riskOrder.indexOf(b.level as string),
+      )
+      .map((r: { level: string | null; count: bigint }) => ({ level: r.level as string, count: Number(r.count) }))
 
     // Top states
     const topStates = topStatesRaw.map((r: { state: string; count: bigint }) => ({ state: r.state, count: Number(r.count) }))
