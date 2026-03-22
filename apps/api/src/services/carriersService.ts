@@ -12,7 +12,9 @@
  */
 
 import type { CarriersResult, Carrier, MarketCondition } from '@coverguard/shared'
+import { CARRIERS_CACHE_TTL_SECONDS } from '@coverguard/shared'
 import { prisma } from '../utils/prisma'
+import { carriersCache, carriersDeduplicator } from '../utils/cache'
 
 // ─── Known carriers by state market presence ───────────────────────────────────
 
@@ -224,34 +226,44 @@ function determineWritingStatus(
 // ─── Main service function ────────────────────────────────────────────────────
 
 export async function getCarriersForProperty(propertyId: string): Promise<CarriersResult> {
-  const property = await prisma.property.findUniqueOrThrow({
-    where: { id: propertyId },
-    include: { riskProfile: true },
+  // L1 cache hit — no DB call needed
+  const l1 = carriersCache.get(propertyId)
+  if (l1) return l1
+
+  // Deduplicate concurrent requests for the same property
+  return carriersDeduplicator.dedupe(propertyId, async () => {
+    const property = await prisma.property.findUniqueOrThrow({
+      where: { id: propertyId },
+      include: { riskProfile: true },
+    })
+
+    const overallRiskScore = property.riskProfile?.overallRiskScore ?? 30
+    const state = property.state
+    const marketCondition = getMarketCondition(state, overallRiskScore)
+
+    const carriers: Carrier[] = CARRIER_POOL
+      .filter((c) => {
+        // Filter to carriers licensed in state
+        return c.statesLicensed.includes('ALL') || c.statesLicensed.includes(state)
+      })
+      .map((c) => ({
+        ...c,
+        writingStatus: determineWritingStatus(c, state, overallRiskScore, marketCondition),
+      }))
+      // Sort: actively writing first, then limited, then surplus, then not writing
+      .sort((a, b) => {
+        const order = { ACTIVELY_WRITING: 0, LIMITED: 1, SURPLUS_LINES: 2, NOT_WRITING: 3 }
+        return order[a.writingStatus] - order[b.writingStatus]
+      })
+
+    const result: CarriersResult = {
+      propertyId,
+      carriers,
+      marketCondition,
+      lastUpdated: new Date().toISOString(),
+    }
+
+    carriersCache.set(propertyId, result, CARRIERS_CACHE_TTL_SECONDS * 1000)
+    return result
   })
-
-  const overallRiskScore = property.riskProfile?.overallRiskScore ?? 30
-  const state = property.state
-  const marketCondition = getMarketCondition(state, overallRiskScore)
-
-  const carriers: Carrier[] = CARRIER_POOL
-    .filter((c) => {
-      // Filter to carriers licensed in state
-      return c.statesLicensed.includes('ALL') || c.statesLicensed.includes(state)
-    })
-    .map((c) => ({
-      ...c,
-      writingStatus: determineWritingStatus(c, state, overallRiskScore, marketCondition),
-    }))
-    // Sort: actively writing first, then limited, then surplus, then not writing
-    .sort((a, b) => {
-      const order = { ACTIVELY_WRITING: 0, LIMITED: 1, SURPLUS_LINES: 2, NOT_WRITING: 3 }
-      return order[a.writingStatus] - order[b.writingStatus]
-    })
-
-  return {
-    propertyId,
-    carriers,
-    marketCondition,
-    lastUpdated: new Date().toISOString(),
-  }
 }
