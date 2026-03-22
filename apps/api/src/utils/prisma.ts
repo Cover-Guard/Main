@@ -42,7 +42,11 @@ if (!isProduction) {
   })
 }
 
-// Graceful shutdown — close pool on process exit
-process.on('beforeExit', async () => {
+// Graceful shutdown — close pool on process signals
+process.once('SIGTERM', async () => {
+  await prisma.$disconnect()
+})
+
+process.once('SIGINT', async () => {
   await prisma.$disconnect()
 })
