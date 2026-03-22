@@ -3,7 +3,10 @@ import { propertyCache } from '../utils/cache'
 import { searchPropertiesByAddress } from '../integrations/propertyData'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
 
-export async function searchProperties(params: PropertySearchParams): Promise<PropertySearchResult> {
+export async function searchProperties(
+  params: PropertySearchParams,
+  userId?: string,
+): Promise<PropertySearchResult> {
   const page = params.page ?? 1
   const limit = params.limit ?? 20
   const skip = (page - 1) * limit
@@ -53,17 +56,38 @@ export async function searchProperties(params: PropertySearchParams): Promise<Pr
     ])
 
     if (total > 0) {
-      return {
-        properties: properties.map(prismaPropertyToDto),
-        total,
-        page,
-        limit,
-      }
+      const dbResult = { properties: properties.map(prismaPropertyToDto), total, page, limit }
+      // Fire-and-forget: record search history without blocking the response
+      prisma.searchHistory
+        .create({
+          data: {
+            userId: userId ?? null,
+            query: [params.address, params.city, params.state, params.zip, params.parcelId]
+              .filter(Boolean)
+              .join(', '),
+            resultCount: total,
+          },
+        })
+        .catch(() => undefined)
+      return dbResult
     }
   }
 
   // Fall back to external API
   const result = await searchPropertiesByAddress(params)
+
+  // Record search history (fire-and-forget)
+  prisma.searchHistory
+    .create({
+      data: {
+        userId: userId ?? null,
+        query: [params.address, params.city, params.state, params.zip, params.parcelId]
+          .filter(Boolean)
+          .join(', '),
+        resultCount: result.total,
+      },
+    })
+    .catch(() => undefined)
 
   // Batch-upsert results into DB cache — avoids N sequential round trips
   if (result.properties.length > 0) {

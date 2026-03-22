@@ -9,6 +9,7 @@ export interface User {
   company: string | null
   licenseNumber: string | null // for agents
   avatarUrl: string | null
+  termsAcceptedAt: string | null // null = onboarding not yet completed
   createdAt: string
   updatedAt: string
 }

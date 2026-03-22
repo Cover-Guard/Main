@@ -36,6 +36,23 @@ const searchSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
 
+/** Extract the Supabase user id from a Bearer JWT without full verification.
+ *  Used only for optional analytics (search history) — NOT for authorization. */
+function extractOptionalUserId(req: Request): string | undefined {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) return undefined
+  try {
+    const payload = header.split(' ')[1]!.split('.')[1]
+    if (!payload) return undefined
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      sub?: string
+    }
+    return typeof decoded.sub === 'string' ? decoded.sub : undefined
+  } catch {
+    return undefined
+  }
+}
+
 propertiesRouter.get('/search', async (req, res, next) => {
   try {
     const params = searchSchema.parse(req.query)
@@ -46,7 +63,7 @@ propertiesRouter.get('/search', async (req, res, next) => {
       })
       return
     }
-    const result = await searchProperties(params)
+    const result = await searchProperties(params, extractOptionalUserId(req))
     // Search results: short CDN TTL (60 s) since properties can be added
     setCacheHeaders(res, 60, 30)
     res.json({ success: true, data: result })
