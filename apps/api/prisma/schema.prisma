@@ -30,6 +30,8 @@ model User {
   savedProperties SavedProperty[]
   reports         PropertyReport[]
   clients         Client[]
+  quoteRequests   QuoteRequest[]
+  searchHistories SearchHistory[]
 
   @@index([role])
   @@map("users")
@@ -71,6 +73,7 @@ model Property {
   insuranceEstimate InsuranceEstimate?
   savedBy           SavedProperty[]
   reports           PropertyReport[]
+  quoteRequests     QuoteRequest[]
 
   @@index([zip])
   @@index([state, city])
@@ -275,6 +278,9 @@ model QuoteRequest {
   submittedAt   DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
   @@index([userId, submittedAt(sort: Desc)])
   @@index([propertyId, submittedAt(sort: Desc)])
   @@index([status])
@@ -296,6 +302,8 @@ model SearchHistory {
   query       String
   resultCount Int      @default(0)
   searchedAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, searchedAt(sort: Desc)])
   @@index([searchedAt(sort: Desc)])

@@ -55,9 +55,14 @@ export default function AgentRegisterPage() {
     setError(null)
     setOauthLoading(true)
     const supabase = createClient()
+    // Pass the selected role in the redirect URL so the callback route can
+    // write it into auth metadata, which triggers handle_user_updated to
+    // sync the role to public.users automatically.
+    const redirectTo =
+      `${window.location.origin}/api/auth/callback?next=/onboarding&role=${role}`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/api/auth/callback?next=/onboarding` },
+      options: { redirectTo },
     })
     if (error) { setError(error.message); setOauthLoading(false) }
   }
