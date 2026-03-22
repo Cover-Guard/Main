@@ -13,6 +13,19 @@ export default tseslint.config(
     },
   },
   {
+    files: ["**/*.js", "**/*.cjs"],
+    languageOptions: {
+      globals: {
+        module: "writable",
+        require: "readonly",
+        exports: "writable",
+        __dirname: "readonly",
+        __filename: "readonly",
+        process: "readonly",
+      },
+    },
+  },
+  {
     ignores: ["dist/**", "node_modules/**"],
   },
 );
