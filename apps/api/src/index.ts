@@ -51,8 +51,8 @@ app.use(
 //
 // Three tiers:
 //   1. Global safety net — 500 req/min per IP (protects everything)
-//   2. Unauthenticated search — 30 req/min per IP (prevents scraping)
-//   3. External-data endpoints — 20 req/min per IP (risk/insurance/carriers)
+//   2. Unauthenticated search — 60 req/min per IP (prevents scraping)
+//   3. External-data endpoints — 30 req/min per IP (risk/insurance/carriers)
 //      These trigger upstream API calls; limit them tightly.
 
 const globalLimiter = rateLimit({
