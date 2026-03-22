@@ -5,11 +5,6 @@ const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
-    rules: {
-      "react-hooks/set-state-in-effect": "warn",
-    },
-  },
-  {
     ignores: [
       "node_modules/**",
       ".next/**",
