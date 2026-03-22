@@ -1,3 +1,5 @@
+import type { Property, PropertyRiskProfile, InsuranceCostEstimate } from '@coverguard/shared'
+
 /**
  * Lightweight LRU cache for hot in-process data.
  * Sits in front of the DB to absorb repeated reads for the same property.
@@ -63,13 +65,13 @@ export const tokenCache = new LRUCache<{ userId: string; userRole: string }>(
 )
 
 /** Property detail — 30 min TTL, 200k entries */
-export const propertyCache = new LRUCache<unknown>(200_000, 30 * 60 * 1000)
+export const propertyCache = new LRUCache<Property>(200_000, 30 * 60 * 1000)
 
 /** Risk profile — 2 hour TTL, 200k entries */
-export const riskCache = new LRUCache<unknown>(200_000, 2 * 60 * 60 * 1000)
+export const riskCache = new LRUCache<PropertyRiskProfile>(200_000, 2 * 60 * 60 * 1000)
 
 /** Insurance estimate — 2 hour TTL, 200k entries */
-export const insuranceCache = new LRUCache<unknown>(200_000, 2 * 60 * 60 * 1000)
+export const insuranceCache = new LRUCache<InsuranceCostEstimate>(200_000, 2 * 60 * 60 * 1000)
 
 /** Carriers result — 1 hour TTL, 100k entries */
 export const carriersCache = new LRUCache<unknown>(100_000, 60 * 60 * 1000)
@@ -96,5 +98,5 @@ export class RequestDeduplicator<T> {
   }
 }
 
-export const riskDeduplicator = new RequestDeduplicator<unknown>()
-export const insuranceDeduplicator = new RequestDeduplicator<unknown>()
+export const riskDeduplicator = new RequestDeduplicator<PropertyRiskProfile>()
+export const insuranceDeduplicator = new RequestDeduplicator<InsuranceCostEstimate>()

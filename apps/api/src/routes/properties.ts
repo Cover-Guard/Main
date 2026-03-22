@@ -14,7 +14,9 @@ export const propertiesRouter = Router()
 
 // ─── Cache-Control helper ─────────────────────────────────────────────────────
 
-/** Public, cacheable data — CDN / browser can cache for `sMaxAge` at edge. */
+/** CDN-cacheable data — `s-maxage` is honoured by CDNs (Vercel Edge, CloudFront, etc.)
+ *  but NOT by browsers (`s-maxage` is a shared-cache directive only).
+ *  Add a `max-age` directive here if browser caching is also desired. */
 function setCacheHeaders(res: Response, sMaxAge: number, staleWhileRevalidate = 60): void {
   res.set(
     'Cache-Control',

@@ -91,7 +91,7 @@ export async function searchProperties(params: PropertySearchParams): Promise<Pr
 
 export async function getPropertyById(id: string): Promise<Property | null> {
   // L1 cache hit
-  const cached = propertyCache.get(id) as Property | undefined
+  const cached = propertyCache.get(id)
   if (cached) return cached
 
   const prop = await prisma.property.findUnique({

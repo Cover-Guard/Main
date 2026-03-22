@@ -120,7 +120,7 @@ app.use(
 app.use(
   '/api/properties/:id/insurance',
   externalDataLimiter,
-  requestTimeout(30_000),
+  requestTimeout(45_000),
 )
 app.use(
   '/api/properties/:id/carriers',

@@ -61,7 +61,7 @@ function computeCrimeScore(violentIndex: number, propertyIndex: number): number 
 
 export async function getOrComputeRiskProfile(propertyId: string): Promise<PropertyRiskProfile> {
   // L1 cache hit — no DB or external API call needed
-  const l1 = riskCache.get(propertyId) as PropertyRiskProfile | undefined
+  const l1 = riskCache.get(propertyId)
   if (l1) return l1
 
   // Deduplicate concurrent requests for the same property
@@ -157,7 +157,7 @@ export async function getOrComputeRiskProfile(propertyId: string): Promise<Prope
     const dto = prismaProfileToDto(profile, propertyId)
     riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
     return dto
-  }) as Promise<PropertyRiskProfile>
+  })
 }
 
 function prismaProfileToDto(
