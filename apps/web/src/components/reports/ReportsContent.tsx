@@ -42,10 +42,10 @@ export function ReportsContent() {
     const q = search.toLowerCase()
     const p = row.property
     return (
-      p.address?.toLowerCase().includes(q) ||
-      p.city?.toLowerCase().includes(q) ||
-      p.state?.toLowerCase().includes(q) ||
-      p.zip?.toLowerCase().includes(q)
+      (p.address ?? '').toLowerCase().includes(q) ||
+      (p.city ?? '').toLowerCase().includes(q) ||
+      (p.state ?? '').toLowerCase().includes(q) ||
+      (p.zip ?? '').toLowerCase().includes(q)
     )
   })
 

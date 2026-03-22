@@ -33,23 +33,20 @@ function getStaticResponse(input: string): string {
   return `That's a great question about **${input.slice(0, 40)}${input.length > 40 ? '…' : ''}**. CoverGuard aggregates data from FEMA, USGS, Cal Fire, NOAA, and the FBI to provide a comprehensive risk picture. For specific guidance, consult a licensed insurance professional in your state.`
 }
 
+const WELCOME_MESSAGE: Message = {
+  role: 'advisor',
+  text: "Hi! I'm your CoverGuard AI Advisor. Ask me anything about property insurability, risk scores, flood zones, fire hazards, or carrier availability.",
+}
+
 export function AIAdvisor() {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE])
   const [thinking, setThinking] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (open && messages.length === 0) {
-      setMessages([
-        {
-          role: 'advisor',
-          text: "Hi! I'm your CoverGuard AI Advisor. Ask me anything about property insurability, risk scores, flood zones, fire hazards, or carrier availability.",
-        },
-      ])
-    }
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
