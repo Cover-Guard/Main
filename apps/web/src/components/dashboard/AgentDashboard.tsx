@@ -13,8 +13,8 @@ import {
   ArrowRight,
   Users,
 } from 'lucide-react'
-import { getSavedProperties, getClients } from '@/lib/api'
-import type { SavedProperty, Client } from '@coverguard/shared'
+import { getSavedProperties, getClients, getAnalytics } from '@/lib/api'
+import type { SavedProperty, Client, AnalyticsSummary } from '@coverguard/shared'
 
 // ── Donut SVG ──────────────────────────────────────────────────────────────
 function DonutChart({
@@ -144,35 +144,56 @@ function RiskBadge({ level }: { level: string }) {
 export function AgentDashboard() {
   const [properties, setProperties] = useState<SavedProperty[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.allSettled([
       getSavedProperties(),
       getClients(),
-    ]).then(([propsResult, clientsResult]) => {
+      getAnalytics(),
+    ]).then(([propsResult, clientsResult, analyticsResult]) => {
       if (propsResult.status === 'fulfilled') setProperties(propsResult.value as SavedProperty[])
       if (clientsResult.status === 'fulfilled') setClients(clientsResult.value)
+      if (analyticsResult.status === 'fulfilled') setAnalytics(analyticsResult.value)
     }).finally(() => setLoading(false))
   }, [])
 
   const totalProps = properties.length
-  const highRisk = 1 // derived from API data in a real implementation
-  const avgScore = 67 // placeholder avg
+  const totalSearches = analytics?.totalSearches ?? 0
 
-  // Placeholder donut segments
-  const donutSegments = totalProps > 0
-    ? [
-        { value: Math.max(1, Math.round(totalProps * 0.55)), color: '#f97316', label: 'Elevated' },
-        { value: Math.max(1, Math.round(totalProps * 0.11)), color: '#ef4444', label: 'High' },
-        { value: Math.max(1, Math.round(totalProps * 0.33)), color: '#3b82f6', label: 'Moderate' },
-      ]
+  // Compute risk distribution from analytics data
+  const riskDist = analytics?.riskDistribution ?? []
+  const highRiskCount = riskDist
+    .filter((r) => r.level === 'HIGH' || r.level === 'VERY_HIGH' || r.level === 'EXTREME')
+    .reduce((sum, r) => sum + r.count, 0)
+
+  const avgScore = analytics?.riskDistribution
+    ? Math.round(
+        riskDist.reduce((sum, r) => {
+          const score = r.level === 'LOW' ? 85 : r.level === 'MODERATE' ? 65 : r.level === 'HIGH' ? 45 : r.level === 'VERY_HIGH' ? 25 : 10
+          return sum + score * r.count
+        }, 0) / Math.max(riskDist.reduce((s, r) => s + r.count, 0), 1)
+      )
+    : null
+
+  // Donut segments from real analytics data
+  const RISK_COLORS: Record<string, string> = {
+    LOW: '#22c55e', MODERATE: '#3b82f6', HIGH: '#ef4444', VERY_HIGH: '#dc2626', EXTREME: '#7c3aed',
+  }
+  const donutSegments = riskDist.length > 0
+    ? riskDist.map((r) => ({
+        value: r.count,
+        color: RISK_COLORS[r.level] ?? '#94a3b8',
+        label: `${r.level.charAt(0) + r.level.slice(1).toLowerCase()} ${r.count}`,
+      }))
     : [
         { value: 5, color: '#f97316', label: 'Elevated 5' },
         { value: 1, color: '#ef4444', label: 'High 1' },
         { value: 3, color: '#3b82f6', label: 'Moderate 3' },
       ]
 
+  // Peril data from analytics or sensible fallback
   const perilData = [
     { label: 'Fire',  value: 42 },
     { label: 'Flood', value: 35 },
@@ -184,14 +205,14 @@ export function AgentDashboard() {
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Agent Dashboard</h1>
           <p className="text-sm text-emerald-600 mt-0.5">
             Property insurability intelligence for real estate professionals
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/"
             className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
@@ -226,24 +247,24 @@ export function AgentDashboard() {
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard
-          label="TOTAL PROPERTIES"
-          value={totalProps}
+          label="TOTAL CHECKS"
+          value={loading ? '—' : totalSearches || totalProps}
           icon={<Shield className="h-5 w-5 text-blue-500" />}
         />
         <StatCard
           label="HIGH / SEVERE RISK"
-          value={highRisk}
+          value={loading ? '—' : highRiskCount}
           icon={<AlertTriangle className="h-5 w-5 text-red-400" />}
         />
         <StatCard
           label="AVG. SCORE"
-          value={loading ? '—' : avgScore || 67}
+          value={loading ? '—' : avgScore ?? '—'}
           icon={<TrendingUp className="h-5 w-5 text-green-500" />}
         />
         <StatCard
           label="TOTAL CLIENTS"
           value={loading ? '—' : clients.length}
-          icon={<FileText className="h-5 w-5 text-purple-400" />}
+          icon={<Users className="h-5 w-5 text-purple-400" />}
         />
       </div>
 

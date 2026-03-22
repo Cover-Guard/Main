@@ -11,31 +11,49 @@ interface Message {
 const SUGGESTED_QUESTIONS = [
   'What does a flood risk score of 72 mean?',
   'Which carriers write in high-fire-risk zones?',
-  'How do I read the insurability panel?',
-  'What is a SFHA flood zone?',
+  'What is a surplus lines carrier?',
+  'How do I explain insurance risk to a buyer?',
 ]
 
 const STATIC_RESPONSES: Record<string, string> = {
-  flood: `A **flood risk score** of 72 indicates elevated risk. Properties with scores above 60 are typically in or near FEMA Special Flood Hazard Areas (SFHAs). You should expect lender-required NFIP coverage and limited private market options.`,
-  fire: `In high-fire-risk zones, carriers like **State Farm, Allstate, and Farmers** have reduced writing in CA. Active writers in these areas include **FAIR Plan** (insurer of last resort), **Hippo**, **Openly**, and some Lloyd's surplus lines carriers.`,
-  insurability: `The **Insurability Panel** shows whether a property can realistically get coverage. "Easily Insurable" = standard market options available. "Difficult to Insure" = limited to surplus lines or specialty carriers with higher premiums and exclusions.`,
-  sfha: `A **SFHA (Special Flood Hazard Area)** is any zone beginning with A or V on FEMA flood maps. Properties in SFHAs with a federally-backed mortgage are required to carry flood insurance. Base Flood Elevation (BFE) determines required coverage levels.`,
-  carriers: `Active carriers shown on CoverGuard are those **currently writing and binding** in that state and risk tier — not just licensed. Availability changes seasonally and after major events.`,
+  flood: `A **flood risk score** of 72 indicates elevated risk. Properties with scores above 60 are typically in or near FEMA Special Flood Hazard Areas (SFHAs). You should expect lender-required NFIP coverage and limited private market options. Scores above 80 indicate high annual flood probability (1%+).`,
+  fire: `In high-fire-risk zones, carriers like **State Farm, Allstate, and Farmers** have reduced writing in CA. Active writers in these areas include **FAIR Plan** (insurer of last resort), **Hippo**, **Openly**, and some Lloyd's surplus lines carriers. Always verify current availability — it changes seasonally.`,
+  insurability: `The **Insurability Panel** shows whether a property can realistically get coverage:\n\n• **Easily Insurable** — standard market options available at normal rates\n• **Moderate conditions** — coverage available, but may require mitigation\n• **Difficult to Insure** — limited to surplus lines or specialty carriers with higher premiums\n• **Potentially Uninsurable** — may only qualify for state last-resort plans`,
+  sfha: `A **SFHA (Special Flood Hazard Area)** is any zone beginning with A or V on FEMA flood maps. Properties in SFHAs with a federally-backed mortgage are **required** to carry flood insurance. Base Flood Elevation (BFE) determines required coverage levels. Zone X means low/minimal flood risk.`,
+  carriers: `Active carriers shown on CoverGuard are those **currently writing and binding** in that state and risk tier — not just licensed. Availability changes seasonally and after major events. Always request quotes from multiple carriers, including surplus lines if standard market is limited.`,
+  surplus: `**Surplus lines** (or non-admitted) carriers write policies that standard admitted carriers won't. They're not regulated by state rate/form rules, so premiums can be higher and coverage terms vary. They're often the only option in high-risk areas. Look for **A-rated surplus carriers** like Lloyd's of London, Lexington, or AIG Private Client.`,
+  wind: `**Wind risk** includes hurricane, tornado, and hail exposure. For coastal properties in FL, TX, or NC — look for **TWIA** or state wind pools. Design wind speed (mph) shown on CoverGuard comes from **ASCE 7 standards**. Homes built before 2002 in hurricane zones often need roof upgrades for coverage.`,
+  earthquake: `**Earthquake coverage** is almost never included in standard homeowners policies — it's a separate endorsement or policy. **CEA (California Earthquake Authority)** is the main provider in CA. Seismic scores on CoverGuard come from USGS ASCE 7-22 spectral acceleration data. Zone A+ = highest risk.`,
+  crime: `**Crime risk scores** use FBI Crime Data Explorer (CDE) statistics normalized against national averages. A score above 70 indicates property/violent crime rates significantly above national average. This affects **umbrella policy** availability and pricing, but rarely blocks homeowners coverage directly.`,
+  fair: `**FAIR Plans** are state-mandated insurers of last resort for properties that can't get standard market coverage. CA FAIR Plan covers fire/wind/lightning. FL Citizens covers multi-peril. FAIR Plan rates are typically **2–5× standard market rates** and coverage is more limited. They're a backstop, not a preferred solution.`,
+  compare: `The **Compare** feature lets you view up to 3 properties side-by-side — comparing risk scores, insurability levels, hazard breakdowns, and estimated annual premiums. It's ideal for helping buyers choose between properties with different risk profiles.`,
+  score: `**Insurability scores** (0–100) reflect how easily a property can be covered by the standard market. **80–100** = easily insurable, **60–79** = some conditions, **40–59** = difficult, **below 40** = challenging/surplus lines territory. Scores update as carrier availability data refreshes.`,
+  save: `To **save a property**, open its full report and click the "Save" button in the header. Saved properties appear in your **Reports** tab for quick access. You can add notes and tags to organize them by client or deal stage.`,
+  buyer: `When explaining insurance risk to buyers:\n\n1. Use the **Insurability Panel** to frame overall risk simply ("easily insurable" vs "difficult")\n2. Show the **Risk Score** breakdown — flood, fire, wind, earthquake, crime\n3. Show **Active Carriers** to demonstrate real carrier availability\n4. Use the **Cost Estimate** to set premium expectations early\n5. Recommend they get quotes from 2–3 carriers before making an offer`,
 }
 
 function getStaticResponse(input: string): string {
   const lower = input.toLowerCase()
+  if (lower.includes('flood zone') || lower.includes('sfha') || lower.includes('fema') || lower.includes('nfip')) return STATIC_RESPONSES.sfha!
   if (lower.includes('flood')) return STATIC_RESPONSES.flood!
-  if (lower.includes('fire') || lower.includes('carrier')) return STATIC_RESPONSES.fire!
-  if (lower.includes('insurability') || lower.includes('panel')) return STATIC_RESPONSES.insurability!
-  if (lower.includes('sfha') || lower.includes('flood zone')) return STATIC_RESPONSES.sfha!
-  if (lower.includes('carrier') || lower.includes('writ')) return STATIC_RESPONSES.carriers!
-  return `That's a great question about **${input.slice(0, 40)}${input.length > 40 ? '…' : ''}**. CoverGuard aggregates data from FEMA, USGS, Cal Fire, NOAA, and the FBI to provide a comprehensive risk picture. For specific guidance, consult a licensed insurance professional in your state.`
+  if (lower.includes('fire') || lower.includes('cal fire') || lower.includes('fhsz') || lower.includes('wildland')) return STATIC_RESPONSES.fire!
+  if (lower.includes('insurability') || lower.includes('panel') || lower.includes('insurable')) return STATIC_RESPONSES.insurability!
+  if (lower.includes('surplus') || lower.includes('non-admitted') || lower.includes('lloyd')) return STATIC_RESPONSES.surplus!
+  if (lower.includes('wind') || lower.includes('hurricane') || lower.includes('tornado') || lower.includes('hail')) return STATIC_RESPONSES.wind!
+  if (lower.includes('earthquake') || lower.includes('seismic') || lower.includes('quake') || lower.includes('cea')) return STATIC_RESPONSES.earthquake!
+  if (lower.includes('crime') || lower.includes('fbi') || lower.includes('violent')) return STATIC_RESPONSES.crime!
+  if (lower.includes('fair plan') || lower.includes('citizens') || lower.includes('last resort')) return STATIC_RESPONSES.fair!
+  if (lower.includes('compare') || lower.includes('side by side') || lower.includes('comparison')) return STATIC_RESPONSES.compare!
+  if (lower.includes('score') || lower.includes('rating') || lower.includes('number')) return STATIC_RESPONSES.score!
+  if (lower.includes('save') || lower.includes('bookmark') || lower.includes('report')) return STATIC_RESPONSES.save!
+  if (lower.includes('buyer') || lower.includes('client') || lower.includes('explain') || lower.includes('present')) return STATIC_RESPONSES.buyer!
+  if (lower.includes('carrier') || lower.includes('writ') || lower.includes('active')) return STATIC_RESPONSES.carriers!
+  return `Good question about **${input.slice(0, 45)}${input.length > 45 ? '…' : ''}**. CoverGuard aggregates data from FEMA NFHL, USGS Design Maps, Cal Fire FHSZ, NOAA SLOSH, USFS WUI, and FBI CDE to provide parcel-level risk intelligence. For property-specific guidance, open the full report and check the Risk Breakdown and Active Carriers sections.`
 }
 
 const WELCOME_MESSAGE: Message = {
   role: 'advisor',
-  text: "Hi! I'm your CoverGuard AI Advisor. Ask me anything about property insurability, risk scores, flood zones, fire hazards, or carrier availability.",
+  text: "Hi! I'm your CoverGuard AI Advisor. I can help with flood zones, fire risk, carrier availability, insurability scores, surplus lines, FAIR Plans, earthquake coverage, and more. Try a suggested question or ask anything.",
 }
 
 export function AIAdvisor() {

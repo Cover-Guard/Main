@@ -32,11 +32,16 @@ export function NewCheckPage() {
   const router = useRouter()
   const [address, setAddress] = useState('')
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [yearBuilt, setYearBuilt] = useState('')
+  const [sqft, setSqft] = useState('')
 
   function handleCheck(e: React.FormEvent) {
     e.preventDefault()
     if (!address.trim()) return
-    router.push(`/search?q=${encodeURIComponent(address.trim())}`)
+    const params = new URLSearchParams({ q: address.trim() })
+    if (yearBuilt) params.set('yearBuilt', yearBuilt)
+    if (sqft) params.set('sqft', sqft)
+    router.push(`/search?${params.toString()}`)
   }
 
   return (
@@ -109,6 +114,11 @@ export function NewCheckPage() {
                       Year Built
                     </label>
                     <input
+                      type="number"
+                      min="1800"
+                      max={new Date().getFullYear()}
+                      value={yearBuilt}
+                      onChange={(e) => setYearBuilt(e.target.value)}
                       className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                       placeholder="e.g. 1995"
                     />
@@ -118,6 +128,10 @@ export function NewCheckPage() {
                       Square Footage
                     </label>
                     <input
+                      type="number"
+                      min="100"
+                      value={sqft}
+                      onChange={(e) => setSqft(e.target.value)}
                       className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
                       placeholder="e.g. 1800"
                     />

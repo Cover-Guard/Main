@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import Link from 'next/link'
+import { ArrowLeft, GitCompare } from 'lucide-react'
 import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyCarriers, getPropertyInsurability } from '@/lib/api'
 import { RiskSummary } from '@/components/property/RiskSummary'
 import { RiskBreakdown } from '@/components/property/RiskBreakdown'
@@ -7,6 +9,7 @@ import { InsuranceCostEstimate } from '@/components/property/InsuranceCostEstima
 import { PropertyDetails } from '@/components/property/PropertyDetails'
 import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
+import { SavePropertyButton } from '@/components/property/SavePropertyButton'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
@@ -91,21 +94,46 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
 
         {/* Header */}
         <div className="bg-white border-b border-gray-200">
-          <div className="mx-auto max-w-7xl px-4 py-5 md:py-6">
-            <p className="text-sm text-gray-500">Property Report</p>
-            <h1 className="text-xl font-bold text-gray-900 md:text-2xl">{prop.address}</h1>
-            <p className="text-gray-600">{formatAddress(prop)}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-4">
-              {prop.estimatedValue && (
-                <p className="text-lg font-semibold text-brand-700">
-                  Est. {formatCurrency(prop.estimatedValue)}
-                </p>
-              )}
-              {prop.parcelId && (
-                <p className="text-sm text-gray-500">
-                  APN / Parcel: <span className="font-mono font-medium text-gray-700">{prop.parcelId}</span>
-                </p>
-              )}
+          <div className="mx-auto max-w-7xl px-4 py-4 md:py-5">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 mb-3">
+              <Link
+                href="/search"
+                className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to search
+              </Link>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Property Report</p>
+                <h1 className="text-xl font-bold text-gray-900 md:text-2xl mt-0.5">{prop.address}</h1>
+                <p className="text-gray-600">{formatAddress(prop)}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-4">
+                  {prop.estimatedValue && (
+                    <p className="text-lg font-semibold text-brand-700">
+                      Est. {formatCurrency(prop.estimatedValue)}
+                    </p>
+                  )}
+                  {prop.parcelId && (
+                    <p className="text-sm text-gray-500">
+                      APN / Parcel: <span className="font-mono font-medium text-gray-700">{prop.parcelId}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              {/* Actions */}
+              <div className="flex shrink-0 items-center gap-2 mt-1">
+                <Link
+                  href={`/compare?ids=${prop.id}`}
+                  className="hidden sm:flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <GitCompare className="h-4 w-4" />
+                  Compare
+                </Link>
+                <SavePropertyButton propertyId={prop.id} />
+              </div>
             </div>
           </div>
         </div>
