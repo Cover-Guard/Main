@@ -42,6 +42,7 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
   # ── Base44 deployment summary ─────────────────────────────────────────────
   base44-deploy-summary:

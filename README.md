@@ -114,7 +114,11 @@ Authentication uses **Supabase JWT access tokens** passed as `Authorization: Bea
 
 1. Create a project at [supabase.com](https://supabase.com)
 2. Copy the project URL and keys into `.env`
-3. Copy the **Direct connection** string into `DATABASE_URL`
+3. Set **two** database connection strings in `.env` (see `.env.example` for full format):
+   - `DATABASE_URL` — the **Connection Pooler** URL (pgBouncer, Transaction Mode, port 6543).
+     Used by the application at runtime for all database queries.
+   - `DIRECT_URL` — the **Direct connection** URL (port 5432).
+     Used by Prisma exclusively for migrations and schema introspection.
 4. Run `npm run db:migrate` to push the Prisma schema
 
 Required secrets in GitHub Actions:
@@ -123,11 +127,8 @@ Required secrets in GitHub Actions:
 SUPABASE_URL
 SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
-DATABASE_URL
-CONTAINER_REGISTRY      # your Docker registry (ECR, GCR, etc.)
-REGISTRY_USERNAME
-REGISTRY_PASSWORD
-PRODUCTION_API_URL
+DATABASE_URL          # pgBouncer / Connection Pooler URL (production queries)
+DIRECT_URL            # Direct PostgreSQL connection URL (migrations only)
 ```
 
 ---
