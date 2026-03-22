@@ -7,7 +7,6 @@ permissions:
   contents:      read
   actions:       read   # secrets/variables names
   deployments:   read   # environments
-  administration: read  # deploy keys, webhooks
 
 jobs:
   get-base44-info:
