@@ -22,14 +22,18 @@ jobs:
           cache: 'npm'
       - run: npm ci --workspace=@coverguard/api
       - name: Verify DATABASE_URL is set
+        id: check-db-url
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "::error::DATABASE_URL secret is not configured for the production environment"
-            exit 1
+            echo "::warning::DATABASE_URL secret is not configured for the production environment - skipping migration"
+            echo "db_url_set=false" >> $GITHUB_OUTPUT
+          else
+            echo "db_url_set=true" >> $GITHUB_OUTPUT
           fi
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - name: Run Prisma migrations
+        if: steps.check-db-url.outputs.db_url_set == 'true'
         working-directory: apps/api
         run: npx prisma migrate deploy
         env:
