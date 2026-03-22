@@ -57,7 +57,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=@coverguard/shared
-      - run: npm run test -- -- --passWithNoTests
+      - run: npm run test
 
   build:
     name: Build
