@@ -133,7 +133,7 @@ app.use(
   requestTimeout(20_000),
 )
 
-app.use('/api/properties', requestTimeout(30_000), propertiesRouter)
+app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
 app.use('/api/clients', requestTimeout(15_000), clientsRouter)
 app.use('/api/analytics', requestTimeout(20_000), analyticsRouter)
 
