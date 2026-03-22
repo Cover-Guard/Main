@@ -32,6 +32,7 @@ model User {
   reports         PropertyReport[]
   clients         Client[]
 
+  @@index([role])
   @@map("users")
 }
 
@@ -75,6 +76,9 @@ model Property {
   @@index([zip])
   @@index([state, city])
   @@index([lat, lng])
+  @@index([state])
+  @@index([createdAt])
+  @@index([state, createdAt(sort: Desc)])
   @@map("properties")
 }
 
@@ -138,6 +142,8 @@ model RiskProfile {
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
+  @@index([expiresAt])
+  @@index([overallRiskLevel])
   @@map("risk_profiles")
 }
 
@@ -177,6 +183,7 @@ model InsuranceEstimate {
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
+  @@index([expiresAt])
   @@map("insurance_estimates")
 }
 
@@ -200,6 +207,8 @@ model SavedProperty {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, propertyId])
+  @@index([userId, savedAt(sort: Desc)])
+  @@index([propertyId])
   @@map("saved_properties")
 }
 
@@ -216,6 +225,8 @@ model PropertyReport {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
+  @@index([userId, generatedAt(sort: Desc)])
+  @@index([propertyId])
   @@map("property_reports")
 }
 
@@ -265,8 +276,9 @@ model QuoteRequest {
   submittedAt   DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
-  @@index([userId])
-  @@index([propertyId])
+  @@index([userId, submittedAt(sort: Desc)])
+  @@index([propertyId, submittedAt(sort: Desc)])
+  @@index([status])
   @@map("quote_requests")
 }
 
@@ -286,6 +298,7 @@ model SearchHistory {
   resultCount Int      @default(0)
   searchedAt  DateTime @default(now())
 
-  @@index([userId])
+  @@index([userId, searchedAt(sort: Desc)])
+  @@index([searchedAt(sort: Desc)])
   @@map("search_history")
 }

@@ -1,5 +1,12 @@
 import { prisma } from '../utils/prisma'
-import { fetchFloodRisk, fetchFireRisk, fetchEarthquakeRisk, fetchWindRisk, fetchCrimeRisk } from '../integrations/riskData'
+import { riskCache, riskDeduplicator } from '../utils/cache'
+import {
+  fetchFloodRisk,
+  fetchFireRisk,
+  fetchEarthquakeRisk,
+  fetchWindRisk,
+  fetchCrimeRisk,
+} from '../integrations/riskData'
 import type { PropertyRiskProfile, RiskLevel } from '@coverguard/shared'
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
 import { RiskLevel as PrismaRiskLevel } from '@prisma/client'
@@ -29,7 +36,11 @@ function computeFireScore(hazZone: string | null, wui: boolean): number {
   return score
 }
 
-function computeWindScore(hurricaneRisk: boolean, tornadoRisk: boolean, hailRisk: boolean): number {
+function computeWindScore(
+  hurricaneRisk: boolean,
+  tornadoRisk: boolean,
+  hailRisk: boolean,
+): number {
   let score = 10
   if (hurricaneRisk) score = Math.max(score, 70)
   if (tornadoRisk) score = Math.max(score, 55)
@@ -43,51 +54,70 @@ function computeEarthquakeScore(seismicZone: string | undefined): number {
 }
 
 function computeCrimeScore(violentIndex: number, propertyIndex: number): number {
-  // FBI UCR national average: violent ~380, property ~2110
   const violentNorm = Math.min((violentIndex / 760) * 50, 50)
   const propertyNorm = Math.min((propertyIndex / 4220) * 50, 50)
   return Math.round(violentNorm + propertyNorm)
 }
 
 export async function getOrComputeRiskProfile(propertyId: string): Promise<PropertyRiskProfile> {
-  const property = await prisma.property.findUniqueOrThrow({ where: { id: propertyId } })
+  // L1 cache hit — no DB or external API call needed
+  const l1 = riskCache.get(propertyId)
+  if (l1) return l1
 
-  // Return cached profile if not expired
-  const cached = await prisma.riskProfile.findUnique({ where: { propertyId } })
-  if (cached && cached.expiresAt > new Date()) {
-    return prismaProfileToDto(cached, propertyId)
-  }
+  // Deduplicate concurrent requests for the same property
+  return riskDeduplicator.dedupe(propertyId, async () => {
+    // Single query: fetch property + existing risk profile together
+    const property = await prisma.property.findUniqueOrThrow({
+      where: { id: propertyId },
+      include: { riskProfile: true },
+    })
 
-  // Fetch risk data in parallel
-  const [floodData, fireData, earthquakeData, windData, crimeData] = await Promise.all([
-    fetchFloodRisk(property.lat, property.lng, property.zip ?? ''),
-    fetchFireRisk(property.lat, property.lng, property.state),
-    fetchEarthquakeRisk(property.lat, property.lng),
-    fetchWindRisk(property.lat, property.lng, property.state),
-    fetchCrimeRisk(property.lat, property.lng, property.zip ?? ''),
-  ])
+    const cached = property.riskProfile
+    if (cached && cached.expiresAt > new Date()) {
+      const dto = prismaProfileToDto(cached, propertyId)
+      riskCache.set(propertyId, dto, (cached.expiresAt.getTime() - Date.now()))
+      return dto
+    }
 
-  // Compute scores
-  const floodScore = computeFloodScore(floodData.floodZone, floodData.inSpecialFloodHazardArea ?? false)
-  const fireScore = computeFireScore(fireData.firHazardSeverityZone ?? null, fireData.wildlandUrbanInterface ?? false)
-  const windScore = computeWindScore(windData.hurricaneRisk ?? false, windData.tornadoRisk ?? false, windData.hailRisk ?? false)
-  const earthquakeScore = computeEarthquakeScore(earthquakeData.seismicZone ?? undefined)
-  const crimeScore = computeCrimeScore(crimeData.violentCrimeIndex ?? 380, crimeData.propertyCrimeIndex ?? 2110)
+    // Fetch all risk data sources in parallel
+    const [floodData, fireData, earthquakeData, windData, crimeData] = await Promise.all([
+      fetchFloodRisk(property.lat, property.lng, property.zip ?? ''),
+      fetchFireRisk(property.lat, property.lng, property.state),
+      fetchEarthquakeRisk(property.lat, property.lng),
+      fetchWindRisk(property.lat, property.lng, property.state),
+      fetchCrimeRisk(property.lat, property.lng, property.zip ?? ''),
+    ])
 
-  // Overall = weighted average
-  const overallScore = Math.round(
-    floodScore * 0.30 +
-    fireScore * 0.25 +
-    windScore * 0.20 +
-    earthquakeScore * 0.15 +
-    crimeScore * 0.10
-  )
+    const floodScore = computeFloodScore(
+      floodData.floodZone,
+      floodData.inSpecialFloodHazardArea ?? false,
+    )
+    const fireScore = computeFireScore(
+      fireData.firHazardSeverityZone ?? null,
+      fireData.wildlandUrbanInterface ?? false,
+    )
+    const windScore = computeWindScore(
+      windData.hurricaneRisk ?? false,
+      windData.tornadoRisk ?? false,
+      windData.hailRisk ?? false,
+    )
+    const earthquakeScore = computeEarthquakeScore(earthquakeData.seismicZone ?? undefined)
+    const crimeScore = computeCrimeScore(
+      crimeData.violentCrimeIndex ?? 380,
+      crimeData.propertyCrimeIndex ?? 2110,
+    )
 
-  const expiresAt = new Date(Date.now() + RISK_CACHE_TTL_SECONDS * 1000)
+    const overallScore = Math.round(
+      floodScore * 0.3 +
+        fireScore * 0.25 +
+        windScore * 0.2 +
+        earthquakeScore * 0.15 +
+        crimeScore * 0.1,
+    )
 
-  const profile = await prisma.riskProfile.upsert({
-    where: { propertyId },
-    update: {
+    const expiresAt = new Date(Date.now() + RISK_CACHE_TTL_SECONDS * 1000)
+
+    const profileData = {
       overallRiskLevel: scoreToLevel(overallScore),
       overallRiskScore: overallScore,
       floodRiskLevel: scoreToLevel(floodScore),
@@ -116,44 +146,24 @@ export async function getOrComputeRiskProfile(propertyId: string): Promise<Prope
       propertyCrimeIndex: crimeData.propertyCrimeIndex ?? 2110,
       nationalAvgDiff: crimeData.nationalAverageDiff ?? 0,
       expiresAt,
-    },
-    create: {
-      propertyId,
-      overallRiskLevel: scoreToLevel(overallScore),
-      overallRiskScore: overallScore,
-      floodRiskLevel: scoreToLevel(floodScore),
-      floodRiskScore: floodScore,
-      floodZone: floodData.floodZone ?? null,
-      floodFirmPanelId: floodData.firmPanelId ?? null,
-      floodBaseElevation: floodData.baseFloodElevation ?? null,
-      inSFHA: floodData.inSpecialFloodHazardArea ?? false,
-      floodAnnualChance: floodData.annualChanceOfFlooding ?? null,
-      fireRiskLevel: scoreToLevel(fireScore),
-      fireRiskScore: fireScore,
-      firHazardZone: fireData.firHazardSeverityZone ?? null,
-      wildlandUrbanInterface: fireData.wildlandUrbanInterface ?? false,
-      windRiskLevel: scoreToLevel(windScore),
-      windRiskScore: windScore,
-      hurricaneRisk: windData.hurricaneRisk ?? false,
-      tornadoRisk: windData.tornadoRisk ?? false,
-      hailRisk: windData.hailRisk ?? false,
-      designWindSpeed: windData.designWindSpeed ?? null,
-      earthquakeRiskLevel: scoreToLevel(earthquakeScore),
-      earthquakeRiskScore: earthquakeScore,
-      seismicZone: earthquakeData.seismicZone ?? null,
-      crimeRiskLevel: scoreToLevel(crimeScore),
-      crimeRiskScore: crimeScore,
-      violentCrimeIndex: crimeData.violentCrimeIndex ?? 380,
-      propertyCrimeIndex: crimeData.propertyCrimeIndex ?? 2110,
-      nationalAvgDiff: crimeData.nationalAverageDiff ?? 0,
-      expiresAt,
-    },
+    }
+
+    const profile = await prisma.riskProfile.upsert({
+      where: { propertyId },
+      update: profileData,
+      create: { propertyId, ...profileData },
+    })
+
+    const dto = prismaProfileToDto(profile, propertyId)
+    riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
+    return dto
   })
-
-  return prismaProfileToDto(profile, propertyId)
 }
 
-function prismaProfileToDto(p: Awaited<ReturnType<typeof prisma.riskProfile.findUniqueOrThrow>>, propertyId: string): PropertyRiskProfile {
+function prismaProfileToDto(
+  p: Awaited<ReturnType<typeof prisma.riskProfile.findUniqueOrThrow>>,
+  propertyId: string,
+): PropertyRiskProfile {
   const now = new Date().toISOString()
   return {
     propertyId,
@@ -164,7 +174,12 @@ function prismaProfileToDto(p: Awaited<ReturnType<typeof prisma.riskProfile.find
       score: p.floodRiskScore,
       trend: 'STABLE',
       description: 'Flood risk based on FEMA National Flood Hazard Layer',
-      details: [`Flood zone: ${p.floodZone ?? 'Unknown'}`, p.inSFHA ? 'Property is in a Special Flood Hazard Area' : 'Not in SFHA'],
+      details: [
+        `Flood zone: ${p.floodZone ?? 'Unknown'}`,
+        p.inSFHA
+          ? 'Property is in a Special Flood Hazard Area'
+          : 'Not in SFHA',
+      ],
       dataSource: 'FEMA NFHL',
       lastUpdated: now,
       floodZone: p.floodZone ?? 'UNKNOWN',
@@ -178,7 +193,10 @@ function prismaProfileToDto(p: Awaited<ReturnType<typeof prisma.riskProfile.find
       score: p.fireRiskScore,
       trend: 'STABLE',
       description: 'Wildfire risk based on Cal Fire and USFS hazard zones',
-      details: [p.firHazardZone ? `Hazard zone: ${p.firHazardZone}` : 'No state hazard zone data', p.wildlandUrbanInterface ? 'In Wildland-Urban Interface' : 'Not in WUI'],
+      details: [
+        p.firHazardZone ? `Hazard zone: ${p.firHazardZone}` : 'No state hazard zone data',
+        p.wildlandUrbanInterface ? 'In Wildland-Urban Interface' : 'Not in WUI',
+      ],
       dataSource: 'Cal Fire / USFS',
       lastUpdated: now,
       firHazardSeverityZone: p.firHazardZone,
@@ -208,7 +226,11 @@ function prismaProfileToDto(p: Awaited<ReturnType<typeof prisma.riskProfile.find
       score: p.earthquakeRiskScore,
       trend: 'STABLE',
       description: 'Seismic risk based on USGS National Seismic Hazard Map',
-      details: [p.seismicZone ? `Seismic design category: ${p.seismicZone}` : 'Seismic data unavailable'],
+      details: [
+        p.seismicZone
+          ? `Seismic design category: ${p.seismicZone}`
+          : 'Seismic data unavailable',
+      ],
       dataSource: 'USGS NSHM',
       lastUpdated: now,
       seismicZone: p.seismicZone,
@@ -221,7 +243,10 @@ function prismaProfileToDto(p: Awaited<ReturnType<typeof prisma.riskProfile.find
       score: p.crimeRiskScore,
       trend: 'STABLE',
       description: 'Crime index based on FBI Uniform Crime Reporting data',
-      details: [`Violent crime index: ${p.violentCrimeIndex}`, `Property crime index: ${p.propertyCrimeIndex}`],
+      details: [
+        `Violent crime index: ${p.violentCrimeIndex}`,
+        `Property crime index: ${p.propertyCrimeIndex}`,
+      ],
       dataSource: 'FBI UCR',
       lastUpdated: now,
       violentCrimeIndex: p.violentCrimeIndex,
