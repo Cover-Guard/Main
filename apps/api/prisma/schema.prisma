@@ -7,26 +7,25 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 // Auth is handled by Supabase Auth; this table extends the auth.users record.
 
 model User {
-  id                String    @id @default(uuid()) // matches auth.users.id
-  email             String    @unique
-  firstName         String
-  lastName          String
-  role              UserRole  @default(BUYER)
-  company           String?
-  licenseNumber     String?   // agents / lenders
-  avatarUrl         String?
-  termsAcceptedAt   DateTime? // null = has not yet accepted terms
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id              String    @id @default(uuid()) // matches auth.users.id
+  email           String    @unique
+  firstName       String
+  lastName        String
+  role            UserRole  @default(BUYER)
+  company         String?
+  licenseNumber   String? // agents / lenders
+  avatarUrl       String?
+  termsAcceptedAt DateTime? // null = has not yet accepted terms
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   savedProperties SavedProperty[]
   reports         PropertyReport[]
@@ -59,7 +58,7 @@ model Property {
   squareFeet     Int?
   bedrooms       Int?
   bathrooms      Float?
-  lotSize        Float?       // sq ft
+  lotSize        Float? // sq ft
   estimatedValue Int?
   lastSalePrice  Int?
   lastSaleDate   DateTime?
@@ -68,10 +67,10 @@ model Property {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  riskProfile     RiskProfile?
+  riskProfile       RiskProfile?
   insuranceEstimate InsuranceEstimate?
-  savedBy         SavedProperty[]
-  reports         PropertyReport[]
+  savedBy           SavedProperty[]
+  reports           PropertyReport[]
 
   @@index([zip])
   @@index([state, city])
@@ -95,47 +94,47 @@ enum PropertyType {
 // ─── Risk Profile ─────────────────────────────────────────────────────────────
 
 model RiskProfile {
-  id                String    @id @default(uuid())
-  propertyId        String    @unique
-  overallRiskLevel  RiskLevel @default(MODERATE)
-  overallRiskScore  Int       // 0–100
+  id               String    @id @default(uuid())
+  propertyId       String    @unique
+  overallRiskLevel RiskLevel @default(MODERATE)
+  overallRiskScore Int // 0–100
 
   // Flood
-  floodRiskLevel         RiskLevel @default(LOW)
-  floodRiskScore         Int
-  floodZone              String?
-  floodFirmPanelId       String?
-  floodBaseElevation     Float?
-  inSFHA                 Boolean   @default(false)
-  floodAnnualChance      Float?
+  floodRiskLevel     RiskLevel @default(LOW)
+  floodRiskScore     Int
+  floodZone          String?
+  floodFirmPanelId   String?
+  floodBaseElevation Float?
+  inSFHA             Boolean   @default(false)
+  floodAnnualChance  Float?
 
   // Fire
   fireRiskLevel          RiskLevel @default(LOW)
   fireRiskScore          Int
   firHazardZone          String?
   wildlandUrbanInterface Boolean   @default(false)
-  nearestFireStation     Float?    // miles
+  nearestFireStation     Float? // miles
 
   // Wind
-  windRiskLevel     RiskLevel @default(LOW)
-  windRiskScore     Int
-  designWindSpeed   Int?
-  hurricaneRisk     Boolean   @default(false)
-  tornadoRisk       Boolean   @default(false)
-  hailRisk          Boolean   @default(false)
+  windRiskLevel   RiskLevel @default(LOW)
+  windRiskScore   Int
+  designWindSpeed Int?
+  hurricaneRisk   Boolean   @default(false)
+  tornadoRisk     Boolean   @default(false)
+  hailRisk        Boolean   @default(false)
 
   // Earthquake
-  earthquakeRiskLevel   RiskLevel @default(LOW)
-  earthquakeRiskScore   Int
-  seismicZone           String?
-  nearestFaultLine      Float?    // miles
+  earthquakeRiskLevel RiskLevel @default(LOW)
+  earthquakeRiskScore Int
+  seismicZone         String?
+  nearestFaultLine    Float? // miles
 
   // Crime
-  crimeRiskLevel       RiskLevel @default(LOW)
-  crimeRiskScore       Int
-  violentCrimeIndex    Int
-  propertyCrimeIndex   Int
-  nationalAvgDiff      Float     // percentage diff
+  crimeRiskLevel     RiskLevel @default(LOW)
+  crimeRiskScore     Int
+  violentCrimeIndex  Int
+  propertyCrimeIndex Int
+  nationalAvgDiff    Float // percentage diff
 
   generatedAt DateTime @default(now())
   expiresAt   DateTime
@@ -158,28 +157,28 @@ enum RiskLevel {
 // ─── Insurance Estimates ──────────────────────────────────────────────────────
 
 model InsuranceEstimate {
-  id                      String          @id @default(uuid())
-  propertyId              String          @unique
-  estimatedAnnualTotal    Int
-  estimatedMonthlyTotal   Int
-  confidenceLevel         ConfidenceLevel @default(MEDIUM)
-  homeownersLow           Int
-  homeownersHigh          Int
-  homeownersAvg           Int
-  floodRequired           Boolean         @default(false)
-  floodLow                Int?
-  floodHigh               Int?
-  floodAvg                Int?
-  earthquakeRequired      Boolean         @default(false)
-  earthquakeLow           Int?
-  earthquakeHigh          Int?
-  earthquakeAvg           Int?
-  windRequired            Boolean         @default(false)
-  windLow                 Int?
-  windHigh                Int?
-  windAvg                 Int?
-  generatedAt             DateTime        @default(now())
-  expiresAt               DateTime
+  id                    String          @id @default(uuid())
+  propertyId            String          @unique
+  estimatedAnnualTotal  Int
+  estimatedMonthlyTotal Int
+  confidenceLevel       ConfidenceLevel @default(MEDIUM)
+  homeownersLow         Int
+  homeownersHigh        Int
+  homeownersAvg         Int
+  floodRequired         Boolean         @default(false)
+  floodLow              Int?
+  floodHigh             Int?
+  floodAvg              Int?
+  earthquakeRequired    Boolean         @default(false)
+  earthquakeLow         Int?
+  earthquakeHigh        Int?
+  earthquakeAvg         Int?
+  windRequired          Boolean         @default(false)
+  windLow               Int?
+  windHigh              Int?
+  windAvg               Int?
+  generatedAt           DateTime        @default(now())
+  expiresAt             DateTime
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
@@ -239,16 +238,16 @@ enum ReportType {
 // ─── Clients (Agent → Client relationship) ────────────────────────────────────
 
 model Client {
-  id          String       @id @default(uuid())
-  agentId     String
-  firstName   String
-  lastName    String
-  email       String
-  phone       String?
-  notes       String?
-  status      ClientStatus @default(PROSPECT)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id        String       @id @default(uuid())
+  agentId   String
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  notes     String?
+  status    ClientStatus @default(PROSPECT)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   agent User @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
@@ -293,7 +292,7 @@ enum QuoteRequestStatus {
 
 model SearchHistory {
   id          String   @id @default(uuid())
-  userId      String?  // nullable for anonymous searches
+  userId      String? // nullable for anonymous searches
   query       String
   resultCount Int      @default(0)
   searchedAt  DateTime @default(now())
