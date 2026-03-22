@@ -22,6 +22,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=@coverguard/shared
+      - run: npm run generate --workspace=@coverguard/api
       - run: npm run typecheck
 
   lint:
@@ -37,6 +38,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=@coverguard/shared
+      - run: npm run generate --workspace=@coverguard/api
       - run: npm run lint
 
   test:
@@ -56,7 +58,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=@coverguard/shared
-      - run: npm run test -- --passWithNoTests
+      - run: npm run test
 
   build:
     name: Build
