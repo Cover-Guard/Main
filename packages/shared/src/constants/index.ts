@@ -16,6 +16,10 @@ export const RISK_CACHE_TTL_SECONDS = 60 * 60 * 24 // 24 hours
 
 export const INSURANCE_ESTIMATE_CACHE_TTL_SECONDS = 60 * 60 * 6 // 6 hours
 
+export const INSURABILITY_CACHE_TTL_SECONDS = 60 * 60 * 6 // 6 hours
+
+export const CARRIERS_CACHE_TTL_SECONDS = 60 * 60 * 1 // 1 hour
+
 export const US_STATES = [
   { code: 'AL', name: 'Alabama' },
   { code: 'AK', name: 'Alaska' },
