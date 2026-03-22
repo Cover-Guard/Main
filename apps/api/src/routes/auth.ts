@@ -104,15 +104,77 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
 })
 
 // ─── Accept terms ─────────────────────────────────────────────────────────────
+// Uses upsert so that OAuth users whose handle_new_user trigger fired correctly
+// get an update, while any edge-case where the profile is missing gets a create.
 
 authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const user = await prisma.user.update({
+
+    // Look up the Supabase auth user so we have email + metadata for the upsert
+    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
+    const authUser = authData.user
+
+    const user = await prisma.user.upsert({
       where: { id: userId },
-      data: { termsAcceptedAt: new Date() },
+      update: { termsAcceptedAt: new Date() },
+      create: {
+        id: userId,
+        email: authUser?.email ?? '',
+        firstName: authUser?.user_metadata?.firstName
+          ?? authUser?.user_metadata?.full_name?.split(' ')[0]
+          ?? '',
+        lastName: authUser?.user_metadata?.lastName
+          ?? authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ')
+          ?? '',
+        role: (authUser?.user_metadata?.role as never) ?? 'BUYER',
+        company: authUser?.user_metadata?.company ?? null,
+        licenseNumber: authUser?.user_metadata?.licenseNumber ?? null,
+        termsAcceptedAt: new Date(),
+      },
     })
     res.json({ success: true, data: { termsAcceptedAt: user.termsAcceptedAt } })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Sync profile (OAuth fallback) ────────────────────────────────────────────
+// Called by the OAuth callback route when the handle_new_user trigger did not
+// create a public.users row (e.g. trigger misconfigured or first-deploy race).
+// Safe to call multiple times — upsert is idempotent.
+
+authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
+    const authUser = authData.user
+
+    if (!authUser) {
+      res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'Auth user not found' } })
+      return
+    }
+
+    const user = await prisma.user.upsert({
+      where: { id: userId },
+      update: {}, // profile already exists — leave it untouched
+      create: {
+        id: userId,
+        email: authUser.email ?? '',
+        firstName: authUser.user_metadata?.firstName
+          ?? authUser.user_metadata?.full_name?.split(' ')[0]
+          ?? '',
+        lastName: authUser.user_metadata?.lastName
+          ?? authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ')
+          ?? '',
+        role: (authUser.user_metadata?.role as never) ?? 'BUYER',
+        company: authUser.user_metadata?.company ?? null,
+        licenseNumber: authUser.user_metadata?.licenseNumber ?? null,
+        avatarUrl: authUser.user_metadata?.avatar_url ?? null,
+      },
+    })
+
+    res.json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
   } catch (err) {
     next(err)
   }
