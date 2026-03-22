@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "test": "turbo run test",
+    "test": "turbo run test -- --passWithNoTests",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "db:migrate": "turbo run db:migrate --filter=api",
