@@ -11,12 +11,14 @@ RUN npm ci --workspace=@coverguard/web --workspace=@coverguard/shared
 
 # ─── Build shared ─────────────────────────────────────────────────────────────
 FROM base AS build-shared
+COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY packages/shared ./packages/shared
 RUN npm run build --workspace=@coverguard/shared
 
 # ─── Build Next.js ────────────────────────────────────────────────────────────
 FROM base AS builder
+COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 COPY apps/web ./apps/web

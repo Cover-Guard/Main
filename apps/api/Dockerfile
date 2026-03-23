@@ -11,12 +11,14 @@ RUN npm ci --workspace=@coverguard/api --workspace=@coverguard/shared
 
 # ─── Build shared package ─────────────────────────────────────────────────────
 FROM base AS build-shared
+COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY packages/shared ./packages/shared
 RUN npm run build --workspace=@coverguard/shared
 
 # ─── Build API ────────────────────────────────────────────────────────────────
 FROM base AS build-api
+COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 COPY apps/api ./apps/api
