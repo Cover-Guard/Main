@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { CarriersResult, Carrier } from '@coverguard/shared'
-import { CheckCircle, XCircle, AlertTriangle, Star, ChevronDown, ChevronUp, Send } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp, Send } from 'lucide-react'
 import { QuoteRequestModal } from './QuoteRequestModal'
 
 const STATUS_CONFIG = {
@@ -31,7 +31,6 @@ export function ActiveCarriers({ data, propertyId, propertyAddress }: ActiveCarr
 
   const marketConfig = MARKET_CONFIG[data.marketCondition]
   const activeCarriers = data.carriers.filter((c) => c.writingStatus === 'ACTIVELY_WRITING')
-  const otherCarriers = data.carriers.filter((c) => c.writingStatus !== 'ACTIVELY_WRITING')
 
   return (
     <div className="card overflow-hidden">

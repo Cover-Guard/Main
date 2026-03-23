@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Search, GitCompare, ArrowRight } from 'lucide-react'
+import { GitCompare } from 'lucide-react'
 import { SearchBar } from '@/components/search/SearchBar'
 import { SavedPropertiesPanel } from './SavedPropertiesPanel'
 import { useCompare } from '@/lib/useCompare'

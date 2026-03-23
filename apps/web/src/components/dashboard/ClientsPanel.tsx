@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, User, Mail, Phone, Trash2, Edit2, X, Check } from 'lucide-react'
+import { Plus, User, Mail, Phone, Trash2 } from 'lucide-react'
 import type { Client, ClientStatus } from '@coverguard/shared'
 import { getClients, createClient2, updateClient, deleteClient } from '@/lib/api'
 
@@ -16,7 +16,6 @@ export function ClientsPanel() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', notes: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
