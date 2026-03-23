@@ -1,11 +1,10 @@
-name: Build & Deploy
+name: Deploy to Vercel
 
 on:
   push:
     branches: [main]
 
 env:
-  REGISTRY: ghcr.io
   PRODUCTION_URL: https://coverguard.io
   API_URL: https://api.coverguard.io
 
@@ -14,86 +13,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── Build & push API Docker image ────────────────────────────────────────────
-  build-api:
-    name: Build API Image
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image: ${{ env.REGISTRY }}/${{ github.repository }}/api:${{ github.sha }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push API image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          target: runner
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/api:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ github.repository }}/api:latest
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
-
-  # ── Build & push Web Docker image ────────────────────────────────────────────
-  build-web:
-    name: Build Web Image
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image: ${{ env.REGISTRY }}/${{ github.repository }}/web:${{ github.sha }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push Web image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          target: runner
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository }}/web:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ github.repository }}/web:latest
-          build-args: |
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-            NEXT_PUBLIC_API_URL=${{ env.API_URL }}
-            NEXT_PUBLIC_SITE_URL=${{ env.PRODUCTION_URL }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
-
-  # ── Database migrations ───────────────────────────────────────────────────────
+  # ── Run DB Migrations ─────────────────────────────────────────────────────────
   migrate:
     name: Run DB Migrations
     runs-on: ubuntu-latest
-    needs: [build-api, build-web]
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +30,7 @@ jobs:
         id: check-db-url
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "::warning::DATABASE_URL secret is not configured for the production environment - skipping migration"
+            echo "::warning::DATABASE_URL secret is not configured — skipping migration"
             echo "db_url_set=false" >> $GITHUB_OUTPUT
           else
             echo "db_url_set=true" >> $GITHUB_OUTPUT
@@ -123,42 +46,51 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
-  # ── Deploy ───────────────────────────────────────────────────────────────────
-  deploy:
-    name: Deploy to Production
+  # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
+  deploy-web:
+    name: Deploy Web to Vercel
     runs-on: ubuntu-latest
     needs: [migrate]
     environment: production
     steps:
-      # Optional: trigger a deploy webhook on your hosting provider.
-      # Set DEPLOY_WEBHOOK_URL in Settings → Environments → production → Secrets.
-      # The webhook receives the Docker image tags to pull and run.
-      - name: Trigger deploy webhook
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         env:
-          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
-          WEB_IMAGE: ${{ needs.build-web.outputs.image }}
-          API_IMAGE: ${{ needs.build-api.outputs.image }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build project
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel production
+        id: deploy
         run: |
-          if [ -z "$DEPLOY_WEBHOOK_URL" ]; then
-            echo "::notice::DEPLOY_WEBHOOK_URL not set — skipping. Add it under Settings → Environments → production → Secrets once your host is configured."
-          else
-            HTTP_STATUS=$(curl -fsSL -o /dev/null -w "%{http_code}" \
-              -X POST "$DEPLOY_WEBHOOK_URL" \
-              -H "Content-Type: application/json" \
-              -d "{\"sha\":\"${GITHUB_SHA}\",\"web_image\":\"${WEB_IMAGE}\",\"api_image\":\"${API_IMAGE}\"}")
-            echo "Deploy webhook responded: ${HTTP_STATUS}"
-            [[ "$HTTP_STATUS" =~ ^2 ]] || exit 1
-          fi
+          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deployment summary
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
-          echo "### Deployed to Production" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed to Production (Vercel)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| **Production URL** | [${PRODUCTION_URL}](${PRODUCTION_URL}) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **API URL** | [${API_URL}](${API_URL}) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Web image** | \`ghcr.io/${{ github.repository }}/web:${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **API image** | \`ghcr.io/${{ github.repository }}/api:${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Vercel URL** | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
