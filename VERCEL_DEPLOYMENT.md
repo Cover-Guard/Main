@@ -15,7 +15,7 @@ I've created a `vercel.json` file that configures Vercel to properly route to yo
 coverguard/
 ├── apps/
 │   ├── web/          # Next.js frontend (port 3000 in dev)
-│   └── api/          # Node.js backend (port 3001 in dev)
+│   └── api/          # Node.js backend (port 4000 in dev)
 ├── packages/
 │   └── shared/       # Shared utilities & types
 ├── package.json      # Root with Turborepo workspace config
@@ -25,23 +25,23 @@ coverguard/
 ## How It Works
 
 ### Production Deployment (via vercel.json)
-- **Web App**: Deployed using `@vercel/next` builder from `apps/web/`
-- **API**: Deployed using `@vercel/node` from `apps/api/`
-- **Routing**: 
-  - `/api/*` requests → Node.js backend
-  - All other routes → Next.js frontend
+- **Web App**: Built using Turborepo (`npx turbo run build --filter=@coverguard/web...`), which first compiles `@coverguard/shared` and then runs `next build` in `apps/web/`
+- **Output**: Next.js app served from `apps/web/.next`
+- **Note**: The API (`apps/api`) is deployed separately (e.g., via Docker/Railway) and is not part of the Vercel deployment
 
 ### Local Development (via turbo.json)
 When you run `npm run dev`, Turborepo orchestrates:
 1. Next.js dev server on port 3000 (`apps/web`)
-2. Node.js API server on port 3001 (`apps/api`)
+2. Node.js API server on port 4000 (`apps/api`)
 
 ## Configuration Details
 
-The `vercel.json` includes:
-- **Build configuration**: Specifies which builder to use for each app
-- **Routing rules**: Maps API requests to backend, everything else to frontend
-- **Zero Config**: Next.js config is auto-detected (`zeroConfig: true`)
+Two `vercel.json` files cover both Vercel project root configurations:
+
+- **`/vercel.json`** — for projects where the repo root is the Vercel root directory
+- **`/apps/web/vercel.json`** — for projects where `apps/web` is set as Vercel's root directory
+
+Both use `buildCommand` with Turborepo's `--filter=@coverguard/web...` flag, ensuring `@coverguard/shared` is compiled before the Next.js build runs.
 
 ## Environment Variables
 
@@ -67,9 +67,9 @@ SUPABASE_JWT_SECRET
 ## Deployment Methods
 
 ### Method 1: Vercel (Recommended for v0 Preview)
-1. The `vercel.json` file handles monorepo setup automatically
-2. Push to main branch → Vercel deploys both apps
-3. Web served at your Vercel domain, API at `/api`
+1. The `vercel.json` file handles monorepo build order automatically via Turborepo
+2. Push to main branch → Vercel builds `@coverguard/shared` then `@coverguard/web`
+3. Web served at your Vercel domain
 
 ### Method 2: Docker (Current Production)
 Your GitHub Actions workflow builds Docker images:
@@ -110,8 +110,7 @@ npm run test         # Tests all packages
 - Try redeploying from Vercel dashboard
 
 **API requests failing?**
-- Verify API routing in `vercel.json`
-- Check `NEXT_PUBLIC_API_URL` is set correctly
+- Verify `NEXT_PUBLIC_API_URL` is set correctly and points to your deployed API
 - Ensure backend environment variables are configured
 
 **Local dev not working?**
