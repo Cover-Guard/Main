@@ -301,7 +301,7 @@ BEGIN
     "updatedAt"
   )
   VALUES (
-    NEW.id,
+    NEW.id::text,
     NEW.email,
     COALESCE(
       NEW.raw_user_meta_data->>'firstName',
@@ -354,7 +354,7 @@ BEGIN
                     "avatarUrl"
                   ),
     "updatedAt" = NOW()
-  WHERE id = NEW.id;
+  WHERE id = NEW.id::text;
 
   RETURN NEW;
 END;
@@ -373,7 +373,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  DELETE FROM public.users WHERE id = OLD.id;
+  DELETE FROM public.users WHERE id = OLD.id::text;
   RETURN OLD;
 END;
 $$;
@@ -402,38 +402,38 @@ CREATE POLICY "insurance_estimates: public read" ON public.insurance_estimates F
 
 -- users
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users: select own" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "users: update own" ON public.users FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "users: insert own" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "users: select own" ON public.users FOR SELECT USING (auth.uid()::text = id);
+CREATE POLICY "users: update own" ON public.users FOR UPDATE USING (auth.uid()::text = id) WITH CHECK (auth.uid()::text = id);
+CREATE POLICY "users: insert own" ON public.users FOR INSERT WITH CHECK (auth.uid()::text = id);
 
 -- saved_properties
 ALTER TABLE public.saved_properties ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "saved_properties: select own" ON public.saved_properties FOR SELECT USING (auth.uid() = "userId");
-CREATE POLICY "saved_properties: insert own" ON public.saved_properties FOR INSERT WITH CHECK (auth.uid() = "userId");
-CREATE POLICY "saved_properties: update own" ON public.saved_properties FOR UPDATE USING (auth.uid() = "userId") WITH CHECK (auth.uid() = "userId");
-CREATE POLICY "saved_properties: delete own" ON public.saved_properties FOR DELETE USING (auth.uid() = "userId");
+CREATE POLICY "saved_properties: select own" ON public.saved_properties FOR SELECT USING (auth.uid()::text = "userId");
+CREATE POLICY "saved_properties: insert own" ON public.saved_properties FOR INSERT WITH CHECK (auth.uid()::text = "userId");
+CREATE POLICY "saved_properties: update own" ON public.saved_properties FOR UPDATE USING (auth.uid()::text = "userId") WITH CHECK (auth.uid()::text = "userId");
+CREATE POLICY "saved_properties: delete own" ON public.saved_properties FOR DELETE USING (auth.uid()::text = "userId");
 
 -- property_reports
 ALTER TABLE public.property_reports ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "property_reports: select own" ON public.property_reports FOR SELECT USING (auth.uid() = "userId");
-CREATE POLICY "property_reports: insert own" ON public.property_reports FOR INSERT WITH CHECK (auth.uid() = "userId");
-CREATE POLICY "property_reports: delete own" ON public.property_reports FOR DELETE USING (auth.uid() = "userId");
+CREATE POLICY "property_reports: select own" ON public.property_reports FOR SELECT USING (auth.uid()::text = "userId");
+CREATE POLICY "property_reports: insert own" ON public.property_reports FOR INSERT WITH CHECK (auth.uid()::text = "userId");
+CREATE POLICY "property_reports: delete own" ON public.property_reports FOR DELETE USING (auth.uid()::text = "userId");
 
 -- clients
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "clients: select own" ON public.clients FOR SELECT USING (auth.uid() = "agentId");
-CREATE POLICY "clients: insert own" ON public.clients FOR INSERT WITH CHECK (auth.uid() = "agentId");
-CREATE POLICY "clients: update own" ON public.clients FOR UPDATE USING (auth.uid() = "agentId") WITH CHECK (auth.uid() = "agentId");
-CREATE POLICY "clients: delete own" ON public.clients FOR DELETE USING (auth.uid() = "agentId");
+CREATE POLICY "clients: select own" ON public.clients FOR SELECT USING (auth.uid()::text = "agentId");
+CREATE POLICY "clients: insert own" ON public.clients FOR INSERT WITH CHECK (auth.uid()::text = "agentId");
+CREATE POLICY "clients: update own" ON public.clients FOR UPDATE USING (auth.uid()::text = "agentId") WITH CHECK (auth.uid()::text = "agentId");
+CREATE POLICY "clients: delete own" ON public.clients FOR DELETE USING (auth.uid()::text = "agentId");
 
 -- quote_requests
 ALTER TABLE public.quote_requests ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "quote_requests: select own" ON public.quote_requests FOR SELECT USING (auth.uid() = "userId");
-CREATE POLICY "quote_requests: insert own" ON public.quote_requests FOR INSERT WITH CHECK (auth.uid() = "userId");
+CREATE POLICY "quote_requests: select own" ON public.quote_requests FOR SELECT USING (auth.uid()::text = "userId");
+CREATE POLICY "quote_requests: insert own" ON public.quote_requests FOR INSERT WITH CHECK (auth.uid()::text = "userId");
 
 -- search_history
 ALTER TABLE public.search_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "search_history: select own" ON public.search_history FOR SELECT USING (auth.uid() = "userId");
+CREATE POLICY "search_history: select own" ON public.search_history FOR SELECT USING (auth.uid()::text = "userId");
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
