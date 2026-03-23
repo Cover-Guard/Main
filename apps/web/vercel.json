@@ -1,0 +1,5 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "cd ../.. && npx turbo run build --filter=@coverguard/web...",
+  "installCommand": "cd ../.. && npm install"
+}

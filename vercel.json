@@ -1,26 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "apps/web/package.json",
-      "use": "@vercel/next",
-      "config": {
-        "zeroConfig": true
-      }
-    },
-    {
-      "src": "apps/api/package.json",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api(.*)",
-      "dest": "apps/api"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "apps/web"
-    }
-  ]
+  "framework": "nextjs",
+  "buildCommand": "npx turbo run build --filter=@coverguard/web...",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "npm install",
+  "devCommand": "cd apps/web && next dev"
 }
