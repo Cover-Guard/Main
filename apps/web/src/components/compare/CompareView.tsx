@@ -2,10 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import type { Property, PropertyRiskProfile, InsuranceCostEstimate, InsurabilityStatus } from '@coverguard/shared'
 import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyInsurability } from '@/lib/api'
-import { formatCurrency, formatAddress } from '@coverguard/shared'
+import { formatCurrency } from '@coverguard/shared'
 import {
   Search, X, Plus, Droplets, Flame, Wind, Mountain, ShieldAlert,
   DollarSign, CheckCircle, XCircle, AlertTriangle, Trophy,
@@ -63,7 +62,6 @@ function Winner({ active }: { active: boolean }) {
 }
 
 export function CompareView() {
-  const router = useRouter()
   const [slots, setSlots] = useState<(PropertyData | null)[]>([null, null, null])
   const [loading, setLoading] = useState<boolean[]>([false, false, false])
   const [search, setSearch] = useState<{ idx: number; query: string } | null>(null)
