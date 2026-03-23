@@ -38,6 +38,8 @@ RUN npm run build --workspace=@coverguard/web
 FROM base AS runner
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Bind to all interfaces — required for Railway (and any reverse-proxy / container platform)
+ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 USER nextjs
