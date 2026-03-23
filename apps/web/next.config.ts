@@ -1,11 +1,14 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   transpilePackages: ['@coverguard/shared'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'api.mapbox.com' },
+      { protocol: 'https', hostname: 'coverguard.io' },
+      { protocol: 'https', hostname: 'www.coverguard.io' },
     ],
   },
   async rewrites() {

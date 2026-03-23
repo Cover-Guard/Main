@@ -22,6 +22,15 @@ COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared
 
+# Accept build-time public env vars (baked into the Next.js bundle)
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_API_URL=https://api.coverguard.io
+ARG NEXT_PUBLIC_SITE_URL=https://coverguard.io
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build --workspace=@coverguard/web
 
