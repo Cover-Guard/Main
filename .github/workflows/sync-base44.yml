@@ -20,6 +20,7 @@ permissions:
   pull-requests: write
 
 env:
+  PRODUCTION_URL: https://coverguard.io
   BASE44_APP_URL: https://coverguard-admin-app-c9e3c94e.base44.app
   BASE44_PROJECT_ID: c9e3c94e
 
@@ -117,14 +118,15 @@ jobs:
           SHORT_SHA="${HEAD_SHA:0:7}"
 
           gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
-          ### Deployed to Base44
+          ### Deployed to Production
 
           **PR #${PR_NUMBER}** — ${PR_TITLE}
 
           | | |
           |---|---|
-          | **App** | [coverguard-admin-app](${BASE44_APP_URL}) |
-          | **URL** | ${BASE44_APP_URL} |
+          | **Production URL** | [${PRODUCTION_URL}](${PRODUCTION_URL}) |
+          | **API URL** | [https://api.coverguard.io](https://api.coverguard.io) |
+          | **Base44 App** | [coverguard-admin-app](${BASE44_APP_URL}) |
           | **Project ID** | \`${BASE44_PROJECT_ID}\` |
           | **Commit** | \`${SHORT_SHA}\` |
           | **Branch synced** | \`base44\` |
@@ -174,7 +176,7 @@ jobs:
             echo ""
             echo "The automated workflow attempted to merge \`main\` (${MAIN_SHA}) into \`base44\` (${BASE44_SHA}) but encountered conflicts."
             echo ""
-            echo "The Base44 app at ${BASE44_APP_URL} will **not** be updated until this is resolved."
+            echo "The production app at ${PRODUCTION_URL} will **not** be updated until this is resolved."
             echo ""
             echo "Please resolve the conflicts manually:"
             echo '```bash'

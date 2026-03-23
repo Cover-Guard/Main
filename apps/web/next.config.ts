@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'api.mapbox.com' },
+      { protocol: 'https', hostname: 'coverguard.io' },
+      { protocol: 'https', hostname: 'www.coverguard.io' },
     ],
   },
   async rewrites() {

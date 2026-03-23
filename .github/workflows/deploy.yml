@@ -5,6 +5,7 @@ on:
     branches: [main]
 
 env:
+  PRODUCTION_URL: https://coverguard.io
   BASE44_APP_URL: https://coverguard-admin-app-c9e3c94e.base44.app
   BASE44_PROJECT_ID: c9e3c94e
 
@@ -53,11 +54,13 @@ jobs:
     steps:
       - name: Report Base44 deployment target
         run: |
-          echo "### Base44 Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "### Production Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **App URL** | [$BASE44_APP_URL]($BASE44_APP_URL) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Production URL** | [$PRODUCTION_URL]($PRODUCTION_URL) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **API URL** | [https://api.coverguard.io](https://api.coverguard.io) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Base44 App** | [$BASE44_APP_URL]($BASE44_APP_URL) |" >> $GITHUB_STEP_SUMMARY
           echo "| **Project ID** | \`$BASE44_PROJECT_ID\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${GITHUB_SHA:0:7}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Deployed via** | \`base44\` branch sync (see sync-base44 workflow) |" >> $GITHUB_STEP_SUMMARY
