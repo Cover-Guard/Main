@@ -1,6 +1,6 @@
 {
   "buildCommand": "npx turbo run build --filter=@coverguard/web...",
-  "outputDirectory": "apps/web/.next",
+  "outputDirectory": "apps/web",
   "framework": "nextjs",
   "installCommand": "npm install"
 }
