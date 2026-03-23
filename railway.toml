@@ -1,0 +1,43 @@
+# CoverGuard — Railway configuration
+#
+# Setup (one-time, in the Railway dashboard):
+#   1. Create a new project → "Deploy from GitHub repo" → select Cover-Guard/Main
+#   2. Railway auto-detects this file for the first service (API).
+#   3. Add a second service for the web app:
+#        Dashboard → New Service → GitHub repo (same repo)
+#        Build → Dockerfile Path: apps/web/Dockerfile
+#        Variables → add NEXT_PUBLIC_* build args (see .env.example)
+#
+# Both services use the repo root as the Docker build context so the monorepo
+# workspace (package.json, packages/shared) is available during the build.
+#
+# Required Railway variables (set per-service under Variables tab):
+#   API service:  DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_ANON_KEY,
+#                 SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET, CORS_ALLOWED_ORIGINS,
+#                 ATTOM_API_KEY, FBI_CDE_KEY, LOG_LEVEL
+#   Web service:  NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+#                 NEXT_PUBLIC_API_URL, NEXT_PUBLIC_MAPBOX_TOKEN
+#
+# Railway injects PORT automatically — do not set it manually.
+
+# ── API service ───────────────────────────────────────────────────────────────
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# ── Web service (copy these settings when creating the second service) ─────────
+# [build]
+# builder = "DOCKERFILE"
+# dockerfilePath = "apps/web/Dockerfile"
+#
+# [deploy]
+# healthcheckPath = "/"
+# healthcheckTimeout = 300
+# restartPolicyType = "ON_FAILURE"
+# restartPolicyMaxRetries = 3

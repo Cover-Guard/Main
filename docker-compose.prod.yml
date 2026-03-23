@@ -1,0 +1,105 @@
+version: '3.9'
+
+# CoverGuard — Production deployment stack
+#
+# Usage (on your production host):
+#   export WEB_IMAGE=ghcr.io/cover-guard/main/web:<sha>
+#   export API_IMAGE=ghcr.io/cover-guard/main/api:<sha>
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d --remove-orphans
+#
+# Images are built and pushed to GHCR by the "Build & Deploy" GitHub Actions
+# workflow on every push to main. See .github/workflows/deploy.yml.
+#
+# Required environment variables (set in your hosting provider secrets or a
+# .env.prod file — never committed):
+#   API_IMAGE, WEB_IMAGE              — GHCR image tags (injected by deploy webhook)
+#   DATABASE_URL                      — Supabase pooler connection string
+#   DIRECT_URL                        — Supabase direct connection (migrations only)
+#   SUPABASE_URL                      — Supabase project URL
+#   SUPABASE_ANON_KEY                 — Supabase anon key
+#   SUPABASE_SERVICE_ROLE_KEY         — Supabase service-role key (API only)
+#   JWT_SECRET                        — Min 32-char random secret
+#   ATTOM_API_KEY                     — ATTOM property data (optional)
+#   FBI_CDE_KEY                       — FBI crime data (optional)
+#   SENTRY_DSN                        — Error reporting (optional)
+
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/cover-guard/main/api:latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://coverguard.io,https://www.coverguard.io}
+      API_BASE_URL: ${API_BASE_URL:-https://api.coverguard.io}
+      ATTOM_API_KEY: ${ATTOM_API_KEY:-}
+      FBI_CDE_KEY: ${FBI_CDE_KEY:-}
+      FEMA_API_BASE_URL: ${FEMA_API_BASE_URL:-https://hazards.fema.gov/gis/nfhl/rest/services}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      update_config:
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/cover-guard/main/web:latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # NEXT_PUBLIC_* vars are baked in at build time (see apps/web/Dockerfile).
+      # Runtime-only env vars go here:
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      update_config:
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    name: coverguard-prod

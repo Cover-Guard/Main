@@ -11,12 +11,14 @@ RUN npm ci --workspace=@coverguard/web --workspace=@coverguard/shared
 
 # ─── Build shared ─────────────────────────────────────────────────────────────
 FROM base AS build-shared
+COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY packages/shared ./packages/shared
 RUN npm run build --workspace=@coverguard/shared
 
 # ─── Build Next.js ────────────────────────────────────────────────────────────
 FROM base AS builder
+COPY package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build-shared /app/packages/shared/dist ./packages/shared/dist
 COPY apps/web ./apps/web
@@ -38,6 +40,8 @@ RUN npm run build --workspace=@coverguard/web
 FROM base AS runner
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Bind to all interfaces — required for Railway (and any reverse-proxy / container platform)
+ENV HOSTNAME=0.0.0.0
 
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 USER nextjs
