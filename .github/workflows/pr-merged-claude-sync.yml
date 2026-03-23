@@ -12,17 +12,30 @@ permissions:
 jobs:
   claude-sync:
     name: Summarise merged PR with Claude
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
+      # Guard: set output so subsequent steps can be skipped when PR was not merged.
+      - name: Check if PR was merged
+        id: gate
+        run: |
+          merged="${{ github.event.pull_request.merged }}"
+          if [[ "$merged" == "true" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "PR was not merged — skipping summary."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.gate.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       # ── Collect PR metadata ──────────────────────────────────────────────────
       - name: Gather PR diff and metadata
+        if: steps.gate.outputs.run == 'true'
         id: pr_data
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,6 +67,7 @@ jobs:
 
       # ── Call Claude API ──────────────────────────────────────────────────────
       - name: Call Claude API and write back PR comment
+        if: steps.gate.outputs.run == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
