@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react'
 import Map, { Marker, NavigationControl, Popup, Source, Layer } from 'react-map-gl'
 import type { Property, PropertyRiskProfile } from '@coverguard/shared'
-import { riskLevelClasses } from '@/lib/utils'
 import { MapPin, Layers } from 'lucide-react'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
