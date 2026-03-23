@@ -83,4 +83,5 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_API_URL: https://api.coverguard.io
+          NEXT_PUBLIC_SITE_URL: https://coverguard.io
 
