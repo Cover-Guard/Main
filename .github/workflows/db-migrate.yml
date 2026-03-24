@@ -29,6 +29,27 @@ jobs:
       - name: Install dependencies
         run: npm ci --workspace=@coverguard/api
 
+      - name: Validate migration configuration
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL is not configured in the '${{ inputs.environment }}' environment"
+            exit 1
+          fi
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::error::DIRECT_URL is not configured in the '${{ inputs.environment }}' environment"
+            echo "::error::Set DIRECT_URL to the Supabase Session Mode pooler URL, e.g."
+            echo "::error::  postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
+            exit 1
+          fi
+          if ! echo "$DIRECT_URL" | grep -qE '^postgres(ql)?://'; then
+            echo "::error::DIRECT_URL has an invalid scheme — must start with postgresql:// or postgres://"
+            exit 1
+          fi
+          echo "Secrets present and URL scheme valid. Note: TCP connectivity is not tested here — run this workflow against the target environment to verify reachability."
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
       - name: Show migration status
         working-directory: apps/api
         run: npx prisma migrate status

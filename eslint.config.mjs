@@ -13,6 +13,7 @@ const eslintConfig = [
       "**/next-env.d.ts",
       "**/tailwind.config.ts",
       "**/next.config.ts",
+      "**/jest.config.js",
     ],
   },
 ];

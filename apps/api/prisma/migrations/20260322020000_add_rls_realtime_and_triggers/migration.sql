@@ -16,6 +16,8 @@
 --  3. REALTIME  — publish the tables that benefit from live push updates
 --                 to the supabase_realtime WAL publication so the frontend
 --                 can subscribe without any server-side streaming endpoint.
+--
+-- All statements are idempotent (safe to re-run on a partially-migrated DB).
 -- =============================================================================
 
 
@@ -152,6 +154,7 @@ CREATE TRIGGER on_auth_user_deleted
 
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "properties: public read" ON public.properties;
 CREATE POLICY "properties: public read"
   ON public.properties FOR SELECT
   USING (true);
@@ -161,6 +164,7 @@ CREATE POLICY "properties: public read"
 
 ALTER TABLE public.risk_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "risk_profiles: public read" ON public.risk_profiles;
 CREATE POLICY "risk_profiles: public read"
   ON public.risk_profiles FOR SELECT
   USING (true);
@@ -170,6 +174,7 @@ CREATE POLICY "risk_profiles: public read"
 
 ALTER TABLE public.insurance_estimates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "insurance_estimates: public read" ON public.insurance_estimates;
 CREATE POLICY "insurance_estimates: public read"
   ON public.insurance_estimates FOR SELECT
   USING (true);
@@ -179,11 +184,12 @@ CREATE POLICY "insurance_estimates: public read"
 
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- Each authenticated user may read and update only their own profile row.
+DROP POLICY IF EXISTS "users: select own" ON public.users;
 CREATE POLICY "users: select own"
   ON public.users FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "users: update own" ON public.users;
 CREATE POLICY "users: update own"
   ON public.users FOR UPDATE
   USING (auth.uid() = id)
@@ -193,6 +199,7 @@ CREATE POLICY "users: update own"
 -- executes with the function owner's privileges (superuser) and is exempt
 -- from RLS, so no INSERT policy is needed for the trigger path.
 -- We still add one so that future upsert calls from the callback route work.
+DROP POLICY IF EXISTS "users: insert own" ON public.users;
 CREATE POLICY "users: insert own"
   ON public.users FOR INSERT
   WITH CHECK (auth.uid() = id);
@@ -202,19 +209,23 @@ CREATE POLICY "users: insert own"
 
 ALTER TABLE public.saved_properties ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "saved_properties: select own" ON public.saved_properties;
 CREATE POLICY "saved_properties: select own"
   ON public.saved_properties FOR SELECT
   USING (auth.uid() = "userId");
 
+DROP POLICY IF EXISTS "saved_properties: insert own" ON public.saved_properties;
 CREATE POLICY "saved_properties: insert own"
   ON public.saved_properties FOR INSERT
   WITH CHECK (auth.uid() = "userId");
 
+DROP POLICY IF EXISTS "saved_properties: update own" ON public.saved_properties;
 CREATE POLICY "saved_properties: update own"
   ON public.saved_properties FOR UPDATE
   USING (auth.uid() = "userId")
   WITH CHECK (auth.uid() = "userId");
 
+DROP POLICY IF EXISTS "saved_properties: delete own" ON public.saved_properties;
 CREATE POLICY "saved_properties: delete own"
   ON public.saved_properties FOR DELETE
   USING (auth.uid() = "userId");
@@ -224,14 +235,17 @@ CREATE POLICY "saved_properties: delete own"
 
 ALTER TABLE public.property_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "property_reports: select own" ON public.property_reports;
 CREATE POLICY "property_reports: select own"
   ON public.property_reports FOR SELECT
   USING (auth.uid() = "userId");
 
+DROP POLICY IF EXISTS "property_reports: insert own" ON public.property_reports;
 CREATE POLICY "property_reports: insert own"
   ON public.property_reports FOR INSERT
   WITH CHECK (auth.uid() = "userId");
 
+DROP POLICY IF EXISTS "property_reports: delete own" ON public.property_reports;
 CREATE POLICY "property_reports: delete own"
   ON public.property_reports FOR DELETE
   USING (auth.uid() = "userId");
@@ -241,19 +255,23 @@ CREATE POLICY "property_reports: delete own"
 
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "clients: select own" ON public.clients;
 CREATE POLICY "clients: select own"
   ON public.clients FOR SELECT
   USING (auth.uid() = "agentId");
 
+DROP POLICY IF EXISTS "clients: insert own" ON public.clients;
 CREATE POLICY "clients: insert own"
   ON public.clients FOR INSERT
   WITH CHECK (auth.uid() = "agentId");
 
+DROP POLICY IF EXISTS "clients: update own" ON public.clients;
 CREATE POLICY "clients: update own"
   ON public.clients FOR UPDATE
   USING (auth.uid() = "agentId")
   WITH CHECK (auth.uid() = "agentId");
 
+DROP POLICY IF EXISTS "clients: delete own" ON public.clients;
 CREATE POLICY "clients: delete own"
   ON public.clients FOR DELETE
   USING (auth.uid() = "agentId");
@@ -263,10 +281,12 @@ CREATE POLICY "clients: delete own"
 
 ALTER TABLE public.quote_requests ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "quote_requests: select own" ON public.quote_requests;
 CREATE POLICY "quote_requests: select own"
   ON public.quote_requests FOR SELECT
   USING (auth.uid() = "userId");
 
+DROP POLICY IF EXISTS "quote_requests: insert own" ON public.quote_requests;
 CREATE POLICY "quote_requests: insert own"
   ON public.quote_requests FOR INSERT
   WITH CHECK (auth.uid() = "userId");
@@ -280,6 +300,7 @@ ALTER TABLE public.search_history ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users may read their own history;
 -- anonymous rows (userId IS NULL) are not visible to anyone via the anon key.
+DROP POLICY IF EXISTS "search_history: select own" ON public.search_history;
 CREATE POLICY "search_history: select own"
   ON public.search_history FOR SELECT
   USING (auth.uid() = "userId");
@@ -304,6 +325,29 @@ ALTER TABLE public.saved_properties  REPLICA IDENTITY FULL;
 ALTER TABLE public.quote_requests    REPLICA IDENTITY FULL;
 ALTER TABLE public.properties        REPLICA IDENTITY FULL;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.properties;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.saved_properties;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.quote_requests;
+-- Add tables to supabase_realtime publication if not already present.
+-- Uses existence checks so this is safe to re-run and works whether Realtime
+-- was pre-enabled in the Supabase dashboard or not.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'properties'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.properties;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'saved_properties'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.saved_properties;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'quote_requests'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.quote_requests;
+  END IF;
+END $$;

@@ -1,7 +1,6 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
   transpilePackages: ['@coverguard/shared'],
   images: {
     remotePatterns: [
@@ -10,17 +9,6 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'coverguard.io' },
       { protocol: 'https', hostname: 'www.coverguard.io' },
     ],
-  },
-  async rewrites() {
-    // Proxy /api/* to the Express API so the frontend never makes
-    // cross-origin requests in production (avoids CORS, hides API URL).
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-    ]
   },
   async headers() {
     return [
