@@ -32,7 +32,6 @@ END $$;
 
 -- ─── Missing indexes on properties ────────────────────────────────────────────
 
-CREATE INDEX IF NOT EXISTS "properties_state_idx" ON "properties"("state");
 CREATE INDEX IF NOT EXISTS "properties_createdAt_idx" ON "properties"("createdAt");
 
 -- ─── Missing indexes on risk_profiles ─────────────────────────────────────────
