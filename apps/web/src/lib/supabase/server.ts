@@ -2,6 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
+  // cookies() MUST be called first — it signals to Next.js that this route is
+  // dynamic (request-time only) and must not be statically pre-rendered at
+  // build time. Moving this after any early throw would hide it from the
+  // static-analysis pass, causing build failures when env vars are absent.
+  const cookieStore = await cookies()
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -10,8 +16,6 @@ export async function createClient() {
       'Missing Supabase env vars: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your Vercel Production environment.'
     )
   }
-
-  const cookieStore = await cookies()
 
   return createServerClient(
     supabaseUrl,
