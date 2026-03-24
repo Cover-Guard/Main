@@ -5,7 +5,6 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "prebuild": "cd ../../packages/shared && npm run build",
     "build": "tsup",
     "start": "node dist/index.js",
     "prepare": "prisma generate",
