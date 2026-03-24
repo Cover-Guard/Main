@@ -6,7 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "npm run dev --prefix apps/web",
+    "dev:all": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test -- --passWithNoTests",
     "lint": "turbo run lint",
