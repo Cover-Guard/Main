@@ -3,10 +3,7 @@
   "builds": [
     {
       "src": "apps/web/package.json",
-      "use": "@vercel/next",
-      "config": {
-        "zeroConfig": true
-      }
+      "use": "@vercel/next"
     },
     {
       "src": "apps/api/package.json",
@@ -16,11 +13,7 @@
   "routes": [
     {
       "src": "/api(.*)",
-      "dest": "apps/api"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "apps/web"
+      "dest": "apps/api/dist/index.js"
     }
   ]
 }
