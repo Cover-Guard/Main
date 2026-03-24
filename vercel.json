@@ -1,26 +1,17 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "apps/web/package.json",
-      "use": "@vercel/next",
-      "config": {
-        "zeroConfig": true
-      }
-    },
-    {
-      "src": "apps/api/package.json",
-      "use": "@vercel/node"
+  "buildCommand": "turbo run build",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "functions": {
+    "apps/api/dist/index.js": {
+      "includeFiles": "apps/api/dist/**,apps/api/prisma/**"
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/api(.*)",
-      "dest": "apps/api"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "apps/web"
+      "source": "/api/:path*",
+      "destination": "/apps/api/dist/index.js"
     }
   ]
 }
