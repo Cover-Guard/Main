@@ -173,6 +173,9 @@ jobs:
       - name: Generate Prisma client
         working-directory: apps/api
         run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
+          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
 
       - name: Build API bundle
         run: npm run build --workspace=@coverguard/api
