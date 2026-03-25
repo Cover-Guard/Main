@@ -245,7 +245,7 @@ export function ClientsPanel() {
         </div>
 
         <button
-          onClick={() => { setShowAddForm((v) => !v); setAddError(null) }}
+          onClick={() => { setShowAddForm((v) => !v); if (showAddForm) { setAddForm(emptyForm); } setAddError(null) }}
           className="btn-primary flex items-center gap-2 px-4 py-2 shrink-0"
         >
           <Plus className="h-4 w-4" />
