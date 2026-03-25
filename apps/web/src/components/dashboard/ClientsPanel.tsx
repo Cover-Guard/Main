@@ -223,7 +223,11 @@ export function ClientsPanel() {
       {actionError && (
         <div className="flex items-center justify-between rounded bg-red-50 px-4 py-2.5 text-sm text-red-700">
           <span>{actionError}</span>
-          <button onClick={() => setActionError(null)} className="ml-4 shrink-0 text-red-400 hover:text-red-600">
+          <button
+            onClick={() => setActionError(null)}
+            className="ml-4 shrink-0 text-red-400 hover:text-red-600"
+            aria-label="Dismiss error"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
