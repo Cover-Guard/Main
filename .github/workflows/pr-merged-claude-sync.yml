@@ -103,24 +103,20 @@ jobs:
               "Respond in concise GitHub-flavoured Markdown."
           )
 
-          user_prompt = f"""A pull request has just been merged into `{base_branch}`.
-
-**PR #{pr_number}** — {pr_title}
-- **Author:** {pr_author}
-- **Merged by:** {merged_by}
-- **Files changed:** {files_changed}
-
-<diff>
-{diff if diff else "(diff unavailable or empty)"}
-</diff>
-
-Please write a post-merge summary containing:
-1. **What changed** – a 2-4 sentence plain-English description.
-2. **Why it matters** – impact on the product or codebase.
-3. **Risk / follow-ups** – any concerns, tech debt, or suggested next steps (omit section if none).
-4. **Key files touched** – up to 5 bullet points.
-
-Keep the total response under 400 words. Start with a brief one-liner headline."""
+          user_prompt = (
+              f"A pull request has just been merged into `{base_branch}`.\n\n"
+              f"**PR #{pr_number}** \u2014 {pr_title}\n"
+              f"- **Author:** {pr_author}\n"
+              f"- **Merged by:** {merged_by}\n"
+              f"- **Files changed:** {files_changed}\n\n"
+              f"<diff>\n{diff if diff else '(diff unavailable or empty)'}\n</diff>\n\n"
+              "Please write a post-merge summary containing:\n"
+              "1. **What changed** \u2013 a 2-4 sentence plain-English description.\n"
+              "2. **Why it matters** \u2013 impact on the product or codebase.\n"
+              "3. **Risk / follow-ups** \u2013 any concerns, tech debt, or suggested next steps (omit section if none).\n"
+              "4. **Key files touched** \u2013 up to 5 bullet points.\n\n"
+              "Keep the total response under 400 words. Start with a brief one-liner headline."
+          )
 
           payload = {
               "model": "claude-sonnet-4-6",
