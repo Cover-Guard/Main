@@ -1,29 +1,8 @@
 {
   "version": 2,
-  "github": {
-    "enabled": false
-  },
-  "builds": [
-    {
-      "src": "apps/web/package.json",
-      "use": "@vercel/next",
-      "config": {
-        "zeroConfig": true
-      }
-    },
-    {
-      "src": "apps/api/package.json",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api(.*)",
-      "dest": "apps/api"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "apps/web"
-    }
-  ]
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build --prefix apps/web",
+  "outputDirectory": "apps/web/.next",
+  "devCommand": "npm run dev --prefix apps/web"
 }
