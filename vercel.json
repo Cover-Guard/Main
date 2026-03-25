@@ -1,7 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "buildCommand": "cd ../.. && turbo run build --filter=@coverguard/web",
-  "outputDirectory": ".next",
+  "buildCommand": "turbo run build --filter=@coverguard/web",
+  "outputDirectory": "apps/web/.next",
   "installCommand": "npm install"
 }
