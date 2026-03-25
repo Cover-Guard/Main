@@ -138,13 +138,40 @@ export function ClientsPanel() {
 
   async function handleSaveEdit(id: string) {
     if (!editForm) return
+
+    // Basic client-side validation to avoid server-side validation errors
+    const trimmedFirstName = editForm.firstName ? editForm.firstName.trim() : ''
+    const trimmedLastName = editForm.lastName ? editForm.lastName.trim() : ''
+    const trimmedEmail = editForm.email ? editForm.email.trim() : ''
+
+    if (!trimmedFirstName) {
+      setEditError('First name is required.')
+      return
+    }
+
+    if (!trimmedLastName) {
+      setEditError('Last name is required.')
+      return
+    }
+
+    if (!trimmedEmail) {
+      setEditError('Email is required.')
+      return
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailPattern.test(trimmedEmail)) {
+      setEditError('Please enter a valid email address.')
+      return
+    }
+
     setEditSaving(true)
     setEditError(null)
     try {
       const updated = await updateClient(id, {
-        firstName: editForm.firstName,
-        lastName: editForm.lastName,
-        email: editForm.email,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        email: trimmedEmail,
         phone: editForm.phone,
         notes: editForm.notes,
         status: editForm.status,
