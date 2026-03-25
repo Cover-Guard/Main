@@ -15,6 +15,9 @@ import {
   XCircle,
   Copy,
   Check,
+  Building2,
+  MessageSquare,
+  BookOpen,
 } from 'lucide-react'
 
 // ─── Hard Market Data ──────────────────────────────────────────────────────
@@ -515,6 +518,548 @@ function HardMarketTool() {
   )
 }
 
+// ─── Carrier Quick Lookup ──────────────────────────────────────────────────
+
+const COVERAGE_TYPES = [
+  { value: 'homeowners', label: 'Homeowners (HO-3)' },
+  { value: 'flood', label: 'Flood Insurance' },
+  { value: 'earthquake', label: 'Earthquake' },
+  { value: 'wind', label: 'Wind / Hurricane' },
+  { value: 'fire', label: 'Fire / Wildfire' },
+] as const
+
+type CoverageTypeKey = typeof COVERAGE_TYPES[number]['value']
+
+const CARRIER_DATA: Record<
+  string,
+  Partial<Record<CoverageTypeKey, { active: string[]; limited: string[]; unavailable: string[] }>>
+> = {
+  CA: {
+    homeowners: {
+      active: ['Wawanesa', 'Openly (non-wildfire zones)', 'Hippo (select counties)', 'CSAA', 'Mercury Insurance'],
+      limited: ['Nationwide', 'Travelers (non-wildfire)', 'Chubb (high-value)'],
+      unavailable: ['State Farm', 'Allstate', 'Farmers (new policies)', 'AIG Personal Lines'],
+    },
+    flood: {
+      active: ['NFIP (Write-Your-Own carriers)', 'Neptune Flood', 'Palomar Flood', 'Wright Flood'],
+      limited: ['Zurich Private Client', 'Chubb'],
+      unavailable: [],
+    },
+    earthquake: {
+      active: ['CEA (California Earthquake Authority)', 'GeoVera', 'Palomar Specialty', 'Openly'],
+      limited: ['Chubb', 'AIG (high-value only)'],
+      unavailable: [],
+    },
+    wind: {
+      active: ['Most HO-3 carriers include wind', 'Palomar Specialty'],
+      limited: ['Coastal properties may require separate endorsement'],
+      unavailable: [],
+    },
+    fire: {
+      active: ['California FAIR Plan (last resort)', 'Palomar Specialty', 'Lloyd\'s syndicates'],
+      limited: ['Openly (non-WUI zones)', 'Hippo (select counties)'],
+      unavailable: ['State Farm', 'Allstate', 'Farmers (wildfire zones)'],
+    },
+  },
+  FL: {
+    homeowners: {
+      active: ['Universal Property & Casualty', 'Security First', 'Tower Hill', 'Slide Insurance', 'HCI Group', 'Citizens (last resort)'],
+      limited: ['Travelers', 'Nationwide', 'AAA (inland only)'],
+      unavailable: ['Bankers Insurance (personal lines)', 'TypTap (new policies paused)'],
+    },
+    flood: {
+      active: ['NFIP', 'Neptune Flood', 'Wright Flood', 'TypTap Flood', 'Palomar Flood'],
+      limited: ['Chubb', 'Zurich'],
+      unavailable: [],
+    },
+    earthquake: {
+      active: ['Standard HO endorsements (low risk)', 'Lloyd\'s syndicates'],
+      limited: [],
+      unavailable: [],
+    },
+    wind: {
+      active: ['Citizens (14 coastal counties)', 'FHCF (reinsurance-backed)', 'Universal P&C', 'Tower Hill'],
+      limited: ['Separate wind policy required in coastal zones'],
+      unavailable: ['Some carriers exclude wind in Zone 1'],
+    },
+    fire: {
+      active: ['Included in standard HO-3 statewide'],
+      limited: [],
+      unavailable: [],
+    },
+  },
+  TX: {
+    homeowners: {
+      active: ['Homeowners of America', 'Hippo', 'Branch', 'Openly', 'Kin Insurance', 'State Auto'],
+      limited: ['Allstate', 'State Farm', 'USAA (military)'],
+      unavailable: ['Some carriers withdrawn from DFW hail corridor'],
+    },
+    flood: {
+      active: ['NFIP', 'Neptune Flood', 'Palomar Flood', 'Wright Flood'],
+      limited: ['Private flood limited in flood-prone ZIP codes'],
+      unavailable: [],
+    },
+    earthquake: {
+      active: ['Available via endorsement statewide', 'Palomar Specialty'],
+      limited: [],
+      unavailable: [],
+    },
+    wind: {
+      active: ['TWIA (14 coastal counties)', 'Openly', 'Hippo'],
+      limited: ['Separate TWIA policy required for coastal Zone 1'],
+      unavailable: ['Many carriers exclude wind in TWIA territory'],
+    },
+    fire: {
+      active: ['Standard HO-3 covers fire statewide'],
+      limited: [],
+      unavailable: [],
+    },
+  },
+  LA: {
+    homeowners: {
+      active: ['Cajun Underwriters', 'Gulf States Insurance', 'Louisiana Citizens (last resort)', 'Surplus lines carriers'],
+      limited: ['Some regional carriers re-entering post-2023'],
+      unavailable: ['State Farm (2023 non-renewals)', 'Allstate', 'AAA'],
+    },
+    flood: {
+      active: ['NFIP', 'Neptune Flood', 'Wright Flood'],
+      limited: ['Private flood limited due to high risk'],
+      unavailable: [],
+    },
+    earthquake: {
+      active: ['Available via endorsement'],
+      limited: [],
+      unavailable: [],
+    },
+    wind: {
+      active: ['Louisiana Citizens', 'Surplus lines for coastal'],
+      limited: ['Most carriers require separate wind policy coastal'],
+      unavailable: [],
+    },
+    fire: {
+      active: ['Included in standard HO-3'],
+      limited: [],
+      unavailable: [],
+    },
+  },
+  TX_DEFAULT: {
+    homeowners: { active: [], limited: [], unavailable: [] },
+  },
+}
+
+const CARRIER_DATA_DEFAULT: Record<CoverageTypeKey, { active: string[]; limited: string[]; unavailable: string[] }> = {
+  homeowners: {
+    active: ['State Farm', 'Allstate', 'Farmers', 'Nationwide', 'USAA (military)', 'Liberty Mutual', 'Travelers'],
+    limited: ['Regional surplus lines carriers available'],
+    unavailable: [],
+  },
+  flood: {
+    active: ['NFIP (via approved Write-Your-Own carriers)', 'Neptune Flood', 'Wright Flood', 'Palomar Flood'],
+    limited: [],
+    unavailable: [],
+  },
+  earthquake: {
+    active: ['Available via endorsement or standalone policy', 'GeoVera', 'Palomar Specialty'],
+    limited: [],
+    unavailable: [],
+  },
+  wind: {
+    active: ['Typically included in standard HO-3', 'Check state wind pool if coastal'],
+    limited: [],
+    unavailable: [],
+  },
+  fire: {
+    active: ['Included in all standard HO-3 policies', 'State FAIR Plan available as last resort'],
+    limited: [],
+    unavailable: [],
+  },
+}
+
+function CarrierLookupTool() {
+  const [state, setState] = useState('')
+  const [coverageType, setCoverageType] = useState<CoverageTypeKey | ''>('')
+  const [result, setResult] = useState<{ active: string[]; limited: string[]; unavailable: string[] } | null>(null)
+  const [searched, setSearched] = useState(false)
+
+  function lookup(e: React.FormEvent) {
+    e.preventDefault()
+    if (!state || !coverageType) return
+    const stateData = CARRIER_DATA[state]
+    const data = stateData?.[coverageType as CoverageTypeKey] ?? CARRIER_DATA_DEFAULT[coverageType as CoverageTypeKey]
+    setResult(data)
+    setSearched(true)
+  }
+
+  return (
+    <div className="space-y-4 pt-4">
+      <p className="text-sm text-gray-600">Look up which carriers are actively writing a specific coverage type in your target state.</p>
+      <form onSubmit={lookup} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">State <span className="text-red-400">*</span></label>
+            <select value={state} onChange={(e) => { setState(e.target.value); setSearched(false) }} required className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+              <option value="">Select state…</option>
+              {US_STATES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">Coverage Type <span className="text-red-400">*</span></label>
+            <select value={coverageType} onChange={(e) => { setCoverageType(e.target.value as CoverageTypeKey); setSearched(false) }} required className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+              <option value="">Select coverage…</option>
+              {COVERAGE_TYPES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <button type="submit" disabled={!state || !coverageType} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+          Look Up Carriers
+        </button>
+      </form>
+
+      {searched && result && (
+        <div className="space-y-3">
+          {result.active.length > 0 && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-5 py-4">
+              <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Actively Writing</p>
+              <div className="space-y-1.5">
+                {result.active.map((c) => (
+                  <div key={c} className="flex items-center gap-2">
+                    <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    <span className="text-sm text-green-800">{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {result.limited.length > 0 && (
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-5 py-4">
+              <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">Limited Availability</p>
+              <div className="space-y-1.5">
+                {result.limited.map((c) => (
+                  <div key={c} className="flex items-center gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                    <span className="text-sm text-yellow-800">{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {result.unavailable.length > 0 && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4">
+              <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2">Withdrawn / Not Writing</p>
+              <div className="space-y-1.5">
+                {result.unavailable.map((c) => (
+                  <div key={c} className="flex items-center gap-2">
+                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                    <span className="text-sm text-red-700">{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="text-[10px] text-gray-400 px-1">Carrier availability is subject to change. Always verify current writing status directly with the carrier or via your state DOI. Data is informational only.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Client Email Templates ────────────────────────────────────────────────
+
+const EMAIL_TEMPLATES = [
+  {
+    id: 'hard-market-intro',
+    label: 'Hard Market Explanation to Buyer',
+    subject: 'Important: Property Insurance Conditions for [Property Address]',
+    body: `Hi [Buyer Name],
+
+I wanted to reach out about an important aspect of your purchase at [Property Address] that we need to address early in the transaction.
+
+The property insurance market in [State] is currently experiencing significant hardening. Several major carriers have reduced or stopped writing new policies in this area, which means securing coverage can take more time and may come at a higher cost than you might expect.
+
+Here's what this means for you as a buyer:
+
+1. Start your insurance search NOW — don't wait until a few days before closing.
+2. Contact 3–5 insurance agents/brokers, not just one, to maximize your options.
+3. If standard carriers decline coverage, ask about the state FAIR Plan as a backup option.
+4. Budget for premiums that may be 30–60% higher than comparable properties in other states.
+
+I'm happy to share CoverGuard's risk report for this property, which shows flood zone designation, fire hazard zone, and carrier availability data. This can help your insurance agent find the right coverage faster.
+
+Please let me know if you have any questions or would like to discuss next steps.
+
+Best regards,
+[Agent Name]
+[Brokerage]
+[Phone]`,
+  },
+  {
+    id: 'insurance-contingency',
+    label: 'Insurance Contingency Reminder',
+    subject: 'Reminder: Insurance Contingency — Action Required for [Property Address]',
+    body: `Hi [Buyer Name],
+
+This is a reminder that per your purchase agreement, you have until [Contingency Deadline] to satisfy your insurance contingency for [Property Address].
+
+To keep this on track, please make sure you have:
+
+☐ Contacted at least three (3) licensed insurance agents or brokers
+☐ Received at least one written insurance quote or binder commitment
+☐ Reviewed the policy for adequate coverage (dwelling, liability, flood if applicable)
+☐ Confirmed the lender's minimum coverage requirements are met
+
+If you are having difficulty obtaining insurance, please contact me immediately. We may need to request a contingency extension or explore alternative coverage options before proceeding.
+
+Do not remove the insurance contingency until you have a written commitment in hand.
+
+Please confirm once you have a binder so I can coordinate with escrow.
+
+Best regards,
+[Agent Name]
+[Brokerage]
+[Phone]`,
+  },
+  {
+    id: 'fair-plan-explanation',
+    label: 'FAIR Plan Explanation',
+    subject: 'Understanding the State FAIR Plan for [Property Address]',
+    body: `Hi [Buyer Name],
+
+Following up on our conversation about insurance options for [Property Address] — I wanted to explain the state FAIR Plan in more detail.
+
+WHAT IS THE FAIR PLAN?
+The Fair Access to Insurance Requirements (FAIR) Plan is a state-backed insurance program that provides coverage when standard market carriers are unable or unwilling to insure a property. It is the insurer of last resort.
+
+KEY THINGS TO KNOW:
+
+1. Coverage is more limited — FAIR Plans typically cover fire, smoke, lightning, and sometimes wind, but often exclude liability and other perils covered by a standard HO-3 policy.
+
+2. You may need a "Difference in Conditions" (DIC) policy — This supplemental policy fills the gaps left by the FAIR Plan (liability, theft, water damage, etc.).
+
+3. Premiums are often higher — FAIR Plan coverage typically costs more than comparable standard market policies.
+
+4. It IS accepted by lenders — Lenders will accept FAIR Plan + DIC as sufficient coverage to close.
+
+5. It's not permanent — Once the standard market stabilizes, you may be able to transition back to a regular policy at renewal.
+
+I recommend working with a licensed insurance broker who can help bundle the FAIR Plan with a DIC policy to ensure you have complete protection.
+
+Please let me know if you have questions. I'm happy to connect you with local brokers who specialize in hard-market placements.
+
+Best regards,
+[Agent Name]
+[Brokerage]
+[Phone]`,
+  },
+  {
+    id: 'flood-zone-notice',
+    label: 'Flood Zone Notification to Buyer',
+    subject: 'Flood Zone Notice — [Property Address]',
+    body: `Hi [Buyer Name],
+
+I'm writing to inform you that [Property Address] is located in or near a FEMA-designated Special Flood Hazard Area (SFHA).
+
+FEMA FLOOD ZONE DESIGNATION: [Zone AE / Zone X / Zone V — insert from CoverGuard report]
+
+WHAT THIS MEANS:
+
+• If the property is in Zone A or V, your lender will require you to purchase flood insurance as a condition of the mortgage.
+
+• Flood insurance is NOT included in a standard homeowners (HO-3) policy. It must be purchased separately through the National Flood Insurance Program (NFIP) or a private flood insurer.
+
+• Annual flood insurance premiums can range from $700 to $5,000+ depending on the flood zone, elevation, and coverage amount.
+
+ACTION STEPS:
+
+1. Ask the seller for any existing Elevation Certificate (EC) for the property — this can significantly reduce your premium.
+2. Contact a licensed insurance agent who writes NFIP policies to get a premium estimate before removing contingencies.
+3. Review the CoverGuard flood risk report I've prepared for this property.
+
+Please treat this as a priority item. Flood insurance can take up to 30 days to become effective, so start early.
+
+Best regards,
+[Agent Name]
+[Brokerage]
+[Phone]`,
+  },
+]
+
+function ClientEmailTemplatesTool() {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const selected = EMAIL_TEMPLATES.find((t) => t.id === selectedId)
+
+  async function copyTemplate() {
+    if (!selected) return
+    const text = `Subject: ${selected.subject}\n\n${selected.body}`
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="space-y-4 pt-4">
+      <p className="text-sm text-gray-600">Professional, ready-to-send email templates for common insurance conversations with buyers.</p>
+      <div className="grid grid-cols-1 gap-2">
+        {EMAIL_TEMPLATES.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setSelectedId((prev) => (prev === t.id ? null : t.id))}
+            className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+              selectedId === t.id
+                ? 'border-blue-400 bg-blue-50'
+                : 'border-gray-200 bg-white hover:bg-gray-50'
+            }`}
+          >
+            <p className={`text-sm font-medium ${selectedId === t.id ? 'text-blue-700' : 'text-gray-800'}`}>{t.label}</p>
+            <p className="text-xs text-gray-400 mt-0.5 truncate">Subj: {t.subject}</p>
+          </button>
+        ))}
+      </div>
+
+      {selected && (
+        <div className="rounded-xl border border-gray-200 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-gray-700 truncate">{selected.label}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5 truncate">Subject: {selected.subject}</p>
+            </div>
+            <button onClick={copyTemplate} className="ml-3 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium shrink-0">
+              {copied ? <><Check className="h-3.5 w-3.5" />Copied!</> : <><Copy className="h-3.5 w-3.5" />Copy All</>}
+            </button>
+          </div>
+          <pre className="px-5 py-4 text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed max-h-80 overflow-y-auto">{selected.body}</pre>
+          <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
+            <p className="text-[10px] text-gray-400">Replace all bracketed placeholders [ ] before sending. These templates are for informational purposes and do not constitute legal or insurance advice.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Policy Type Guide ─────────────────────────────────────────────────────
+
+const POLICY_TYPES = [
+  {
+    form: 'HO-1',
+    name: 'Basic Form',
+    coverage: 'Named perils only (fire, lightning, windstorm, hail, explosion, riot, aircraft, vehicles, smoke, vandalism, theft)',
+    bestFor: 'Rarely used today — very limited coverage',
+    lenderApproved: false,
+    badge: 'bg-gray-100 text-gray-600',
+  },
+  {
+    form: 'HO-2',
+    name: 'Broad Form',
+    coverage: 'Named perils — expanded list vs HO-1. Adds falling objects, weight of ice/snow, accidental discharge of water, freezing, electrical damage',
+    bestFor: 'Budget-conscious buyers in low-risk areas',
+    lenderApproved: true,
+    badge: 'bg-blue-100 text-blue-700',
+  },
+  {
+    form: 'HO-3',
+    name: 'Special Form',
+    coverage: 'Open perils on dwelling (covers all causes except listed exclusions). Named perils on personal property',
+    bestFor: 'Standard owner-occupied single-family homes — most common policy',
+    lenderApproved: true,
+    badge: 'bg-green-100 text-green-700',
+  },
+  {
+    form: 'HO-4',
+    name: "Renter's Insurance",
+    coverage: 'Named perils on personal property only. No dwelling coverage (landlord insures the structure)',
+    bestFor: 'Tenants / renters',
+    lenderApproved: false,
+    badge: 'bg-purple-100 text-purple-700',
+  },
+  {
+    form: 'HO-5',
+    name: 'Comprehensive Form',
+    coverage: 'Open perils on BOTH dwelling AND personal property — broadest standard coverage',
+    bestFor: 'High-value homes ($750K+), luxury properties, or buyers who want maximum protection',
+    lenderApproved: true,
+    badge: 'bg-teal-100 text-teal-700',
+  },
+  {
+    form: 'HO-6',
+    name: 'Condo Form',
+    coverage: 'Named perils on personal property + interior of unit (walls-in). HOA master policy covers building exterior',
+    bestFor: 'Condo owners — verify HOA master policy type (all-in vs bare walls)',
+    lenderApproved: true,
+    badge: 'bg-indigo-100 text-indigo-700',
+  },
+  {
+    form: 'HO-7',
+    name: 'Mobile / Manufactured Home',
+    coverage: 'Open perils on mobile/manufactured home structure. Similar to HO-3 but for mobile homes',
+    bestFor: 'Manufactured or mobile home buyers',
+    lenderApproved: true,
+    badge: 'bg-orange-100 text-orange-700',
+  },
+  {
+    form: 'HO-8',
+    name: 'Modified Coverage / Older Homes',
+    coverage: 'Named perils only. Pays actual cash value (ACV) rather than replacement cost — designed for older homes where replacement cost exceeds market value',
+    bestFor: 'Historic homes, older properties, or homes that cannot be insured at replacement cost',
+    lenderApproved: false,
+    badge: 'bg-yellow-100 text-yellow-700',
+  },
+]
+
+function PolicyTypeGuideTool() {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  return (
+    <div className="space-y-4 pt-4">
+      <p className="text-sm text-gray-600">Quick reference guide to homeowners insurance policy forms — know which applies to your transaction.</p>
+      <div className="space-y-2">
+        {POLICY_TYPES.map((p) => {
+          const isOpen = expanded === p.form
+          return (
+            <div key={p.form} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setExpanded((prev) => (prev === p.form ? null : p.form))}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+              >
+                <span className={`text-xs font-bold px-2 py-1 rounded shrink-0 ${p.badge}`}>{p.form}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-gray-900">{p.name}</span>
+                    {p.lenderApproved && (
+                      <span className="text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Lender Accepted</span>
+                    )}
+                  </div>
+                </div>
+                {isOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+              </button>
+              {isOpen && (
+                <div className="px-4 pb-4 border-t border-gray-100 space-y-2 pt-3">
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Coverage</p>
+                    <p className="text-sm text-gray-700 mt-0.5">{p.coverage}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Best For</p>
+                    <p className="text-sm text-gray-700 mt-0.5">{p.bestFor}</p>
+                  </div>
+                  {!p.lenderApproved && (
+                    <div className="flex items-start gap-1.5 bg-yellow-50 rounded-lg px-3 py-2">
+                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-yellow-700">This policy form is generally not accepted by mortgage lenders as sufficient coverage on its own.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -553,6 +1098,33 @@ const TOOLS = [
     title: 'Hard Market Lookup',
     description: 'Carrier withdrawals, FAIR Plan options, and surplus lines availability by state',
     content: <HardMarketTool />,
+  },
+  {
+    id: 'carrier-lookup',
+    icon: Building2,
+    iconBg: 'bg-teal-50',
+    iconColor: 'text-teal-600',
+    title: 'Carrier Quick Lookup',
+    description: 'Find active, limited, and withdrawn carriers by state and coverage type',
+    content: <CarrierLookupTool />,
+  },
+  {
+    id: 'email-templates',
+    icon: MessageSquare,
+    iconBg: 'bg-indigo-50',
+    iconColor: 'text-indigo-600',
+    title: 'Client Email Templates',
+    description: 'Ready-to-send emails for hard market alerts, flood zones, FAIR Plan explanations, and more',
+    content: <ClientEmailTemplatesTool />,
+  },
+  {
+    id: 'policy-guide',
+    icon: BookOpen,
+    iconBg: 'bg-rose-50',
+    iconColor: 'text-rose-600',
+    title: 'Policy Type Guide (HO-1 to HO-8)',
+    description: 'Quick reference for homeowners policy forms — coverage, best use, and lender acceptance',
+    content: <PolicyTypeGuideTool />,
   },
 ]
 
