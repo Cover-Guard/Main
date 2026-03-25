@@ -145,8 +145,8 @@ export function ClientsPanel() {
         firstName: editForm.firstName,
         lastName: editForm.lastName,
         email: editForm.email,
-        phone: editForm.phone || undefined,
-        notes: editForm.notes || undefined,
+        phone: editForm.phone,
+        notes: editForm.notes,
         status: editForm.status,
       })
       setClients((prev) => prev.map((c) => (c.id === id ? updated : c)))
