@@ -17,6 +17,7 @@ jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
+    environment: production
     env:
       DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
       DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:5432/postgres
@@ -44,6 +45,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    environment: production
     env:
       DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
       DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:5432/postgres
@@ -64,6 +66,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     needs: [typecheck, lint]
+    environment: production
     env:
       DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
       DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:5432/postgres
