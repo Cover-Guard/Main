@@ -34,32 +34,25 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  // Protected routes that require authentication
-  const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/saved', '/reports', '/clients']
-  const isProtected = protectedRoutes.some((r) => pathname.startsWith(r))
-
-  // Allow /onboarding without auth redirect (handles post-signup flow)
-  if (pathname === '/onboarding' || pathname.startsWith('/onboarding')) {
-    if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
-    return supabaseResponse
-  }
-
-  if (isProtected && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.searchParams.set('redirectTo', pathname)
-    return NextResponse.redirect(url)
-  }
+  // Routes that are always publicly accessible (no login required)
+  const publicRoutes = ['/login', '/register', '/agents/login', '/agents/register', '/onboarding']
+  const isPublic = publicRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   // If authenticated user visits login/register, redirect to dashboard
   const authRoutes = ['/login', '/register', '/agents/login', '/agents/register']
-  if (user && authRoutes.includes(pathname)) {
+  if (user && authRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
+  // Require login for all non-public routes
+  if (!isPublic && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    if (pathname !== '/') {
+      url.searchParams.set('redirectTo', pathname)
+    }
     return NextResponse.redirect(url)
   }
 
