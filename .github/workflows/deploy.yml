@@ -36,16 +36,16 @@ jobs:
             exit 0
           fi
 
-          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          DIRECT_HOST="db.${SUPABASE_PROJECT_ID}.supabase.co"
 
-          echo "Testing TCP connectivity to ${POOLER_HOST}:5432..."
-          if ! nc -z -w 10 "${POOLER_HOST}" 5432 2>/dev/null; then
-            echo "::error::Cannot reach ${POOLER_HOST}:5432 from GitHub Actions — skipping migration"
+          echo "Testing TCP connectivity to ${DIRECT_HOST}:5432..."
+          if ! nc -z -w 10 "${DIRECT_HOST}" 5432 2>/dev/null; then
+            echo "::error::Cannot reach ${DIRECT_HOST}:5432 from GitHub Actions — skipping migration"
             echo "db_url_set=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "Database pooler is reachable"
+          echo "Database is reachable"
           echo "db_url_set=true" >> $GITHUB_OUTPUT
         env:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -58,7 +58,7 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+          DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
 
   # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
   deploy-web:
