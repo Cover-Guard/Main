@@ -30,84 +30,35 @@ jobs:
         id: check-db-url
         run: |
           # Both secrets must be present
-          if [ -z "$DATABASE_URL" ]; then
-            echo "::warning::DATABASE_URL secret is not configured — skipping migration"
-            echo "db_url_set=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          if [ -z "$DIRECT_URL" ]; then
-            echo "::warning::DIRECT_URL secret is not configured — skipping migration"
-            echo "::warning::Set DIRECT_URL to the Supabase Session Mode pooler URL, e.g."
-            echo "::warning::  postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
+          if [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::warning::SUPABASE_PROJECT_ID and/or SUPABASE_DB_PASSWORD secrets are not configured — skipping migration"
             echo "db_url_set=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Validate DIRECT_URL scheme
-          if ! echo "$DIRECT_URL" | grep -qE '^postgres(ql)?://'; then
-            echo "::error::DIRECT_URL has an invalid scheme — must start with postgresql:// or postgres://"
+          # Build the pooler hostname from the project ID
+          POOLER_HOST="aws-0-us-east-1.pooler.supabase.com"
+
+          echo "Testing TCP connectivity to ${POOLER_HOST}:5432..."
+          if ! nc -z -w 10 "${POOLER_HOST}" 5432 2>/dev/null; then
+            echo "::error::Cannot reach ${POOLER_HOST}:5432 from GitHub Actions — skipping migration"
             echo "db_url_set=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Resolve the connection URL: if DIRECT_URL points to a direct Supabase
-          # endpoint (db.*.supabase.co) that is unreachable from GitHub Actions,
-          # automatically rewrite it to the Session Mode pooler endpoint.
-          eval "$(node -e "
-            const u = new URL(process.env.DIRECT_URL);
-            const direct = u.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
-            if (direct) {
-              const ref = direct[1];
-              u.hostname = 'aws-0-us-east-1.pooler.supabase.com';
-              if (u.username === 'postgres') u.username = 'postgres.' + ref;
-              console.log('REWRITTEN=true');
-            } else {
-              console.log('REWRITTEN=false');
-            }
-            console.log('DB_HOST=' + u.hostname);
-            console.log('DB_PORT=' + (u.port || '5432'));
-          ")"
-
-          if [ "$REWRITTEN" = "true" ]; then
-            echo "::notice::DIRECT_URL uses direct Supabase endpoint (db.*.supabase.co) — automatically rewriting to Session Mode pooler for CI"
-          fi
-
-          echo "Testing TCP connectivity to ${DB_HOST}:${DB_PORT}..."
-          if ! nc -z -w 10 "${DB_HOST}" "${DB_PORT}" 2>/dev/null; then
-            echo "::error::Cannot reach ${DB_HOST}:${DB_PORT} from GitHub Actions — skipping migration"
-            echo "db_url_set=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Database is reachable at ${DB_HOST}:${DB_PORT}"
-          echo "rewritten=${REWRITTEN}" >> $GITHUB_OUTPUT
+          echo "Database pooler is reachable"
           echo "db_url_set=true" >> $GITHUB_OUTPUT
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
       - name: Run Prisma migrations
         if: steps.check-db-url.outputs.db_url_set == 'true'
         working-directory: apps/api
-        run: |
-          # If DIRECT_URL was rewritten in the connectivity check, apply the same
-          # transformation so Prisma connects via the Session Mode pooler.
-          if [ "$REWRITE_DIRECT_URL" = "true" ]; then
-            export DIRECT_URL=$(node -e "
-              const u = new URL(process.env.DIRECT_URL);
-              const m = u.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
-              if (m) {
-                u.hostname = 'aws-0-us-east-1.pooler.supabase.com';
-                if (u.username === 'postgres') u.username = 'postgres.' + m[1];
-              }
-              process.stdout.write(u.toString());
-            ")
-          fi
-          npx prisma migrate deploy
+        run: npx prisma migrate deploy
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-          REWRITE_DIRECT_URL: ${{ steps.check-db-url.outputs.rewritten }}
+          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:5432/postgres
 
   # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
   deploy-web:
