@@ -6,9 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "cd apps/web && next dev --turbopack -p 3000",
+    "dev": "next dev --turbopack -p 3000",
     "dev:all": "turbo run dev",
-    "build": "turbo run build --filter=@coverguard/web",
+    "build": "next build",
     "test": "turbo run test -- --passWithNoTests",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
