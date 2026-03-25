@@ -164,16 +164,35 @@ function WeekBarChart({ data }: { data: Array<{ label: string; value: number }> 
 export function AnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<'overview' | 'regional'>('overview')
 
   useEffect(() => {
     getAnalytics()
       .then(setData)
-      .catch(() => null)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load analytics'))
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <AnalyticsSkeleton />
+
+  if (error) {
+    return (
+      <div className="p-8 max-w-5xl mx-auto">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <AlertTriangle className="mx-auto h-8 w-8 text-red-400 mb-2" />
+          <p className="font-semibold text-red-700">Failed to load analytics</p>
+          <p className="text-sm text-red-500 mt-1">{error}</p>
+          <button
+            onClick={() => { setError(null); setLoading(true); getAnalytics().then(setData).catch((e) => setError(e instanceof Error ? e.message : 'Failed to load analytics')).finally(() => setLoading(false)) }}
+            className="mt-4 px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // Derive all metrics from real analytics data
   const totalChecks = data?.totalSearches ?? 0

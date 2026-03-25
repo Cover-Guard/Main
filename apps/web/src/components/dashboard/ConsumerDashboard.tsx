@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { GitCompare, Bookmark, Search, Clock, FileText, Shield, Activity } from 'lucide-react'
+import { GitCompare, Bookmark, Search, Clock, FileText, Shield, Activity, AlertTriangle } from 'lucide-react'
 import { SearchBar } from '@/components/search/SearchBar'
 import { SavedPropertiesPanel } from './SavedPropertiesPanel'
 import { useCompare } from '@/lib/useCompare'
@@ -12,9 +12,12 @@ import type { AnalyticsSummary } from '@coverguard/shared'
 export function ConsumerDashboard() {
   const { ids: compareIds, compareUrl, clear: clearCompare } = useCompare()
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
 
   useEffect(() => {
-    getAnalytics().then(setAnalytics).catch(() => {})
+    getAnalytics()
+      .then(setAnalytics)
+      .catch((err) => setAnalyticsError(err instanceof Error ? err.message : 'Failed to load activity'))
   }, [])
 
   const totalSearches = analytics?.totalSearches ?? 0
@@ -53,6 +56,14 @@ export function ConsumerDashboard() {
       )}
 
       <div className="mx-auto max-w-3xl px-4 py-8 space-y-6">
+
+        {/* Analytics error */}
+        {analyticsError && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+            <span>Activity data unavailable: {analyticsError}</span>
+          </div>
+        )}
 
         {/* Quick stats */}
         <div className="grid grid-cols-3 gap-3">

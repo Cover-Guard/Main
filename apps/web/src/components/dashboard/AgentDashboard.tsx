@@ -121,6 +121,7 @@ export function AgentDashboard() {
   const [clients, setClients] = useState<Client[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [errors, setErrors] = useState<string[]>([])
 
   useEffect(() => {
     Promise.allSettled([
@@ -128,9 +129,23 @@ export function AgentDashboard() {
       getClients(),
       getAnalytics(),
     ]).then(([propsResult, clientsResult, analyticsResult]) => {
-      if (propsResult.status === 'fulfilled') setProperties(propsResult.value as SavedPropertyRow[])
-      if (clientsResult.status === 'fulfilled') setClients(clientsResult.value)
-      if (analyticsResult.status === 'fulfilled') setAnalytics(analyticsResult.value)
+      const errs: string[] = []
+      if (propsResult.status === 'fulfilled') {
+        setProperties(propsResult.value as SavedPropertyRow[])
+      } else {
+        errs.push('Properties: ' + (propsResult.reason instanceof Error ? propsResult.reason.message : 'Failed to load'))
+      }
+      if (clientsResult.status === 'fulfilled') {
+        setClients(clientsResult.value)
+      } else {
+        errs.push('Clients: ' + (clientsResult.reason instanceof Error ? clientsResult.reason.message : 'Failed to load'))
+      }
+      if (analyticsResult.status === 'fulfilled') {
+        setAnalytics(analyticsResult.value)
+      } else {
+        errs.push('Analytics: ' + (analyticsResult.reason instanceof Error ? analyticsResult.reason.message : 'Failed to load'))
+      }
+      if (errs.length > 0) setErrors(errs)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -218,6 +233,20 @@ export function AgentDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Partial-load error banner */}
+      {errors.length > 0 && (
+        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+            <div className="flex-1 text-sm text-amber-800">
+              <p className="font-medium mb-1">Some data failed to load</p>
+              {errors.map((e, i) => <p key={i} className="text-amber-700 text-xs">{e}</p>)}
+            </div>
+            <button onClick={() => setErrors([])} className="text-amber-400 hover:text-amber-600 text-xs font-medium shrink-0">Dismiss</button>
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">

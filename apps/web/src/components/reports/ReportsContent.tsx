@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Shield,
   Clock,
+  AlertTriangle,
 } from 'lucide-react'
 
 interface SavedPropertyRow {
@@ -28,12 +29,13 @@ interface SavedPropertyRow {
 export function ReportsContent() {
   const [saved, setSaved] = useState<SavedPropertyRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
     getSavedProperties()
       .then((data) => setSaved(data as SavedPropertyRow[]))
-      .catch(() => setSaved([]))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load reports'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -92,7 +94,19 @@ export function ReportsContent() {
       )}
 
       {/* Content */}
-      {loading ? (
+      {loadError ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertTriangle className="h-12 w-12 text-red-300 mb-3" />
+          <p className="font-semibold text-red-600">Failed to load reports</p>
+          <p className="text-sm text-gray-400 mt-1">{loadError}</p>
+          <button
+            onClick={() => { setLoadError(null); setLoading(true); getSavedProperties().then((d) => setSaved(d as SavedPropertyRow[])).catch((e) => setLoadError(e instanceof Error ? e.message : 'Failed to load reports')).finally(() => setLoading(false)) }}
+            className="mt-4 px-4 py-2 text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      ) : loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-28 rounded-xl bg-gray-100 animate-pulse" />
