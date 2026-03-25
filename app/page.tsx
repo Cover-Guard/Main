@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = { title: 'CoverGuard — Property Insurability Intelligence' }
 
 export default function HomePage() {
+  console.log("[v0] HomePage rendering")
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <div className="max-w-2xl text-center">
