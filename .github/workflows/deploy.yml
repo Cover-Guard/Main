@@ -97,6 +97,14 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      - name: Set up Vercel project link
+        run: |
+          mkdir -p .vercel
+          echo '{"projectId":"'"$VERCEL_PROJECT_ID"'","orgId":"'"$VERCEL_ORG_ID"'"}' > .vercel/project.json
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
+
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         env:
@@ -172,6 +180,14 @@ jobs:
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
+
+      - name: Set up Vercel project link
+        run: |
+          mkdir -p apps/api/.vercel
+          echo '{"projectId":"'"$VERCEL_PROJECT_ID"'","orgId":"'"$VERCEL_ORG_ID"'"}' > apps/api/.vercel/project.json
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
 
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
