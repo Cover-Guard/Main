@@ -31,36 +31,26 @@ jobs:
 
       - name: Validate migration configuration
         run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "::error::DATABASE_URL is not configured in the '${{ inputs.environment }}' environment"
+          if [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::SUPABASE_PROJECT_ID and/or SUPABASE_DB_PASSWORD secrets are not configured in the '${{ inputs.environment }}' environment"
             exit 1
           fi
-          if [ -z "$DIRECT_URL" ]; then
-            echo "::error::DIRECT_URL is not configured in the '${{ inputs.environment }}' environment"
-            echo "::error::Set DIRECT_URL to the Supabase Session Mode pooler URL, e.g."
-            echo "::error::  postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
-            exit 1
-          fi
-          if ! echo "$DIRECT_URL" | grep -qE '^postgres(ql)?://'; then
-            echo "::error::DIRECT_URL has an invalid scheme — must start with postgresql:// or postgres://"
-            exit 1
-          fi
-          echo "Secrets present and URL scheme valid. Note: TCP connectivity is not tested here — run this workflow against the target environment to verify reachability."
+          echo "Supabase secrets present. URLs will be constructed from SUPABASE_PROJECT_ID and SUPABASE_DB_PASSWORD."
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
       - name: Show migration status
         working-directory: apps/api
         run: npx prisma migrate status
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:5432/postgres
 
       - name: Apply migrations
         if: ${{ !inputs.dry_run }}
         working-directory: apps/api
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-us-east-1.pooler.supabase.com:5432/postgres
