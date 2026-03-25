@@ -104,15 +104,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Ensure npm accessible to child processes
-        run: |
-          NPM_PATH=$(which npm)
-          NODE_PATH=$(which node)
-          if [ -n "$NPM_PATH" ]; then
-            sudo ln -sf "$NPM_PATH" /usr/local/bin/npm || true
-          fi
-          if [ -n "$NODE_PATH" ]; then
-            sudo ln -sf "$NODE_PATH" /usr/local/bin/node || true
-          fi
+        run: echo "$(dirname $(which node))" >> $GITHUB_PATH
 
       - name: Build project
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -174,15 +166,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
 
       - name: Ensure npm accessible to child processes
-        run: |
-          NPM_PATH=$(which npm)
-          NODE_PATH=$(which node)
-          if [ -n "$NPM_PATH" ]; then
-            sudo ln -sf "$NPM_PATH" /usr/local/bin/npm || true
-          fi
-          if [ -n "$NODE_PATH" ]; then
-            sudo ln -sf "$NODE_PATH" /usr/local/bin/node || true
-          fi
+        run: echo "$(dirname $(which node))" >> $GITHUB_PATH
 
       - name: Build project artifacts
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
