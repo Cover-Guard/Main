@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, User, Mail, Phone, Trash2, ChevronDown, ChevronUp, Pencil, Search, X, Check } from 'lucide-react'
+import { Plus, User, Mail, Phone, Trash2, ChevronDown, ChevronUp, Pencil, Search, X, Check, AlertTriangle } from 'lucide-react'
 import type { Client, ClientStatus } from '@coverguard/shared'
 import { getClients, createClient2, updateClient, deleteClient } from '@/lib/api'
 
@@ -37,6 +37,7 @@ interface EditForm {
 export function ClientsPanel() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Add form
   const [showAddForm, setShowAddForm] = useState(false)
@@ -63,7 +64,7 @@ export function ClientsPanel() {
   useEffect(() => {
     getClients()
       .then(setClients)
-      .catch(() => setClients([]))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load clients'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -161,6 +162,7 @@ export function ClientsPanel() {
   // ── Status quick-change (outside edit mode) ────────────────────────────────
 
   async function handleStatusChange(id: string, status: ClientStatus) {
+    setActionError(null)
     try {
       const updated = await updateClient(id, { status })
       setClients((prev) => prev.map((c) => (c.id === id ? updated : c)))
@@ -173,6 +175,7 @@ export function ClientsPanel() {
 
   async function handleDelete(id: string) {
     if (!confirm('Remove this client?')) return
+    setActionError(null)
     try {
       await deleteClient(id)
       setClients((prev) => prev.filter((c) => c.id !== id))
@@ -344,6 +347,12 @@ export function ClientsPanel() {
           {[1, 2, 3].map((i) => (
             <div key={i} className="card h-20 animate-pulse bg-gray-100" />
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="card p-8 text-center">
+          <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-red-400" />
+          <p className="font-medium text-red-600">Could not load clients</p>
+          <p className="mt-1 text-sm text-gray-400">{loadError}</p>
         </div>
       ) : clients.length === 0 ? (
         <div className="card p-10 text-center text-gray-400">

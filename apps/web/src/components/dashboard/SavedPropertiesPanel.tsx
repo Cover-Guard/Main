@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { PropertyCard } from '@/components/search/PropertyCard'
-import { Building2 } from 'lucide-react'
+import { Building2, AlertTriangle } from 'lucide-react'
 
 interface SavedPropertiesPanelProps {
   limit?: number
@@ -14,11 +14,12 @@ interface SavedPropertiesPanelProps {
 export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelProps) {
   const [saved, setSaved] = useState<Array<{ property: Property }>>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     getSavedProperties()
       .then((data) => setSaved(data as Array<{ property: Property }>))
-      .catch(() => setSaved([]))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load saved properties'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -30,6 +31,16 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
         {[1, 2].map((i) => (
           <div key={i} className="card h-24 animate-pulse bg-gray-100" />
         ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="card p-6 text-center">
+        <AlertTriangle className="mx-auto mb-2 h-7 w-7 text-red-400" />
+        <p className="font-medium text-red-600">Could not load saved properties</p>
+        <p className="mt-1 text-sm text-gray-400">{error}</p>
       </div>
     )
   }
