@@ -24,8 +24,10 @@ model User {
   company         String?
   licenseNumber   String? // agents / lenders
   avatarUrl       String?
-  termsAcceptedAt DateTime? // null = has not yet accepted terms
-  createdAt       DateTime  @default(now())
+  termsAcceptedAt   DateTime? // null = has not yet accepted terms
+  ndaAcceptedAt     DateTime? // set at registration when user agrees to NDA
+  privacyAcceptedAt DateTime? // set at registration when user agrees to Privacy Policy
+  createdAt         DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   savedProperties SavedProperty[]

@@ -16,6 +16,9 @@ const registerSchema = z.object({
   role: z.enum(['BUYER', 'AGENT', 'LENDER']).default('BUYER'),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
+  agreeNDA: z.literal(true, { errorMap: () => ({ message: 'NDA agreement is required' }) }),
+  agreeTerms: z.literal(true, { errorMap: () => ({ message: 'Terms of Use agreement is required' }) }),
+  agreePrivacy: z.literal(true, { errorMap: () => ({ message: 'Privacy Policy agreement is required' }) }),
 })
 
 // ─── Register ─────────────────────────────────────────────────────────────────
@@ -36,6 +39,8 @@ authRouter.post('/register', async (req, res, next) => {
       return
     }
 
+    const agreedAt = new Date()
+
     // Create user profile in our DB
     const user = await prisma.user.create({
       data: {
@@ -46,6 +51,9 @@ authRouter.post('/register', async (req, res, next) => {
         role: body.role,
         company: body.company ?? null,
         licenseNumber: body.licenseNumber ?? null,
+        ndaAcceptedAt: agreedAt,
+        privacyAcceptedAt: agreedAt,
+        termsAcceptedAt: agreedAt,
       },
     })
 
