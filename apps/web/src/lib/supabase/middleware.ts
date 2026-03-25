@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Routes that are always publicly accessible (no login required)
-  const publicRoutes = ['/login', '/register', '/agents/login', '/agents/register', '/onboarding']
+  const publicRoutes = ['/login', '/register', '/agents/login', '/agents/register']
   const isPublic = publicRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   // If authenticated user visits login/register, redirect to dashboard
