@@ -193,6 +193,7 @@ export function ClientsPanel() {
     try {
       const updated = await updateClient(id, { status })
       setClients((prev) => prev.map((c) => (c.id === id ? updated : c)))
+      setActionError(null)
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to update status')
     }
