@@ -128,3 +128,64 @@ jobs:
           echo "| **Production URL** | [${PRODUCTION_URL}](${PRODUCTION_URL}) |" >> $GITHUB_STEP_SUMMARY
           echo "| **Vercel URL** | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ── Deploy API to Vercel ──────────────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API to Vercel
+    runs-on: ubuntu-latest
+    needs: [migrate]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build --workspace=@coverguard/shared
+
+      - name: Build API
+        run: npm run build --workspace=@coverguard/api
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/api
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+
+      - name: Build project artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: apps/api
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+
+      - name: Deploy to Vercel production
+        id: deploy
+        run: |
+          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
+        working-directory: apps/api
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
+
+      - name: Deployment summary
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "### Deployed API to Production (Vercel)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **API URL** | [${API_URL}](${API_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Vercel URL** | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
