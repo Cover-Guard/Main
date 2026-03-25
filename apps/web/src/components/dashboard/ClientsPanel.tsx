@@ -411,7 +411,10 @@ export function ClientsPanel() {
           {filtered.map((client) => {
             const isEditing = editingId === client.id
             const isExpanded = expandedId === client.id
-            const initials = `${client.firstName[0]}${client.lastName[0]}`
+            const initials =
+              ((client.firstName?.[0] ?? '') + (client.lastName?.[0] ?? '')).toUpperCase() ||
+              client.email?.[0]?.toUpperCase() ||
+              '?'
 
             if (isEditing && editForm) {
               return (
@@ -425,6 +428,7 @@ export function ClientsPanel() {
                       <div>
                         <label className="label text-xs">First name</label>
                         <input
+                          required
                           className="input mt-0.5"
                           value={editForm.firstName}
                           onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
@@ -433,6 +437,7 @@ export function ClientsPanel() {
                       <div>
                         <label className="label text-xs">Last name</label>
                         <input
+                          required
                           className="input mt-0.5"
                           value={editForm.lastName}
                           onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}

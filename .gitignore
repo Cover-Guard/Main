@@ -44,3 +44,4 @@ prisma/dev.db-journal
 
 # Misc
 .eslintcache
+package-lock.json
