@@ -104,7 +104,10 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Ensure npm accessible to child processes
-        run: echo "$(dirname "$(which npm)")" >> $GITHUB_PATH
+        run: |
+          NPM_BIN="$(which npm)"
+          echo "$(dirname "$NPM_BIN")" >> $GITHUB_PATH
+          sudo ln -sf "$NPM_BIN" /usr/local/bin/npm
 
       - name: Build project
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -115,8 +118,20 @@ jobs:
       - name: Deploy to Vercel production
         id: deploy
         run: |
-          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
+          MAX_RETRIES=3
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Deployment attempt $i/$MAX_RETRIES..."
+            if DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}); then
+              echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
+              break
+            elif [ "$i" -lt "$MAX_RETRIES" ]; then
+              echo "Attempt $i failed, retrying in 30s..."
+              sleep 30
+            else
+              echo "All $MAX_RETRIES deployment attempts failed"
+              exit 1
+            fi
+          done
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -166,7 +181,10 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
 
       - name: Ensure npm accessible to child processes
-        run: echo "$(dirname "$(which npm)")" >> $GITHUB_PATH
+        run: |
+          NPM_BIN="$(which npm)"
+          echo "$(dirname "$NPM_BIN")" >> $GITHUB_PATH
+          sudo ln -sf "$NPM_BIN" /usr/local/bin/npm
 
       - name: Build project artifacts
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -178,8 +196,20 @@ jobs:
       - name: Deploy to Vercel production
         id: deploy
         run: |
-          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
+          MAX_RETRIES=3
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Deployment attempt $i/$MAX_RETRIES..."
+            if DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}); then
+              echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
+              break
+            elif [ "$i" -lt "$MAX_RETRIES" ]; then
+              echo "Attempt $i failed, retrying in 30s..."
+              sleep 30
+            else
+              echo "All $MAX_RETRIES deployment attempts failed"
+              exit 1
+            fi
+          done
         working-directory: apps/api
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
