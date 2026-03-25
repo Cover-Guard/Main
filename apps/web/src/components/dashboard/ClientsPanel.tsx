@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, User, Mail, Phone, Trash2 } from 'lucide-react'
+import { Plus, User, Mail, Phone, Trash2, AlertTriangle } from 'lucide-react'
 import type { Client, ClientStatus } from '@coverguard/shared'
 import { getClients, createClient2, updateClient, deleteClient } from '@/lib/api'
 
@@ -15,15 +15,17 @@ const STATUS_COLORS: Record<ClientStatus, string> = {
 export function ClientsPanel() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', notes: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     getClients()
       .then(setClients)
-      .catch(() => setClients([]))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load clients'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -51,21 +53,23 @@ export function ClientsPanel() {
   }
 
   async function handleStatusChange(id: string, status: ClientStatus) {
+    setActionError(null)
     try {
       const updated = await updateClient(id, { status })
       setClients((prev) => prev.map((c) => (c.id === id ? updated : c)))
-    } catch {
-      // silent
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update client status')
     }
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Remove this client?')) return
+    setActionError(null)
     try {
       await deleteClient(id)
       setClients((prev) => prev.filter((c) => c.id !== id))
-    } catch {
-      // silent
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete client')
     }
   }
 
@@ -156,12 +160,27 @@ export function ClientsPanel() {
         </div>
       )}
 
+      {/* Action error (status change / delete) */}
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {actionError}
+          <button onClick={() => setActionError(null)} className="ml-auto text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
+        </div>
+      )}
+
       {/* Client list */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="card h-20 animate-pulse bg-gray-100" />
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="card p-8 text-center">
+          <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-red-400" />
+          <p className="font-medium text-red-600">Could not load clients</p>
+          <p className="mt-1 text-sm text-gray-400">{loadError}</p>
         </div>
       ) : clients.length === 0 ? (
         <div className="card p-10 text-center text-gray-400">

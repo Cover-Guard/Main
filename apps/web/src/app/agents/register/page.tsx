@@ -9,6 +9,28 @@ import { z } from 'zod'
 import { Shield, Users, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
+const NDA_TEXT = `NON-DISCLOSURE AGREEMENT
+
+This Non-Disclosure Agreement ("Agreement") is entered into as of the date of account creation between CoverGuard, Inc. ("Company") and the individual registering for access to the CoverGuard platform ("User").
+
+1. CONFIDENTIAL INFORMATION. "Confidential Information" means any non-public information disclosed by the Company through the CoverGuard platform, including but not limited to: proprietary risk scoring methodologies, carrier availability data, underwriting intelligence, property insurability assessments, pricing algorithms, and any data derived therefrom.
+
+2. OBLIGATIONS. User agrees to: (a) hold all Confidential Information in strict confidence; (b) not disclose Confidential Information to any third party without the Company's prior written consent; (c) use Confidential Information solely for User's professional real estate and insurance due diligence purposes; and (d) not reproduce, distribute, or commercialize any Confidential Information.
+
+3. PERMITTED USE. User may access and use the platform's data outputs solely for lawful professional real estate due diligence on behalf of clients. Any systematic extraction, resale, redistribution, or commercial exploitation of the data is strictly prohibited.
+
+4. PROFESSIONAL RESPONSIBILITY. Agent/Lender Users acknowledge that they are licensed professionals and accept sole responsibility for any advice given to clients based on CoverGuard data. CoverGuard data does not constitute professional insurance or legal advice.
+
+5. NO WARRANTY. The Company makes no representation or warranty that any information provided is complete, accurate, or current. All risk assessments and insurance estimates are informational only and do not constitute professional advice.
+
+6. TERM. This Agreement remains in effect for the duration of User's access to the platform and for three (3) years following termination of access.
+
+7. REMEDIES. User acknowledges that unauthorized disclosure of Confidential Information would cause irreparable harm, and the Company shall be entitled to seek equitable relief in addition to all other remedies available at law.
+
+8. GOVERNING LAW. This Agreement is governed by the laws of the State of Delaware, without regard to conflict of law principles.
+
+By creating an account, User agrees to be bound by the terms of this Agreement.`
+
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
@@ -17,6 +39,9 @@ const schema = z.object({
   role: z.enum(['AGENT', 'LENDER']),
   company: z.string().min(1, 'Company name required for agents'),
   licenseNumber: z.string().optional(),
+  agreeNDA: z.literal(true, { errorMap: () => ({ message: 'You must agree to the NDA' }) }),
+  agreeTerms: z.literal(true, { errorMap: () => ({ message: 'You must agree to the Terms of Use' }) }),
+  agreePrivacy: z.literal(true, { errorMap: () => ({ message: 'You must agree to the Privacy Policy' }) }),
 })
 
 type FormData = z.infer<typeof schema>
@@ -55,9 +80,6 @@ export default function AgentRegisterPage() {
     setError(null)
     setOauthLoading(true)
     const supabase = createClient()
-    // Pass the selected role in the redirect URL so the callback route can
-    // write it into auth metadata, which triggers handle_user_updated to
-    // sync the role to public.users automatically.
     const redirectTo =
       `${window.location.origin}/api/auth/callback?next=/onboarding&role=${role}`
     const { error } = await supabase.auth.signInWithOAuth({
@@ -171,6 +193,58 @@ export default function AgentRegisterPage() {
                 <input className="input mt-1" placeholder="State license number" {...register('licenseNumber')} />
               </div>
             )}
+
+            {/* NDA */}
+            <div>
+              <label className="label mb-1">Non-Disclosure Agreement</label>
+              <div className="h-40 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-600 whitespace-pre-wrap">
+                {NDA_TEXT}
+              </div>
+              <label className="mt-2 flex cursor-pointer items-start gap-2">
+                <input
+                  type="checkbox"
+                  {...register('agreeNDA')}
+                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-xs text-gray-700">
+                  I have read and agree to the Non-Disclosure Agreement
+                </span>
+              </label>
+              {errors.agreeNDA && <p className="mt-1 text-xs text-red-600">{errors.agreeNDA.message}</p>}
+            </div>
+
+            {/* Terms & Privacy checkboxes */}
+            <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <label className="flex cursor-pointer items-start gap-2">
+                <input
+                  type="checkbox"
+                  {...register('agreeTerms')}
+                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-xs text-gray-700">
+                  I agree to the{' '}
+                  <a href="/terms" target="_blank" className="text-brand-600 underline hover:text-brand-700">
+                    Terms of Use
+                  </a>
+                </span>
+              </label>
+              {errors.agreeTerms && <p className="mt-0.5 ml-6 text-xs text-red-600">{errors.agreeTerms.message}</p>}
+
+              <label className="flex cursor-pointer items-start gap-2">
+                <input
+                  type="checkbox"
+                  {...register('agreePrivacy')}
+                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-xs text-gray-700">
+                  I agree to the{' '}
+                  <a href="/privacy" target="_blank" className="text-brand-600 underline hover:text-brand-700">
+                    Privacy Policy
+                  </a>
+                </span>
+              </label>
+              {errors.agreePrivacy && <p className="mt-0.5 ml-6 text-xs text-red-600">{errors.agreePrivacy.message}</p>}
+            </div>
 
             <button type="submit" disabled={isSubmitting || oauthLoading} className="btn-primary w-full py-2.5">
               {isSubmitting ? 'Creating account…' : 'Create Agent Account'}

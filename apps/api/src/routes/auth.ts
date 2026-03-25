@@ -180,6 +180,28 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
   }
 })
 
+// ─── Delete account ───────────────────────────────────────────────────────────
+
+authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+
+    // Delete all user data from DB first (cascades via Prisma relations)
+    await prisma.user.delete({ where: { id: userId } })
+
+    // Delete the Supabase auth user
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+    if (error) {
+      // DB already deleted — log but don't fail the request
+      console.error('Supabase auth delete failed:', error.message)
+    }
+
+    res.json({ success: true, data: { deleted: true } })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // ─── Reports ──────────────────────────────────────────────────────────────────
 
 authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
