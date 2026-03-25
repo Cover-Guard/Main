@@ -1,7 +1,12 @@
 import type { NextConfig } from 'next'
+import path from 'path'
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@coverguard/shared'],
+  webpack: (config) => {
+    config.resolve.alias['@coverguard/shared'] = path.resolve(__dirname, '../../packages/shared/src')
+    return config
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
