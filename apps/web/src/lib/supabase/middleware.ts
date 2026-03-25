@@ -14,6 +14,9 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
+      cookieOptions: {
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -35,7 +38,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Routes that are always publicly accessible (no login required)
-  const publicRoutes = ['/login', '/register', '/agents/login', '/agents/register']
+  const publicRoutes = ['/', '/login', '/register', '/agents/login', '/agents/register']
   const isPublic = publicRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   // If authenticated user visits login/register, redirect to dashboard
