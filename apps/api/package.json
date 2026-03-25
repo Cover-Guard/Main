@@ -19,7 +19,6 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@coverguard/shared": "*",
     "@prisma/client": "^6.2.1",
     "@supabase/supabase-js": "^2.47.10",
     "compression": "^1.7.5",

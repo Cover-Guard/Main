@@ -12,7 +12,6 @@
     "clean": "rm -rf .next out"
   },
   "dependencies": {
-    "@coverguard/shared": "file:../../packages/shared",
     "@supabase/supabase-js": "^2.47.10",
     "@supabase/ssr": "^0.5.2",
     "next": "^15.1.3",
