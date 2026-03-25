@@ -1,6 +1,9 @@
 {
   "version": 2,
   "installCommand": "echo 'Dependencies pre-installed by CI'",
+  "git": {
+    "deploymentEnabled": true
+  },
   "github": {
     "enabled": false
   },
