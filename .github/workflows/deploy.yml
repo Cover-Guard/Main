@@ -103,11 +103,10 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Ensure npm accessible to child processes
-        run: echo "$(dirname "$(which npm)")" >> $GITHUB_PATH
-
       - name: Build project
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          export PATH="$(dirname "$(which npm)"):$PATH"
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -165,11 +164,10 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
 
-      - name: Ensure npm accessible to child processes
-        run: echo "$(dirname "$(which npm)")" >> $GITHUB_PATH
-
       - name: Build project artifacts
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          export PATH="$(dirname "$(which npm)"):$PATH"
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: apps/api
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
