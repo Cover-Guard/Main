@@ -57,6 +57,9 @@ export function ClientsPanel() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL')
 
+  // Action errors (status change, delete)
+  const [actionError, setActionError] = useState<string | null>(null)
+
   useEffect(() => {
     getClients()
       .then(setClients)
@@ -161,8 +164,8 @@ export function ClientsPanel() {
     try {
       const updated = await updateClient(id, { status })
       setClients((prev) => prev.map((c) => (c.id === id ? updated : c)))
-    } catch {
-      // silent
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update status')
     }
   }
 
@@ -175,8 +178,8 @@ export function ClientsPanel() {
       setClients((prev) => prev.filter((c) => c.id !== id))
       if (expandedId === id) setExpandedId(null)
       if (editingId === id) cancelEdit()
-    } catch {
-      // silent
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete client')
     }
   }
 
@@ -184,6 +187,16 @@ export function ClientsPanel() {
 
   return (
     <div className="space-y-5">
+
+      {/* ── Action error banner ───────────────────────────────────────────── */}
+      {actionError && (
+        <div className="flex items-center justify-between rounded bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="ml-4 shrink-0 text-red-400 hover:text-red-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* ── Stats row ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
