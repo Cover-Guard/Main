@@ -1,22 +1,9 @@
 {
   "version": 2,
-  "installCommand": "echo 'Dependencies pre-installed by CI'",
-  "github": {
-    "enabled": false
-  },
-  "builds": [
-    {
-      "src": "dist/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["dist/**", "prisma/**"]
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/dist/index.js"
-    }
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
   ]
 }
