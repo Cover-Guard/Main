@@ -11,6 +11,7 @@ import {
   Building2,
   TrendingUp,
 } from 'lucide-react'
+import { SearchMapClient } from '@/components/map/SearchMapClient'
 
 const STATE_RISKS = [
   { label: 'Severe Risk',   color: 'bg-purple-500', states: 2 },
@@ -202,40 +203,9 @@ export function NewCheckPage() {
             )}
           </div>
 
-          {/* Map placeholder — styled like OpenStreetMap */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-              <p className="text-sm">
-                Enter an address to see it on the map
-              </p>
-              <p className="text-xs mt-1">
-                Interactive map with risk overlays
-              </p>
-            </div>
-          </div>
-
-          {/* Risk legend */}
-          <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow px-3 py-2 text-xs">
-            <p className="font-semibold text-gray-700 mb-1.5 uppercase tracking-wide text-[10px]">
-              Risk Level
-            </p>
-            <div className="space-y-1">
-              {RISK_LEGEND.map(({ label, color }) => (
-                <div key={label} className="flex items-center gap-2">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ background: color }}
-                  />
-                  <span className="text-gray-600">{label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Map attribution */}
-          <div className="absolute bottom-2 right-2 text-[10px] text-gray-400 bg-white/80 px-1.5 py-0.5 rounded">
-            © OpenStreetMap contributors
+          {/* Interactive map */}
+          <div className="absolute inset-0">
+            <SearchMapClient query={null} />
           </div>
         </div>
       </div>
