@@ -107,8 +107,12 @@ jobs:
         run: |
           NPM_PATH=$(which npm)
           NODE_PATH=$(which node)
-          sudo ln -sf "$NPM_PATH" /usr/local/bin/npm || true
-          sudo ln -sf "$NODE_PATH" /usr/local/bin/node || true
+          if [ -n "$NPM_PATH" ]; then
+            sudo ln -sf "$NPM_PATH" /usr/local/bin/npm || true
+          fi
+          if [ -n "$NODE_PATH" ]; then
+            sudo ln -sf "$NODE_PATH" /usr/local/bin/node || true
+          fi
 
       - name: Build project
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -173,8 +177,12 @@ jobs:
         run: |
           NPM_PATH=$(which npm)
           NODE_PATH=$(which node)
-          sudo ln -sf "$NPM_PATH" /usr/local/bin/npm || true
-          sudo ln -sf "$NODE_PATH" /usr/local/bin/node || true
+          if [ -n "$NPM_PATH" ]; then
+            sudo ln -sf "$NPM_PATH" /usr/local/bin/npm || true
+          fi
+          if [ -n "$NODE_PATH" ]; then
+            sudo ln -sf "$NODE_PATH" /usr/local/bin/node || true
+          fi
 
       - name: Build project artifacts
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
