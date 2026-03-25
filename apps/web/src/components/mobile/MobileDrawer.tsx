@@ -12,7 +12,6 @@ import {
   Wrench,
   BarChart2,
   Settings,
-  FileText,
   X,
   LogOut,
 } from 'lucide-react'
@@ -25,7 +24,6 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/search',    label: 'Search',     icon: Search,          exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
-  { href: '/reports',   label: 'Reports',    icon: FileText,        exact: false },
   { href: '/compare',   label: 'Compare',    icon: GitCompare,      exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
   { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },

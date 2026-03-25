@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { AnalyticsSummary } from '@coverguard/shared'
 import { getAnalytics } from '@/lib/api'
+import { ReportsContent } from '@/components/reports/ReportsContent'
 import {
   Shield,
   TrendingUp,
@@ -160,12 +161,14 @@ function WeekBarChart({ data }: { data: Array<{ label: string; value: number }> 
   )
 }
 
+type TopLevelTab = 'overview' | 'regional' | 'reports'
+
 // ── Main ──────────────────────────────────────────────────────────────────
-export function AnalyticsDashboard() {
+export function AnalyticsDashboard({ initialTab }: { initialTab?: TopLevelTab }) {
   const [data, setData] = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'overview' | 'regional'>('overview')
+  const [tab, setTab] = useState<TopLevelTab>(initialTab ?? 'overview')
 
   useEffect(() => {
     getAnalytics()
@@ -174,7 +177,7 @@ export function AnalyticsDashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <AnalyticsSkeleton />
+  if (loading && tab !== 'reports') return <AnalyticsSkeleton />
 
   if (error) {
     return (
@@ -273,161 +276,186 @@ export function AnalyticsDashboard() {
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <Activity className="h-6 w-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-gray-900">Analytics &amp; Trends</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Analytics &amp; Reports</h1>
       </div>
       <p className="text-sm text-gray-500 mb-5">
-        Key metrics, pipeline insights, and regional risk trends
+        Key metrics, pipeline insights, regional risk trends, and saved property reports
       </p>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6">
-        <button
-          onClick={() => setTab('overview')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            tab === 'overview'
-              ? 'bg-blue-50 text-blue-700'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Activity className="h-3.5 w-3.5" />
+      <div className="flex items-center gap-1 mb-6 border-b border-gray-200 pb-0">
+        <TabButton active={tab === 'overview'} onClick={() => setTab('overview')} icon={<Activity className="h-3.5 w-3.5" />}>
           Overview
-        </button>
-        <button
-          onClick={() => setTab('regional')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            tab === 'regional'
-              ? 'bg-blue-50 text-blue-700'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <TrendingUp className="h-3.5 w-3.5" />
+        </TabButton>
+        <TabButton active={tab === 'regional'} onClick={() => setTab('regional')} icon={<TrendingUp className="h-3.5 w-3.5" />}>
           Regional Trends
-        </button>
+        </TabButton>
+        <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} icon={<FileText className="h-3.5 w-3.5" />}>
+          Reports
+        </TabButton>
       </div>
 
-      {/* Top stat rows */}
-      <div className="grid grid-cols-4 gap-3 mb-3">
-        <MiniStat label="TOTAL CHECKS" sub="all time" value={totalChecks} icon={<Shield className="h-4 w-4 text-blue-500" />} />
-        <MiniStat label="AVG SCORE" sub="insurability" value={avgScore} icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} />
-        <MiniStat label="HIGH RISK" sub="score < 40" value={highRisk} icon={<AlertTriangle className="h-4 w-4 text-red-400" />} />
-        <MiniStat label="ACTIVE CLIENTS" sub={`${data?.totalClients ?? 0} total`} value={activeClients} icon={<Users className="h-4 w-4 text-purple-400" />} />
-      </div>
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        <MiniStat label="QUOTES" sub="all time" value={0} icon={<FileText className="h-4 w-4 text-orange-400" />} />
-        <MiniStat label="BOUND" sub="converted" value={0} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />
-        <MiniStat label="PIPELINE" sub="under contract" value={0} icon={<Activity className="h-4 w-4 text-red-400" />} />
-        <MiniStat label="LEADS" sub="awaiting contact" value={0} icon={<Clock className="h-4 w-4 text-gray-400" />} />
-      </div>
-
-      {/* Activity line chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Activity className="h-4 w-4 text-emerald-500" />
-          <h3 className="text-sm font-semibold text-gray-800">
-            Activity — Last 30 Days
-          </h3>
+      {/* Reports tab */}
+      {tab === 'reports' && (
+        <div className="-mx-8 -mt-6">
+          <ReportsContent />
         </div>
-        <LineChart data={activityData} />
-      </div>
+      )}
 
-      {/* Three donut charts */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <ChartCard title="Risk Level Distribution">
-          <div className="flex flex-col items-center gap-3">
-            <DonutChart segments={riskSegments} size={100} />
-            <div className="space-y-1">
-              {riskSegments.map((s) => (
-                <div key={s.label} className="flex items-center gap-1.5 text-xs">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
-                  <span className="text-gray-500">{s.label}</span>
+      {/* Overview / Regional tabs */}
+      {tab !== 'reports' && (
+        <>
+          {/* Top stat rows */}
+          <div className="grid grid-cols-4 gap-3 mb-3">
+            <MiniStat label="TOTAL CHECKS" sub="all time" value={totalChecks} icon={<Shield className="h-4 w-4 text-blue-500" />} />
+            <MiniStat label="AVG SCORE" sub="insurability" value={avgScore} icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} />
+            <MiniStat label="HIGH RISK" sub="score < 40" value={highRisk} icon={<AlertTriangle className="h-4 w-4 text-red-400" />} />
+            <MiniStat label="ACTIVE CLIENTS" sub={`${data?.totalClients ?? 0} total`} value={activeClients} icon={<Users className="h-4 w-4 text-purple-400" />} />
+          </div>
+          <div className="grid grid-cols-4 gap-3 mb-6">
+            <MiniStat label="QUOTES" sub="all time" value={0} icon={<FileText className="h-4 w-4 text-orange-400" />} />
+            <MiniStat label="BOUND" sub="converted" value={0} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />
+            <MiniStat label="PIPELINE" sub="under contract" value={0} icon={<Activity className="h-4 w-4 text-red-400" />} />
+            <MiniStat label="LEADS" sub="awaiting contact" value={0} icon={<Clock className="h-4 w-4 text-gray-400" />} />
+          </div>
+
+          {/* Activity line chart */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="h-4 w-4 text-emerald-500" />
+              <h3 className="text-sm font-semibold text-gray-800">
+                Activity — Last 30 Days
+              </h3>
+            </div>
+            <LineChart data={activityData} />
+          </div>
+
+          {/* Three donut charts */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <ChartCard title="Risk Level Distribution">
+              <div className="flex flex-col items-center gap-3">
+                <DonutChart segments={riskSegments} size={100} />
+                <div className="space-y-1">
+                  {riskSegments.map((s) => (
+                    <div key={s.label} className="flex items-center gap-1.5 text-xs">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
+                      <span className="text-gray-500">{s.label}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+            </ChartCard>
+
+            <ChartCard title="Check Status Breakdown">
+              <div className="flex flex-col items-center gap-3">
+                <DonutChart segments={statusSegments} size={100} />
+                <div className="space-y-1">
+                  {statusSegments.map((s) => (
+                    <div key={s.label} className="flex items-center gap-1.5 text-xs">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
+                      <span className="text-gray-500">{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ChartCard>
+
+            <ChartCard title="Client Pipeline">
+              {activeClients === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-xs text-gray-400">No clients yet</p>
+                </div>
+              ) : (
+                <DonutChart segments={[{ value: activeClients, color: '#3b82f6', label: `Active ${activeClients}` }]} size={100} />
+              )}
+            </ChartCard>
+          </div>
+
+          {/* Bottom three panels */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4">
+                Checks — Last 4 Weeks
+              </h3>
+              <WeekBarChart data={weekBars} />
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4">
+                Checks by State
+              </h3>
+              {stateChecks.length === 0 ? (
+                <p className="text-sm text-gray-400">No data yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {stateChecks.map((s, i) => (
+                    <div key={s.state} className="flex items-center gap-3">
+                      <span className="text-xs text-gray-400 w-4">{i + 1}</span>
+                      <span className="text-xs font-semibold text-gray-700 w-6">{s.state}</span>
+                      <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className="h-2 rounded-full bg-emerald-400"
+                          style={{ width: `${(s.count / maxStateCount) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400 w-6 text-right">{s.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4">Recent Activity</h3>
+              {(data?.recentActivity ?? []).length === 0 ? (
+                <p className="text-sm text-gray-400">No activity yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(data!.recentActivity).slice(0, 7).map((item, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <span className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                        item.type === 'search' ? 'bg-blue-400' :
+                        item.type === 'save' ? 'bg-emerald-400' : 'bg-purple-400'
+                      }`} />
+                      <span className="flex-1 text-gray-600 truncate">{item.description}</span>
+                      <span className="text-gray-400 shrink-0">
+                        {new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </ChartCard>
-
-        <ChartCard title="Check Status Breakdown">
-          <div className="flex flex-col items-center gap-3">
-            <DonutChart segments={statusSegments} size={100} />
-            <div className="space-y-1">
-              {statusSegments.map((s) => (
-                <div key={s.label} className="flex items-center gap-1.5 text-xs">
-                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
-                  <span className="text-gray-500">{s.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </ChartCard>
-
-        <ChartCard title="Client Pipeline">
-          {activeClients === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-xs text-gray-400">No clients yet</p>
-            </div>
-          ) : (
-            <DonutChart segments={[{ value: activeClients, color: '#3b82f6', label: `Active ${activeClients}` }]} size={100} />
-          )}
-        </ChartCard>
-      </div>
-
-      {/* Bottom three panels */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">
-            Checks — Last 4 Weeks
-          </h3>
-          <WeekBarChart data={weekBars} />
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">
-            Checks by State
-          </h3>
-          {stateChecks.length === 0 ? (
-            <p className="text-sm text-gray-400">No data yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {stateChecks.map((s, i) => (
-                <div key={s.state} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400 w-4">{i + 1}</span>
-                  <span className="text-xs font-semibold text-gray-700 w-6">{s.state}</span>
-                  <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className="h-2 rounded-full bg-emerald-400"
-                      style={{ width: `${(s.count / maxStateCount) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-400 w-6 text-right">{s.count}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="text-sm font-semibold text-gray-800 mb-4">Recent Activity</h3>
-          {(data?.recentActivity ?? []).length === 0 ? (
-            <p className="text-sm text-gray-400">No activity yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {(data!.recentActivity).slice(0, 7).map((item, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs">
-                  <span className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                    item.type === 'search' ? 'bg-blue-400' :
-                    item.type === 'save' ? 'bg-emerald-400' : 'bg-purple-400'
-                  }`} />
-                  <span className="flex-1 text-gray-600 truncate">{item.description}</span>
-                  <span className="text-gray-400 shrink-0">
-                    {new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+        </>
+      )}
     </div>
+  )
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-t-md text-sm font-medium transition-colors border-b-2 -mb-px ${
+        active
+          ? 'border-blue-600 text-blue-700 bg-blue-50/60'
+          : 'border-transparent text-gray-500 hover:text-gray-700'
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
   )
 }
 
