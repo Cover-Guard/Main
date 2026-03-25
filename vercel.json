@@ -2,7 +2,7 @@
   "version": 2,
   "framework": "nextjs",
   "installCommand": "npm install",
-  "buildCommand": "npm run build --prefix apps/web",
+  "buildCommand": "cd apps/web && npm run build",
   "outputDirectory": "apps/web/.next",
-  "devCommand": "npm run dev --prefix apps/web"
+  "devCommand": "cd apps/web && next dev --turbopack -p 3000"
 }
