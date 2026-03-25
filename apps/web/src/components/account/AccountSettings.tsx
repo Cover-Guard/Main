@@ -264,8 +264,12 @@ export function AccountSettings() {
     setDeleteError(null)
     try {
       await deleteAccount()
+      // Attempt to sign out (may fail if session already invalidated by deletion)
+      // but continue with redirect regardless since account is deleted on backend
       const supabase = createClient()
-      await supabase.auth.signOut()
+      supabase.auth.signOut().catch(() => {
+        // Silently ignore signOut errors — session is already invalid after account deletion
+      })
       window.location.href = '/'
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete account.')
