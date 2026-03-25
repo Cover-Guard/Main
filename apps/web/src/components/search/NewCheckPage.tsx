@@ -45,7 +45,7 @@ export function NewCheckPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col h-full">
       {/* Hero heading */}
       <div className="bg-white pt-10 pb-6 px-8 text-center border-b border-gray-100">
         <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
