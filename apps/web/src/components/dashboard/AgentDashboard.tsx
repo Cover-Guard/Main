@@ -11,9 +11,23 @@ import {
   TrendingUp,
   ArrowRight,
   Users,
+  Clock,
+  Activity,
+  FileText,
+  Bookmark,
 } from 'lucide-react'
 import { getSavedProperties, getClients, getAnalytics } from '@/lib/api'
-import type { SavedProperty, Client, AnalyticsSummary } from '@coverguard/shared'
+import type { Client, AnalyticsSummary } from '@coverguard/shared'
+import type { Property } from '@coverguard/shared'
+
+interface SavedPropertyRow {
+  id: string
+  propertyId: string
+  notes: string | null
+  tags: string[]
+  savedAt: string
+  property: Property
+}
 
 // ── Donut SVG ──────────────────────────────────────────────────────────────
 function DonutChart({
@@ -101,47 +115,9 @@ function PerilBarChart({
   )
 }
 
-// ── Score badge ────────────────────────────────────────────────────────────
-function ScoreBadge({ score }: { score: number }) {
-  const color =
-    score >= 80
-      ? 'text-green-600'
-      : score >= 60
-      ? 'text-yellow-600'
-      : score >= 40
-      ? 'text-orange-500'
-      : 'text-red-500'
-  return (
-    <span className={`text-sm font-bold w-8 text-center ${color}`}>{score}</span>
-  )
-}
-
-// ── Risk badge ─────────────────────────────────────────────────────────────
-const RISK_STYLES: Record<string, string> = {
-  LOW:       'bg-green-100 text-green-700',
-  MODERATE:  'bg-yellow-100 text-yellow-700',
-  ELEVATED:  'bg-orange-100 text-orange-700',
-  HIGH:      'bg-red-100 text-red-700',
-  VERY_HIGH: 'bg-red-200 text-red-800',
-  EXTREME:   'bg-purple-100 text-purple-800',
-}
-
-function RiskBadge({ level }: { level: string }) {
-  const label = level === 'VERY_HIGH' ? 'Very High' : level.charAt(0) + level.slice(1).toLowerCase()
-  return (
-    <span
-      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-        RISK_STYLES[level] ?? 'bg-gray-100 text-gray-600'
-      }`}
-    >
-      {label}
-    </span>
-  )
-}
-
 // ── Main component ─────────────────────────────────────────────────────────
 export function AgentDashboard() {
-  const [properties, setProperties] = useState<SavedProperty[]>([])
+  const [properties, setProperties] = useState<SavedPropertyRow[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -152,7 +128,7 @@ export function AgentDashboard() {
       getClients(),
       getAnalytics(),
     ]).then(([propsResult, clientsResult, analyticsResult]) => {
-      if (propsResult.status === 'fulfilled') setProperties(propsResult.value as SavedProperty[])
+      if (propsResult.status === 'fulfilled') setProperties(propsResult.value as SavedPropertyRow[])
       if (clientsResult.status === 'fulfilled') setClients(clientsResult.value)
       if (analyticsResult.status === 'fulfilled') setAnalytics(analyticsResult.value)
     }).finally(() => setLoading(false))
@@ -294,6 +270,9 @@ export function AgentDashboard() {
         </div>
       </div>
 
+      {/* Bottom grid: recent properties + recent activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
       {/* Recent properties */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
@@ -327,22 +306,23 @@ export function AgentDashboard() {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {properties.slice(0, 5).map((sp, i) => {
-              const sampleScores = [62, 38, 75, 85, 65]
-              const sampleRisks = ['ELEVATED', 'HIGH', 'ELEVATED', 'MODERATE', 'ELEVATED']
-              const score = sampleScores[i % sampleScores.length] ?? 67
-              const risk = sampleRisks[i % sampleRisks.length] ?? 'MODERATE'
+            {properties.slice(0, 5).map((sp) => {
+              const address = sp.property?.address ?? sp.propertyId
+              const sub = [sp.property?.city, sp.property?.state].filter(Boolean).join(', ')
               return (
                 <div key={sp.id} className="flex items-center gap-3 py-3">
-                  <ScoreBadge score={score} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {sp.propertyId}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <RiskBadge level={risk} />
-                    </div>
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+                    <Shield className="h-4 w-4 text-blue-500" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{address}</p>
+                    {sub && <p className="text-xs text-gray-400 truncate">{sub}</p>}
+                  </div>
+                  {sp.savedAt && (
+                    <span className="text-[10px] text-gray-400 shrink-0 hidden sm:block">
+                      {new Date(sp.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
                   <Link
                     href={`/properties/${sp.propertyId}`}
                     className="flex items-center gap-1 text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 shrink-0"
@@ -355,6 +335,49 @@ export function AgentDashboard() {
           </div>
         )}
       </div>
+
+      {/* Recent Activity */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="h-4 w-4 text-emerald-500" />
+          <h3 className="text-sm font-semibold text-gray-800">Recent Activity</h3>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />
+            ))}
+          </div>
+        ) : (analytics?.recentActivity ?? []).length === 0 ? (
+          <div className="py-8 text-center">
+            <Clock className="mx-auto h-8 w-8 text-gray-200 mb-2" />
+            <p className="text-sm text-gray-400">No recent activity yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {(analytics?.recentActivity ?? []).slice(0, 8).map((item, i) => {
+              const icon =
+                item.type === 'search' ? <Search className="h-3.5 w-3.5 text-blue-400" /> :
+                item.type === 'save' ? <Bookmark className="h-3.5 w-3.5 text-emerald-400" /> :
+                <FileText className="h-3.5 w-3.5 text-purple-400" />
+              return (
+                <div key={i} className="flex items-start gap-2.5 py-2 border-b border-gray-50 last:border-0">
+                  <div className="mt-0.5 shrink-0">{icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-700 truncate">{item.description}</p>
+                  </div>
+                  <span className="text-[10px] text-gray-400 shrink-0 whitespace-nowrap">
+                    {new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      </div>{/* end bottom grid */}
     </div>
   )
 }

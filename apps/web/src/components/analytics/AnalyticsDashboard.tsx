@@ -175,61 +175,78 @@ export function AnalyticsDashboard() {
 
   if (loading) return <AnalyticsSkeleton />
 
-  // Build mock/derived data
-  const totalChecks = data?.totalSearches ?? 9
-  const avgScore = 67
-  const highRisk = 1
+  // Derive all metrics from real analytics data
+  const totalChecks = data?.totalSearches ?? 0
   const activeClients = data?.totalClients ?? 0
 
-  // Activity last 30 days — generate placeholder if no data
+  // avgScore: weighted average from risk distribution
+  const riskDist = data?.riskDistribution ?? []
+  const riskScoreMap: Record<string, number> = {
+    LOW: 85, MODERATE: 65, HIGH: 45, VERY_HIGH: 25, EXTREME: 10,
+  }
+  const totalRiskItems = riskDist.reduce((s, r) => s + r.count, 0)
+  const avgScore =
+    totalRiskItems > 0
+      ? Math.round(
+          riskDist.reduce((s, r) => s + (riskScoreMap[r.level] ?? 50) * r.count, 0) /
+            totalRiskItems
+        )
+      : 0
+
+  // highRisk: count of HIGH + VERY_HIGH + EXTREME
+  const highRisk = riskDist
+    .filter((r) => r.level === 'HIGH' || r.level === 'VERY_HIGH' || r.level === 'EXTREME')
+    .reduce((s, r) => s + r.count, 0)
+
+  // Activity last 30 days
   const activityData: Array<{ date: string; checks: number; quotes: number }> =
-    data?.searchesByDay?.map((d) => ({ date: d.date, checks: d.count, quotes: 0 })) ??
-    Array.from({ length: 30 }, (_, i) => {
-      const d = new Date('2026-02-10')
-      d.setDate(d.getDate() + i)
-      return {
-        date: d.toISOString().slice(0, 10),
-        checks: i === 26 ? 4 : i === 27 ? 2 : 0,
-        quotes: 0,
-      }
-    })
+    (data?.searchesByDay ?? []).length > 0
+      ? (data!.searchesByDay.map((d) => ({ date: d.date, checks: d.count, quotes: 0 })))
+      : Array.from({ length: 30 }, (_, i) => {
+          const d = new Date()
+          d.setDate(d.getDate() - (29 - i))
+          return { date: d.toISOString().slice(0, 10), checks: 0, quotes: 0 }
+        })
 
   // Risk distribution donut
+  const RISK_COLORS: Record<string, string> = {
+    LOW: '#22c55e', MODERATE: '#3b82f6', HIGH: '#ef4444', VERY_HIGH: '#dc2626', EXTREME: '#7c3aed',
+  }
   const riskSegments =
-    data?.riskDistribution?.map((r) => ({
-      value: r.count,
-      color:
-        r.level === 'LOW'
-          ? '#22c55e'
-          : r.level === 'MODERATE'
-          ? '#3b82f6'
-          : r.level === 'HIGH'
-          ? '#ef4444'
-          : '#f97316',
-      label: `${r.level.charAt(0) + r.level.slice(1).toLowerCase()} ${r.count}`,
-    })) ?? [
-      { value: 5, color: '#f97316', label: 'Elevated 5' },
-      { value: 1, color: '#ef4444', label: 'High 1' },
-      { value: 3, color: '#3b82f6', label: 'Moderate 3' },
-    ]
+    riskDist.length > 0
+      ? riskDist.map((r) => ({
+          value: r.count,
+          color: RISK_COLORS[r.level] ?? '#94a3b8',
+          label: `${r.level.charAt(0) + r.level.slice(1).toLowerCase().replace('_', ' ')} ${r.count}`,
+        }))
+      : [{ value: 1, color: '#e5e7eb', label: 'No data' }]
 
-  // Status donut (all completed)
-  const statusSegments = [{ value: totalChecks, color: '#3b82f6', label: `Completed ${totalChecks}` }]
+  // Status donut
+  const statusSegments =
+    totalChecks > 0
+      ? [{ value: totalChecks, color: '#3b82f6', label: `Completed ${totalChecks}` }]
+      : [{ value: 1, color: '#e5e7eb', label: 'No data' }]
 
-  // 4-week bar
-  const weekBars = [
-    { label: 'Feb 20-26', value: 0 },
-    { label: 'Feb 27-Mar 6', value: 0 },
-    { label: 'Mar 6-Mar 12', value: 0 },
-    { label: 'Mar 13-Mar 19', value: 72 },
-  ]
+  // 4-week bar — group searchesByDay into 7-day buckets (most recent 4 weeks)
+  const searchDays = data?.searchesByDay ?? []
+  const weekBars = Array.from({ length: 4 }, (_, wi) => {
+    const weekEnd = 29 - wi * 7
+    const weekStart = weekEnd - 6
+    const count = searchDays
+      .slice(Math.max(0, weekStart), weekEnd + 1)
+      .reduce((s, d) => s + d.count, 0)
+    const endDate = new Date()
+    endDate.setDate(endDate.getDate() - wi * 7)
+    const startDate = new Date(endDate)
+    startDate.setDate(startDate.getDate() - 6)
+    const fmt = (d: Date) =>
+      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return { label: `${fmt(startDate)}`, value: count }
+  }).reverse()
 
   // Checks by state
   const stateChecks: Array<{ state: string; count: number; avgScore?: number }> =
-    data?.topStates?.slice(0, 5) ?? [
-      { state: 'CA', count: 8, avgScore: 64 },
-      { state: 'NV', count: 1, avgScore: 85 },
-    ]
+    (data?.topStates ?? []).slice(0, 5)
   const maxStateCount = Math.max(...stateChecks.map((s) => s.count), 1)
 
   return (
@@ -274,7 +291,7 @@ export function AnalyticsDashboard() {
         <MiniStat label="TOTAL CHECKS" sub="all time" value={totalChecks} icon={<Shield className="h-4 w-4 text-blue-500" />} />
         <MiniStat label="AVG SCORE" sub="insurability" value={avgScore} icon={<TrendingUp className="h-4 w-4 text-emerald-500" />} />
         <MiniStat label="HIGH RISK" sub="score < 40" value={highRisk} icon={<AlertTriangle className="h-4 w-4 text-red-400" />} />
-        <MiniStat label="ACTIVE CLIENTS" sub="0 total" value={activeClients} icon={<Users className="h-4 w-4 text-purple-400" />} />
+        <MiniStat label="ACTIVE CLIENTS" sub={`${data?.totalClients ?? 0} total`} value={activeClients} icon={<Users className="h-4 w-4 text-purple-400" />} />
       </div>
       <div className="grid grid-cols-4 gap-3 mb-6">
         <MiniStat label="QUOTES" sub="all time" value={0} icon={<FileText className="h-4 w-4 text-orange-400" />} />
@@ -335,11 +352,11 @@ export function AnalyticsDashboard() {
         </ChartCard>
       </div>
 
-      {/* Bottom two panels */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Bottom three panels */}
+      <div className="grid grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-800 mb-4">
-            Avg Insurability Score — 4 Weeks
+            Checks — Last 4 Weeks
           </h3>
           <WeekBarChart data={weekBars} />
         </div>
@@ -363,11 +380,28 @@ export function AnalyticsDashboard() {
                     />
                   </div>
                   <span className="text-xs text-gray-400 w-6 text-right">{s.count}</span>
-                  {s.avgScore != null && (
-                    <span className="text-xs font-bold text-gray-700 bg-gray-100 rounded px-1.5 py-0.5 w-8 text-center">
-                      {s.avgScore}
-                    </span>
-                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 className="text-sm font-semibold text-gray-800 mb-4">Recent Activity</h3>
+          {(data?.recentActivity ?? []).length === 0 ? (
+            <p className="text-sm text-gray-400">No activity yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {(data!.recentActivity).slice(0, 7).map((item, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs">
+                  <span className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                    item.type === 'search' ? 'bg-blue-400' :
+                    item.type === 'save' ? 'bg-emerald-400' : 'bg-purple-400'
+                  }`} />
+                  <span className="flex-1 text-gray-600 truncate">{item.description}</span>
+                  <span className="text-gray-400 shrink-0">
+                    {new Date(item.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
                 </div>
               ))}
             </div>
