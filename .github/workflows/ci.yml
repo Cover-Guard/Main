@@ -11,6 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Turbo handles building @coverguard/shared before downstream tasks via
+  # the "dependsOn": ["^build"] entries in turbo.json — no manual pre-build needed.
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
@@ -24,15 +27,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npm run build --workspace=@coverguard/shared
       - run: npm run typecheck
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.DIRECT_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,7 +39,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npm run build --workspace=@coverguard/shared
       - run: npm run lint
 
   test:
@@ -60,7 +58,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npm run build --workspace=@coverguard/shared
       - run: npm run test
 
   build:
@@ -77,11 +74,10 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - name: Build all packages
+      - name: Build web app
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_API_URL: https://api.coverguard.io
           NEXT_PUBLIC_SITE_URL: https://coverguard.io
-
