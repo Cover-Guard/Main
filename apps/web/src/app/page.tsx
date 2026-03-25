@@ -1,13 +1,13 @@
-import type { Metadata } from 'next'
-import { NewCheckPage } from '@/components/search/NewCheckPage'
-import { SidebarLayout } from '@/components/layout/SidebarLayout'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 
-export const metadata: Metadata = { title: 'New Check — CoverGuard' }
+export default async function HomePage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-export default function HomePage() {
-  return (
-    <SidebarLayout>
-      <NewCheckPage />
-    </SidebarLayout>
-  )
+  if (user) {
+    redirect('/dashboard')
+  } else {
+    redirect('/login')
+  }
 }
