@@ -50,23 +50,37 @@ jobs:
             exit 0
           fi
 
-          # Parse host and port from DIRECT_URL using Node.js URL parser
-          DB_HOST=$(node -e "try{const u=new URL(process.env.DIRECT_URL);process.stdout.write(u.hostname);}catch(e){process.exit(1);}" 2>/dev/null) || {
-            echo "::error::DIRECT_URL could not be parsed as a valid URL"
-            echo "db_url_set=false" >> $GITHUB_OUTPUT
-            exit 0
-          }
-          DB_PORT=$(node -e "try{const u=new URL(process.env.DIRECT_URL);process.stdout.write(u.port||'5432');}catch(e){process.exit(1);}" 2>/dev/null) || DB_PORT="5432"
+          # Resolve the connection URL: if DIRECT_URL points to a direct Supabase
+          # endpoint (db.*.supabase.co) that is unreachable from GitHub Actions,
+          # automatically rewrite it to the Session Mode pooler endpoint.
+          eval "$(node -e "
+            const u = new URL(process.env.DIRECT_URL);
+            const direct = u.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+            if (direct) {
+              const ref = direct[1];
+              u.hostname = 'aws-0-us-east-1.pooler.supabase.com';
+              if (u.username === 'postgres') u.username = 'postgres.' + ref;
+              console.log('REWRITTEN=true');
+            } else {
+              console.log('REWRITTEN=false');
+            }
+            console.log('DB_HOST=' + u.hostname);
+            console.log('DB_PORT=' + (u.port || '5432'));
+          ")"
+
+          if [ "$REWRITTEN" = "true" ]; then
+            echo "::notice::DIRECT_URL uses direct Supabase endpoint (db.*.supabase.co) — automatically rewriting to Session Mode pooler for CI"
+          fi
+
           echo "Testing TCP connectivity to ${DB_HOST}:${DB_PORT}..."
           if ! nc -z -w 10 "${DB_HOST}" "${DB_PORT}" 2>/dev/null; then
-            echo "::warning::Cannot reach ${DB_HOST}:${DB_PORT} from GitHub Actions — skipping migration"
-            echo "::warning::DIRECT_URL must point to the Supabase Session Mode pooler, not the direct db.*.supabase.co endpoint"
-            echo "::warning::Update the DIRECT_URL secret to:"
-            echo "::warning::  postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
+            echo "::error::Cannot reach ${DB_HOST}:${DB_PORT} from GitHub Actions — skipping migration"
             echo "db_url_set=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
+          echo "Database is reachable at ${DB_HOST}:${DB_PORT}"
+          echo "rewritten=${REWRITTEN}" >> $GITHUB_OUTPUT
           echo "db_url_set=true" >> $GITHUB_OUTPUT
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -75,10 +89,25 @@ jobs:
       - name: Run Prisma migrations
         if: steps.check-db-url.outputs.db_url_set == 'true'
         working-directory: apps/api
-        run: npx prisma migrate deploy
+        run: |
+          # If DIRECT_URL was rewritten in the connectivity check, apply the same
+          # transformation so Prisma connects via the Session Mode pooler.
+          if [ "$REWRITE_DIRECT_URL" = "true" ]; then
+            export DIRECT_URL=$(node -e "
+              const u = new URL(process.env.DIRECT_URL);
+              const m = u.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+              if (m) {
+                u.hostname = 'aws-0-us-east-1.pooler.supabase.com';
+                if (u.username === 'postgres') u.username = 'postgres.' + m[1];
+              }
+              process.stdout.write(u.toString());
+            ")
+          fi
+          npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          REWRITE_DIRECT_URL: ${{ steps.check-db-url.outputs.rewritten }}
 
   # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
   deploy-web:
