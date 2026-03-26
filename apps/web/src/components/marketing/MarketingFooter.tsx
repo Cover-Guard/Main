@@ -9,8 +9,7 @@ const footerLinks = {
     { label: 'Agent Dashboard', href: '#solutions' },
   ],
   Company: [
-    { label: 'About', href: '#team' },
-    { label: 'Team', href: '#team' },
+    { label: 'Pricing', href: '/pricing' },
     { label: 'Investors', href: '#investors' },
     { label: 'Careers', href: '#' },
   ],
