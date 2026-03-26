@@ -54,7 +54,10 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     if (pathname !== '/') {
-      url.searchParams.set('redirectTo', pathname)
+      // Preserve the full path + query so the user lands back on the same
+      // page (e.g. /search?q=123+Main) after signing in.
+      const search = request.nextUrl.search
+      url.searchParams.set('redirectTo', pathname + search)
     }
     return NextResponse.redirect(url)
   }
