@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { AgentDashboard } from '@/components/dashboard/AgentDashboard'
 import { ConsumerDashboard } from '@/components/dashboard/ConsumerDashboard'
+import { DashboardWithTabs } from '@/components/dashboard/DashboardWithTabs'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -27,7 +28,9 @@ export default async function DashboardPage() {
 
   return (
     <SidebarLayout>
-      {isAgent ? <AgentDashboard /> : <ConsumerDashboard />}
+      <DashboardWithTabs>
+        {isAgent ? <AgentDashboard /> : <ConsumerDashboard />}
+      </DashboardWithTabs>
     </SidebarLayout>
   )
 }

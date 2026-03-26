@@ -62,6 +62,6 @@ export function useCompare() {
     toggle,
     clear,
     canAdd: ids.length < MAX_COMPARE,
-    compareUrl: ids.length >= 2 ? `/compare?ids=${ids.join(',')}` : null,
+    compareUrl: ids.length >= 2 ? `/dashboard?tab=compare&ids=${ids.join(',')}` : null,
   }
 }

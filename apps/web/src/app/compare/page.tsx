@@ -1,13 +1,10 @@
-import type { Metadata } from 'next'
-import { SidebarLayout } from '@/components/layout/SidebarLayout'
-import { CompareView } from '@/components/compare/CompareView'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = { title: 'Compare Properties — CoverGuard' }
-
-export default function ComparePage() {
-  return (
-    <SidebarLayout>
-      <CompareView />
-    </SidebarLayout>
-  )
+export default function ComparePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  // Redirect to dashboard compare tab, preserving query params
+  return redirect('/dashboard?tab=compare')
 }

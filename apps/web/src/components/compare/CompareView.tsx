@@ -69,10 +69,13 @@ export function CompareView() {
   const [searchLoading, setSearchLoading] = useState(false)
   const searchDebounce = useRef<NodeJS.Timeout | null>(null)
 
-  // Read property IDs from URL
+  // Read property IDs from URL (supports ?a=&b=&c= and ?ids=id1,id2,id3)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const ids = [params.get('a'), params.get('b'), params.get('c')]
+    const idsParam = params.get('ids')
+    const ids = idsParam
+      ? idsParam.split(',').slice(0, 3)
+      : [params.get('a'), params.get('b'), params.get('c')]
     ids.forEach((id, idx) => { if (id) loadProperty(id, idx) })
   }, [])
 
