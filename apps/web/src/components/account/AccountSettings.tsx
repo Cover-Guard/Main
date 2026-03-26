@@ -626,7 +626,7 @@ export function AccountSettings() {
                 title="Terms of Service"
                 badge={user?.termsAcceptedAt ? `Accepted ${fmtDate(user.termsAcceptedAt)}` : undefined}
               >
-                <p><strong>Last updated: January 1, 2025</strong></p>
+                <p><strong>Last updated: March 26, 2026</strong></p>
                 <p>
                   By using CoverGuard, you agree to these Terms of Service. CoverGuard provides a property
                   insurability intelligence platform that aggregates publicly available risk data and connects
@@ -639,67 +639,87 @@ export function AccountSettings() {
                 </p>
                 <p>
                   <strong>Data Accuracy.</strong> Risk data is sourced from FEMA, USGS, NOAA, the FBI, and other
-                  public sources. While we strive for accuracy, data may be outdated or incomplete. Always verify
-                  information with a licensed insurance professional before making purchasing decisions.
+                  public sources. While we strive for accuracy, data may be outdated or incomplete. All data should
+                  be independently verified with a licensed insurance professional before making decisions.
+                </p>
+                <p>
+                  <strong>Confidentiality.</strong> You agree to treat all proprietary data, risk scoring
+                  methodologies, carrier intelligence, and non-public information available through the Platform
+                  as confidential. Unauthorized disclosure, reproduction, or redistribution is prohibited.
                 </p>
                 <p>
                   <strong>Prohibited Uses.</strong> You may not use CoverGuard to scrape data, conduct bulk
-                  automated searches, or resell data to third parties without our written consent.
+                  automated searches, probe system vulnerabilities, introduce malicious code, or resell data to
+                  third parties without our written consent. Violations may result in immediate account termination.
                 </p>
                 <p>
-                  <strong>Account Termination.</strong> We reserve the right to suspend or terminate accounts
-                  that violate these terms. You may delete your account at any time through Settings.
+                  <strong>Account Security.</strong> You are responsible for maintaining the security of your
+                  account credentials and must notify us immediately of any unauthorized access. We recommend
+                  enabling multi-factor authentication where available.
                 </p>
                 <p>
                   <strong>Limitation of Liability.</strong> CoverGuard is not liable for decisions made based
-                  on information provided by the platform, including but not limited to property purchase decisions,
+                  on information provided by the Platform, including but not limited to property purchase decisions,
                   insurance purchasing decisions, or lending decisions.
                 </p>
                 <p className="text-gray-400">
-                  For questions about these terms, contact legal@coverguard.io
+                  For questions about these terms, contact{' '}
+                  <a href="mailto:legal@coverguard.com" className="underline hover:text-gray-500">legal@coverguard.com</a>
                 </p>
               </LegalSection>
 
               <LegalSection
                 icon={<Shield className="h-4 w-4 text-emerald-500" />}
                 title="Privacy Policy"
-                badge="Effective January 1, 2025"
+                badge="Effective March 26, 2026"
               >
-                <p><strong>Last updated: January 1, 2025</strong></p>
+                <p><strong>Last updated: March 26, 2026</strong></p>
                 <p>
                   CoverGuard (&ldquo;we&rdquo;, &ldquo;our&rdquo;, &ldquo;us&rdquo;) is committed to protecting
-                  your privacy. This policy explains what data we collect, how we use it, and your rights.
+                  your privacy. This policy explains what data we collect, how we use it, and your rights. We
+                  limit data collection to what is necessary to provide and improve our services.
                 </p>
                 <p>
                   <strong>What We Collect.</strong> We collect account information you provide (name, email,
                   company, license number), property searches and saved properties, quote requests you submit,
-                  and usage data such as pages visited and features used.
+                  and usage data such as pages visited and features used. We collect only the minimum information
+                  necessary to operate and improve the Platform.
                 </p>
                 <p>
-                  <strong>How We Use It.</strong> Your data is used to provide and improve our services,
-                  personalize your experience, communicate with you about your account and properties,
-                  and connect you with carriers when you request quotes.
+                  <strong>How We Use It.</strong> Your data is processed for specific, documented purposes: to
+                  provide and improve our services, personalize your experience, communicate with you about your
+                  account and properties, connect you with carriers when you request quotes, and maintain security
+                  through audit logging and monitoring.
                 </p>
                 <p>
-                  <strong>Third-Party Sharing.</strong> We do not sell your personal data. We share data with
-                  insurance carriers only when you explicitly request a quote. We use Supabase for authentication
-                  and database hosting, and Google Maps for map rendering.
+                  <strong>Third-Party Sharing.</strong> We do not sell, rent, or trade your personal data. We
+                  share data with insurance carriers only when you explicitly request a quote. All third-party
+                  service providers (subprocessors) are bound by written data processing agreements that require
+                  them to protect your data with appropriate security measures.
                 </p>
                 <p>
-                  <strong>Data Retention.</strong> We retain your account data for as long as your account is
-                  active. You may request deletion of your data at any time by deleting your account through Settings.
+                  <strong>Data Security.</strong> We maintain a comprehensive security program including
+                  encryption in transit and at rest, role-based access controls, continuous monitoring,
+                  regular penetration testing, and documented incident response procedures.
                 </p>
                 <p>
-                  <strong>Your Rights.</strong> You have the right to access, correct, or delete your personal
-                  data. Residents of California have additional rights under CCPA. EU/UK residents have rights
-                  under GDPR, including the right to data portability.
+                  <strong>Data Retention.</strong> We retain your account data while your account is active and
+                  for 30 days after deletion for recovery purposes. Usage logs are retained for up to 24 months.
+                  Quote records are retained for up to 7 years per regulatory requirements. All data is securely
+                  deleted or anonymized when retention periods expire.
                 </p>
                 <p>
-                  <strong>Cookies.</strong> We use essential cookies for authentication. We do not use
-                  third-party advertising cookies.
+                  <strong>Your Rights.</strong> You have the right to access, correct, delete, or export your
+                  personal data. California residents have additional rights under CCPA/CPRA. We respond to
+                  verified requests within 30 days.
+                </p>
+                <p>
+                  <strong>Cookies.</strong> We use strictly necessary cookies for authentication. We do not use
+                  third-party advertising or behavioral tracking cookies.
                 </p>
                 <p className="text-gray-400">
-                  For privacy inquiries or data requests, contact privacy@coverguard.io
+                  For privacy inquiries or data requests, contact{' '}
+                  <a href="mailto:privacy@coverguard.com" className="underline hover:text-gray-500">privacy@coverguard.com</a>
                 </p>
               </LegalSection>
 
@@ -711,16 +731,21 @@ export function AccountSettings() {
                 <p>
                   You may request deletion of your personal data at any time. Deleting your account through the
                   &ldquo;Delete Account&rdquo; tab will permanently remove your profile, saved properties, search
-                  history, and all associated data from our systems within 30 days.
+                  history, and all associated data from our systems within 30 days. Data is securely deleted
+                  using industry-standard disposal methods.
                 </p>
                 <p>
                   Some data may be retained in anonymized, aggregated form for analytics purposes and cannot
-                  be individually identified. Transaction records required by law (e.g., binding quote records)
-                  may be retained for the legally required period.
+                  be individually identified. Transaction records required by law or regulation (e.g., binding
+                  quote records) may be retained for the legally required retention period (up to 7 years).
+                  Security and audit logs may be retained for up to 12 months for incident investigation purposes.
                 </p>
                 <p>
-                  For data export requests or targeted deletion requests, email privacy@coverguard.io with the
-                  subject &ldquo;Data Request&rdquo; and include your registered email address.
+                  For data export requests (portability), targeted deletion requests, or to inquire about the
+                  specific data we hold about you, email{' '}
+                  <a href="mailto:privacy@coverguard.com" className="underline hover:text-gray-500">privacy@coverguard.com</a>
+                  {' '}with the subject &ldquo;Data Request&rdquo; and include your registered email address. We
+                  will respond to verified requests within 30 days.
                 </p>
                 <button
                   onClick={() => setActiveTab('delete')}
