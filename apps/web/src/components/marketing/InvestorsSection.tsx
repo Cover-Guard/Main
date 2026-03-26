@@ -1,10 +1,3 @@
-const milestones = [
-  { metric: '$18M', label: 'Total Raised' },
-  { metric: 'Series A', label: 'Current Stage' },
-  { metric: '2023', label: 'Founded' },
-  { metric: '42', label: 'Team Members' },
-]
-
 export function InvestorsSection() {
   return (
     <section id="investors" className="py-24 bg-gray-50">
@@ -21,18 +14,8 @@ export function InvestorsSection() {
           </p>
         </div>
 
-        {/* Milestones */}
-        <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
-          {milestones.map((item) => (
-            <div key={item.label} className="text-center">
-              <div className="text-3xl font-bold text-brand-600">{item.metric}</div>
-              <div className="text-sm text-gray-500 mt-1">{item.label}</div>
-            </div>
-          ))}
-        </div>
-
         {/* CTA */}
-        <div className="mt-16 text-center">
+        <div className="mt-12 text-center">
           <a
             href="mailto:investor@coverguard.io"
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-8 py-4 text-lg font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors"
