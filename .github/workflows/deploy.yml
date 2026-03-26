@@ -36,20 +36,49 @@ jobs:
             exit 0
           fi
 
-          # Use the Supabase connection pooler (session mode, port 5432) instead of the
-          # direct connection (db.*.supabase.co:5432) which is IPv6-only and unreachable
-          # from GitHub Actions runners.
+          # Use the Supabase connection pooler instead of the direct connection
+          # (db.*.supabase.co:5432) which is IPv6-only and unreachable from
+          # GitHub Actions runners.
           POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
 
-          echo "Testing TCP connectivity to ${POOLER_HOST}:5432..."
-          if ! nc -z -w 10 "${POOLER_HOST}" 5432 2>/dev/null; then
-            echo "::error::Cannot reach ${POOLER_HOST}:5432 from GitHub Actions — skipping migration"
-            echo "db_url_set=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          # Retry connectivity check with exponential backoff.
+          # GitHub Actions runners sometimes need a moment to establish
+          # outbound connectivity to cloud database endpoints.
+          MAX_RETRIES=4
+          DELAY=2
+          CONNECTED=false
 
-          echo "Database is reachable"
-          echo "db_url_set=true" >> $GITHUB_OUTPUT
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES: Testing TCP connectivity to ${POOLER_HOST}..."
+
+            # Try transaction-mode port (6543) first, then session-mode port (5432).
+            # Prisma uses DIRECT_URL (port 5432) for migrations, but checking both
+            # ports helps diagnose whether the host is reachable at all.
+            if nc -z -w 10 "${POOLER_HOST}" 6543 2>/dev/null; then
+              echo "Pooler reachable on port 6543 (transaction mode)"
+            fi
+
+            if nc -z -w 10 "${POOLER_HOST}" 5432 2>/dev/null; then
+              echo "Pooler reachable on port 5432 (session mode)"
+              CONNECTED=true
+              break
+            fi
+
+            if [ "$i" -lt "$MAX_RETRIES" ]; then
+              echo "Connection failed, retrying in ${DELAY}s..."
+              sleep $DELAY
+              DELAY=$((DELAY * 2))
+            fi
+          done
+
+          if [ "$CONNECTED" = "true" ]; then
+            echo "Database is reachable"
+            echo "db_url_set=true" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Cannot reach ${POOLER_HOST}:5432 after $MAX_RETRIES attempts from GitHub Actions"
+            echo "db_url_set=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
         env:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
