@@ -44,33 +44,52 @@ jobs:
       - name: Verify database connectivity
         run: |
           POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          DIRECT_HOST="db.${SUPABASE_PROJECT_ID}.supabase.co"
           MAX_RETRIES=4
           DELAY=2
 
+          echo "Testing pooler connectivity (${POOLER_HOST}:6543)..."
           for i in $(seq 1 $MAX_RETRIES); do
-            echo "Attempt $i/$MAX_RETRIES: Testing TCP connectivity to ${POOLER_HOST}:5432..."
-            if nc -z -w 10 "${POOLER_HOST}" 5432 2>/dev/null; then
-              echo "Database is reachable"
-              exit 0
+            echo "Attempt $i/$MAX_RETRIES: Testing TCP connectivity to ${POOLER_HOST}:6543..."
+            if nc -z -w 10 "${POOLER_HOST}" 6543 2>/dev/null; then
+              echo "Pooler is reachable on port 6543"
+              break
             fi
-            if [ "$i" -lt "$MAX_RETRIES" ]; then
-              echo "Connection failed, retrying in ${DELAY}s..."
-              sleep $DELAY
-              DELAY=$((DELAY * 2))
+            if [ "$i" -eq "$MAX_RETRIES" ]; then
+              echo "::error::Cannot reach ${POOLER_HOST}:6543 after $MAX_RETRIES attempts from GitHub Actions"
+              exit 1
             fi
+            echo "Connection failed, retrying in ${DELAY}s..."
+            sleep $DELAY
+            DELAY=$((DELAY * 2))
           done
 
-          echo "::error::Cannot reach ${POOLER_HOST}:5432 after $MAX_RETRIES attempts"
-          exit 1
+          DELAY=2
+          echo "Testing direct DB connectivity (${DIRECT_HOST}:5432)..."
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES: Testing TCP connectivity to ${DIRECT_HOST}:5432..."
+            if nc -z -w 10 "${DIRECT_HOST}" 5432 2>/dev/null; then
+              echo "Direct DB host is reachable on port 5432"
+              exit 0
+            fi
+            if [ "$i" -eq "$MAX_RETRIES" ]; then
+              echo "::warning::Cannot reach ${DIRECT_HOST}:5432 — falling back to pooler session mode for migrations"
+              exit 0
+            fi
+            echo "Connection failed, retrying in ${DELAY}s..."
+            sleep $DELAY
+            DELAY=$((DELAY * 2))
+          done
         env:
           SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
 
       - name: Show migration status
         working-directory: apps/api
         run: npx prisma migrate status
         env:
           DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+          DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
 
       - name: Apply migrations
         if: ${{ !inputs.dry_run }}
@@ -78,4 +97,4 @@ jobs:
         run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+          DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
