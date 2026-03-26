@@ -6,10 +6,10 @@ import { Menu, X } from 'lucide-react'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 const navLinks = [
-  { label: 'Product', href: '#product' },
-  { label: 'Solutions', href: '#solutions' },
+  { label: 'Product', href: '/#product' },
+  { label: 'Solutions', href: '/#solutions' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Investors', href: '#investors' },
+  { label: 'Investors', href: '/#investors' },
 ]
 
 export function MarketingNav() {
