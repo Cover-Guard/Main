@@ -145,7 +145,7 @@ export function AIAdvisor() {
             {thinking && (
               <div className="flex justify-start">
                 <div className="h-6 w-6 rounded-full bg-teal-500 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                  <Shield className="h-3 w-3 text-white" />
+                  <CoverGuardShield className="h-3 w-3" />
                 </div>
                 <div className="bg-white border border-gray-200 rounded-xl rounded-tl-sm px-3 py-2 shadow-sm">
                   <div className="flex gap-1 items-center">
