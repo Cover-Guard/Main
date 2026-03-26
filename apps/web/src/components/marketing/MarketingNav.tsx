@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Shield, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
+import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 const navLinks = [
   { label: 'Product', href: '#product' },
@@ -20,9 +21,7 @@ export function MarketingNav() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
+            <CoverGuardShield className="h-9 w-9" />
             <span className="text-xl font-bold text-gray-900">CoverGuard</span>
           </Link>
 

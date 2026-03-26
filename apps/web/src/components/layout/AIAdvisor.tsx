@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Shield, X, Send, Sparkles } from 'lucide-react'
+import { X, Send, Sparkles } from 'lucide-react'
+import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 interface Message {
   role: 'user' | 'advisor'
@@ -125,7 +126,7 @@ export function AIAdvisor() {
               >
                 {msg.role === 'advisor' && (
                   <div className="h-6 w-6 rounded-full bg-teal-500 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                    <Shield className="h-3 w-3 text-white" />
+                    <CoverGuardShield className="h-3 w-3" />
                   </div>
                 )}
                 <div
@@ -205,7 +206,7 @@ export function AIAdvisor() {
         title="AI Advisor"
       >
         <div className="relative flex items-center justify-center">
-          <Shield className="h-5 w-5 text-teal-400" />
+          <CoverGuardShield className="h-5 w-5" />
           <span className="absolute -bottom-1.5 -right-1.5 text-[7px] font-bold text-white/90 leading-none bg-teal-500 rounded px-0.5">
             AI
           </span>

@@ -6,8 +6,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // CoverGuard brand colors
+        // CoverGuard brand colors — teal-to-blue from the shield logo
         brand: {
+          50:  '#ecfdf5',
+          100: '#d1fae5',
+          200: '#a7f3d0',
+          300: '#6ee7b7',
+          400: '#34d399',
+          500: '#10b981',
+          600: '#059669',
+          700: '#047857',
+          800: '#065f46',
+          900: '#064e3b',
+          950: '#022c22',
+        },
+        // Secondary brand blue from the right half of the shield
+        'brand-blue': {
           50:  '#eff6ff',
           100: '#dbeafe',
           200: '#bfdbfe',
@@ -19,6 +33,11 @@ const config: Config = {
           800: '#1e40af',
           900: '#1e3a8a',
           950: '#172554',
+        },
+        // Dark navy from the logo background
+        navy: {
+          900: '#0f172a',
+          950: '#0a1120',
         },
         risk: {
           low:        '#22c55e',
