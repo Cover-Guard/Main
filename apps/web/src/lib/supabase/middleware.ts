@@ -38,14 +38,14 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Routes that are always publicly accessible (no login required)
-  const publicRoutes = ['/', '/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy']
+  const publicRoutes = ['/', '/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/api/auth/callback']
   const isPublic = publicRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   // If authenticated user visits login/register, redirect to dashboard
   const authRoutes = ['/login', '/register', '/agents/login', '/agents/register']
   if (user && authRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
@@ -54,7 +54,10 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     if (pathname !== '/') {
-      url.searchParams.set('redirectTo', pathname)
+      // Preserve the full path + query so the user lands back on the same
+      // page (e.g. /search?q=123+Main) after signing in.
+      const search = request.nextUrl.search
+      url.searchParams.set('redirectTo', pathname + search)
     }
     return NextResponse.redirect(url)
   }

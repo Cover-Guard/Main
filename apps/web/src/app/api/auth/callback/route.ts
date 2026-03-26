@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  const next = searchParams.get('next') ?? '/'
   // Role hint forwarded from the agent register page via the redirectTo URL.
   // Only 'AGENT' and 'LENDER' are accepted; everything else defaults to BUYER.
   const roleParam = searchParams.get('role')

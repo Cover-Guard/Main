@@ -19,10 +19,16 @@ import { createClient } from './supabase/client'
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  const supabase = createClient()
-  const { data } = await supabase.auth.getSession()
-  if (!data.session?.access_token) return {}
-  return { Authorization: `Bearer ${data.session.access_token}` }
+  try {
+    const supabase = createClient()
+    const { data } = await supabase.auth.getSession()
+    if (!data.session?.access_token) return {}
+    return { Authorization: `Bearer ${data.session.access_token}` }
+  } catch {
+    // Server-side render or missing session — return no auth headers.
+    // Endpoints that don't require auth (e.g. search) still work fine.
+    return {}
+  }
 }
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {

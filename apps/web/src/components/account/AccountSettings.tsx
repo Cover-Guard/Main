@@ -683,7 +683,7 @@ export function AccountSettings() {
                 <p>
                   <strong>Third-Party Sharing.</strong> We do not sell your personal data. We share data with
                   insurance carriers only when you explicitly request a quote. We use Supabase for authentication
-                  and database hosting, and Mapbox for map rendering.
+                  and database hosting, and Google Maps for map rendering.
                 </p>
                 <p>
                   <strong>Data Retention.</strong> We retain your account data for as long as your account is

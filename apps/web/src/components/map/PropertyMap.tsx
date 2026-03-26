@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import Map, { Marker, NavigationControl, Popup, Source, Layer } from 'react-map-gl'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { APIProvider, Map, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps'
 import type { Property, PropertyRiskProfile } from '@coverguard/shared'
 import { MapPin, Layers } from 'lucide-react'
-import 'mapbox-gl/dist/mapbox-gl.css'
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? ''
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
 interface PropertyMapProps {
   properties?: Property[]
@@ -63,122 +62,90 @@ export function PropertyMap({
     }[layer]
   }, [riskProfile])
 
-  const getCircleRadius = (score: number): number => 500 + score * 20 // meters
-
-  // Build GeoJSON circle for active risk layer
   const activeRiskScore = activeLayer ? getRiskScore(activeLayer) : null
+  const riskCenter = selectedProperty ?? properties[0] ?? null
+  const circleRadius = activeRiskScore !== null ? 500 + activeRiskScore * 20 : 0
 
-  const riskLayerGeoJSON = (activeLayer && (selectedProperty ?? properties[0]) && activeRiskScore !== null)
-    ? buildCircleGeoJSON(
-        (selectedProperty ?? properties[0])!.lng,
-        (selectedProperty ?? properties[0])!.lat,
-        getCircleRadius(activeRiskScore),
-        RISK_LAYER_COLORS[activeLayer],
-      )
-    : null
-
-  if (!MAPBOX_TOKEN) {
+  if (!GOOGLE_MAPS_KEY) {
     return (
       <div className={`flex items-center justify-center rounded-xl bg-gray-100 text-sm text-gray-500 ${className}`}>
-        Map unavailable — set NEXT_PUBLIC_MAPBOX_TOKEN
+        Map unavailable — set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       </div>
     )
   }
 
   return (
     <div className={`relative overflow-hidden rounded-xl ${className}`}>
-      <Map
-        initialViewState={{
-          longitude: mapCenter.lng,
-          latitude: mapCenter.lat,
-          zoom,
-        }}
-        style={{ width: '100%', height: '100%' }}
-        mapStyle="mapbox://styles/mapbox/light-v11"
-        mapboxAccessToken={MAPBOX_TOKEN}
-      >
-        <NavigationControl position="top-right" />
-
-        {/* Risk layer overlay */}
-        {riskLayerGeoJSON && activeLayer && (
-          <Source id="risk-layer" type="geojson" data={riskLayerGeoJSON}>
-            <Layer
-              id="risk-fill"
-              type="fill"
-              paint={{
-                'fill-color': RISK_LAYER_COLORS[activeLayer],
-                'fill-opacity': 0.18,
-              }}
+      <APIProvider apiKey={GOOGLE_MAPS_KEY}>
+        <Map
+          defaultCenter={mapCenter}
+          defaultZoom={zoom}
+          mapId="coverguard-property-map"
+          gestureHandling="greedy"
+          disableDefaultUI={false}
+          style={{ width: '100%', height: '100%' }}
+        >
+          {/* Risk layer circle overlay */}
+          {activeLayer && riskCenter && activeRiskScore !== null && (
+            <RiskCircleOverlay
+              center={{ lat: riskCenter.lat, lng: riskCenter.lng }}
+              radius={circleRadius}
+              color={RISK_LAYER_COLORS[activeLayer]}
             />
-            <Layer
-              id="risk-outline"
-              type="line"
-              paint={{
-                'line-color': RISK_LAYER_COLORS[activeLayer],
-                'line-width': 2,
-                'line-opacity': 0.6,
-              }}
-            />
-          </Source>
-        )}
+          )}
 
-        {/* Property markers */}
-        {properties.map((p) => (
-          <Marker
-            key={p.id}
-            longitude={p.lng}
-            latitude={p.lat}
-            anchor="bottom"
-            onClick={(e) => {
-              e.originalEvent.stopPropagation()
-              setPopupInfo(p)
-              onSelectProperty?.(p)
-            }}
-          >
-            <div
-              className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 shadow-md transition-transform hover:scale-110 ${
-                selectedProperty?.id === p.id
-                  ? 'border-brand-600 bg-brand-600 text-white scale-110'
-                  : 'border-white bg-white text-brand-700'
-              }`}
+          {/* Property markers */}
+          {properties.map((p) => (
+            <AdvancedMarker
+              key={p.id}
+              position={{ lat: p.lat, lng: p.lng }}
+              onClick={() => {
+                setPopupInfo(p)
+                onSelectProperty?.(p)
+              }}
             >
-              <MapPin className="h-4 w-4" />
-            </div>
-          </Marker>
-        ))}
-
-        {/* Selected property with no list */}
-        {selectedProperty && properties.length === 0 && (
-          <Marker longitude={selectedProperty.lng} latitude={selectedProperty.lat} anchor="bottom">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-brand-600 bg-brand-600 text-white shadow-lg">
-              <MapPin className="h-5 w-5" />
-            </div>
-          </Marker>
-        )}
-
-        {/* Popup */}
-        {popupInfo && (
-          <Popup
-            longitude={popupInfo.lng}
-            latitude={popupInfo.lat}
-            anchor="top"
-            onClose={() => setPopupInfo(null)}
-            closeButton
-            maxWidth="260px"
-          >
-            <div className="p-1">
-              <p className="font-semibold text-gray-900 text-sm">{popupInfo.address}</p>
-              <p className="text-xs text-gray-500">{popupInfo.city}, {popupInfo.state} {popupInfo.zip}</p>
-              <a
-                href={`/properties/${popupInfo.id}`}
-                className="mt-2 inline-block text-xs font-medium text-brand-600 hover:underline"
+              <div
+                className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 shadow-md transition-transform hover:scale-110 ${
+                  selectedProperty?.id === p.id
+                    ? 'border-brand-600 bg-brand-600 text-white scale-110'
+                    : 'border-white bg-white text-brand-700'
+                }`}
               >
-                View full report →
-              </a>
-            </div>
-          </Popup>
-        )}
-      </Map>
+                <MapPin className="h-4 w-4" />
+              </div>
+            </AdvancedMarker>
+          ))}
+
+          {/* Selected property with no list */}
+          {selectedProperty && properties.length === 0 && (
+            <AdvancedMarker position={{ lat: selectedProperty.lat, lng: selectedProperty.lng }}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-brand-600 bg-brand-600 text-white shadow-lg">
+                <MapPin className="h-5 w-5" />
+              </div>
+            </AdvancedMarker>
+          )}
+
+          {/* Info window (popup) */}
+          {popupInfo && (
+            <InfoWindow
+              position={{ lat: popupInfo.lat, lng: popupInfo.lng }}
+              onCloseClick={() => setPopupInfo(null)}
+              pixelOffset={[0, -40]}
+            >
+              <div className="p-1">
+                <p className="font-semibold text-gray-900 text-sm">{popupInfo.address}</p>
+                <p className="text-xs text-gray-500">{popupInfo.city}, {popupInfo.state} {popupInfo.zip}</p>
+                <a
+                  href={`/properties/${popupInfo.id}`}
+                  className="mt-2 inline-block text-xs font-medium text-brand-600 hover:underline"
+                >
+                  View full report →
+                </a>
+              </div>
+            </InfoWindow>
+          )}
+        </Map>
+      </APIProvider>
 
       {/* Risk layer controls */}
       <div className="absolute bottom-4 left-4 z-10">
@@ -219,31 +186,45 @@ export function PropertyMap({
   )
 }
 
-// Build a GeoJSON polygon approximating a circle
-function buildCircleGeoJSON(
-  lng: number,
-  lat: number,
-  radiusMeters: number,
-  color: string,
-): GeoJSON.FeatureCollection {
-  const points = 64
-  const km = radiusMeters / 1000
-  const coords: [number, number][] = []
-  for (let i = 0; i < points; i++) {
-    const angle = (i / points) * 2 * Math.PI
-    const dLat = (km / 111) * Math.cos(angle)
-    const dLng = (km / (111 * Math.cos((lat * Math.PI) / 180))) * Math.sin(angle)
-    coords.push([lng + dLng, lat + dLat])
-  }
-  coords.push(coords[0]!) // close ring
-  return {
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        properties: { color },
-        geometry: { type: 'Polygon', coordinates: [coords] },
-      },
-    ],
-  }
+/**
+ * Draws a circle overlay on the Google Map using the Maps JS API directly.
+ */
+function RiskCircleOverlay({
+  center,
+  radius,
+  color,
+}: {
+  center: { lat: number; lng: number }
+  radius: number
+  color: string
+}) {
+  const map = useMap()
+  const circleRef = useRef<google.maps.Circle | null>(null)
+
+  useEffect(() => {
+    if (!map) return
+
+    if (circleRef.current) {
+      circleRef.current.setMap(null)
+    }
+
+    circleRef.current = new google.maps.Circle({
+      map,
+      center,
+      radius,
+      fillColor: color,
+      fillOpacity: 0.18,
+      strokeColor: color,
+      strokeWeight: 2,
+      strokeOpacity: 0.6,
+      clickable: false,
+    })
+
+    return () => {
+      circleRef.current?.setMap(null)
+      circleRef.current = null
+    }
+  }, [map, center.lat, center.lng, radius, color])
+
+  return null
 }
