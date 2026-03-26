@@ -19,7 +19,7 @@ type FormData = z.infer<typeof schema>
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') ?? '/'
+  const redirectTo = searchParams.get('redirectTo') ?? '/dashboard'
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState(false)
 
