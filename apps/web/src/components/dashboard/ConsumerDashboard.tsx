@@ -149,7 +149,7 @@ export function ConsumerDashboard() {
         {/* Quick links */}
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/compare"
+            href="/dashboard?tab=compare"
             className="flex items-center gap-1.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors"
           >
             <GitCompare className="h-3.5 w-3.5" />
