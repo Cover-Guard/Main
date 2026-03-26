@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { APIProvider, Map, AdvancedMarker, InfoWindow, useMap } from '@vis.gl/react-google-maps'
+import { useState, useCallback, useEffect, useRef, Component, type ReactNode } from 'react'
+import { APIProvider, Map, AdvancedMarker, InfoWindow, useMap, useApiIsLoaded } from '@vis.gl/react-google-maps'
 import type { Property, PropertyRiskProfile } from '@coverguard/shared'
-import { MapPin, Layers } from 'lucide-react'
+import { MapPin, Layers, AlertTriangle } from 'lucide-react'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
@@ -76,7 +76,9 @@ export function PropertyMap({
 
   return (
     <div className={`relative overflow-hidden rounded-xl ${className}`}>
+      <MapErrorBoundary className={className}>
       <APIProvider apiKey={GOOGLE_MAPS_KEY}>
+        <MapLoadingGuard>
         <Map
           defaultCenter={mapCenter}
           defaultZoom={zoom}
@@ -145,7 +147,9 @@ export function PropertyMap({
             </InfoWindow>
           )}
         </Map>
+        </MapLoadingGuard>
       </APIProvider>
+      </MapErrorBoundary>
 
       {/* Risk layer controls */}
       <div className="absolute bottom-4 left-4 z-10">
@@ -187,6 +191,55 @@ export function PropertyMap({
 }
 
 /**
+ * Error boundary that catches Google Maps rendering errors.
+ */
+class MapErrorBoundary extends Component<
+  { children: ReactNode; className?: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode; className?: string }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className={`flex flex-col items-center justify-center gap-2 rounded-xl bg-gray-100 text-sm text-gray-500 ${this.props.className ?? ''}`}>
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
+          <span>Map failed to load. Please refresh the page.</span>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+/**
+ * Shows a loading skeleton until the Google Maps API is fully loaded.
+ */
+function MapLoadingGuard({ children }: { children: ReactNode }) {
+  const isLoaded = useApiIsLoaded()
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-xl bg-gray-100">
+        <div className="flex flex-col items-center gap-2 text-sm text-gray-400">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-brand-600" />
+          Loading map…
+        </div>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+
+/**
  * Draws a circle overlay on the Google Map using the Maps JS API directly.
  */
 function RiskCircleOverlay({
@@ -208,17 +261,22 @@ function RiskCircleOverlay({
       circleRef.current.setMap(null)
     }
 
-    circleRef.current = new google.maps.Circle({
-      map,
-      center,
-      radius,
-      fillColor: color,
-      fillOpacity: 0.18,
-      strokeColor: color,
-      strokeWeight: 2,
-      strokeOpacity: 0.6,
-      clickable: false,
-    })
+    try {
+      circleRef.current = new google.maps.Circle({
+        map,
+        center,
+        radius,
+        fillColor: color,
+        fillOpacity: 0.18,
+        strokeColor: color,
+        strokeWeight: 2,
+        strokeOpacity: 0.6,
+        clickable: false,
+      })
+    } catch {
+      // Google Maps Circle API not available — skip overlay silently
+      circleRef.current = null
+    }
 
     return () => {
       circleRef.current?.setMap(null)
