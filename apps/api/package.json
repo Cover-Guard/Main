@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@coverguard/shared": "file:../../packages/shared",
-    "@prisma/client": "^6.2.1",
+    "@prisma/adapter-pg": "^7.5.0",
+    "@prisma/client": "^7.5.0",
     "@supabase/supabase-js": "^2.47.10",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
@@ -32,9 +33,11 @@
     "winston": "^3.17.0",
     "zod": "^3.24.1",
     "dotenv": "^16.4.7",
-    "prisma": "^6.2.1"
+    "pg": "^8.13.1"
   },
   "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "prisma": "^7.5.0",
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",

@@ -9,7 +9,7 @@ import {
 } from '../integrations/riskData'
 import type { PropertyRiskProfile, RiskLevel } from '@coverguard/shared'
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
-import { RiskLevel as PrismaRiskLevel } from '@prisma/client'
+import { RiskLevel as PrismaRiskLevel } from '../generated/prisma/client'
 
 function scoreToLevel(score: number): PrismaRiskLevel {
   if (score <= RISK_SCORE_THRESHOLDS.LOW) return 'LOW'
