@@ -88,11 +88,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Make turbo accessible to Vercel CLI
-        run: sudo ln -sf "$(pwd)/node_modules/.bin/turbo" /usr/local/bin/turbo
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+      - name: Install Vercel CLI and turbo globally
+        run: npm install --global vercel@latest turbo
 
       - name: Set up Vercel project link
         run: |
@@ -174,9 +171,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Make turbo accessible to Vercel CLI
-        run: sudo ln -sf "$(pwd)/node_modules/.bin/turbo" /usr/local/bin/turbo
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
