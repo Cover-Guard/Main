@@ -77,7 +77,7 @@ describe('useCompare', () => {
     const { result } = renderHook(() => useCompare())
     act(() => result.current.toggle('p1'))
     act(() => result.current.toggle('p2'))
-    expect(result.current.compareUrl).toMatch(/\/compare\?ids=p1,p2/)
+    expect(result.current.compareUrl).toMatch(/\/dashboard\?tab=compare&ids=p1,p2/)
   })
 
   it('persists changes to localStorage after toggle', () => {
