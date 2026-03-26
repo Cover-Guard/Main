@@ -51,13 +51,13 @@ export function MarketingNav() {
           {/* Desktop auth buttons */}
           <div className="hidden md:flex items-center gap-3">
             <Link
-              href="/login"
+              href="/get-started"
               className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors px-4 py-2"
             >
               Log in
             </Link>
             <Link
-              href="/register"
+              href="/get-started"
               className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
             >
               Get Started
@@ -102,13 +102,13 @@ export function MarketingNav() {
             )}
             <div className="pt-3 border-t border-gray-100 space-y-2">
               <Link
-                href="/login"
+                href="/get-started"
                 className="block text-sm font-medium text-gray-700 hover:text-gray-900 py-2"
               >
                 Log in
               </Link>
               <Link
-                href="/register"
+                href="/get-started"
                 className="block w-full text-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Get Started

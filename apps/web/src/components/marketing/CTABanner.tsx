@@ -14,17 +14,11 @@ export function CTABanner() {
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/register"
+            href="/get-started"
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-6 py-3 text-base font-semibold text-brand-700 hover:bg-brand-50 transition-colors"
           >
             Get Started Free
             <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/agents/register"
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand-400 px-6 py-3 text-base font-semibold text-white hover:bg-brand-900 transition-colors"
-          >
-            Agent Portal
           </Link>
         </div>
       </div>
