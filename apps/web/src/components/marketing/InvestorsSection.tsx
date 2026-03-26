@@ -1,12 +1,3 @@
-const investors = [
-  { name: 'Meridian Ventures', type: 'Lead Seed Investor' },
-  { name: 'Clocktower Capital', type: 'Insurtech Fund' },
-  { name: 'Frontier Partners', type: 'Series A Lead' },
-  { name: 'Apex Growth', type: 'Growth Equity' },
-  { name: 'Lumen Labs', type: 'PropTech Accelerator' },
-  { name: 'Highline Capital', type: 'Strategic Investor' },
-]
-
 const milestones = [
   { metric: '$18M', label: 'Total Raised' },
   { metric: 'Series A', label: 'Current Stage' },
@@ -22,11 +13,11 @@ export function InvestorsSection() {
         <div className="text-center max-w-3xl mx-auto">
           <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider">Investors</p>
           <h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900">
-            Backed by leading insurtech and proptech investors
+            Interested in investing?
           </h2>
           <p className="mt-4 text-lg text-gray-600">
-            We&apos;re building the data infrastructure layer for property insurance decisions,
-            backed by investors who understand the opportunity.
+            We&apos;re building the data infrastructure layer for property insurance decisions.
+            If you&apos;re interested in learning more about investment opportunities, we&apos;d love to hear from you.
           </p>
         </div>
 
@@ -40,22 +31,21 @@ export function InvestorsSection() {
           ))}
         </div>
 
-        {/* Investor grid */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-3 gap-4">
-          {investors.map((investor) => (
-            <div
-              key={investor.name}
-              className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-8 hover:border-brand-200 transition-colors"
-            >
-              <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
-                <span className="text-lg font-bold text-gray-400">
-                  {investor.name.split(' ').map((w) => w[0]).join('')}
-                </span>
-              </div>
-              <h3 className="text-base font-semibold text-gray-900">{investor.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{investor.type}</p>
-            </div>
-          ))}
+        {/* CTA */}
+        <div className="mt-16 text-center">
+          <a
+            href="mailto:investor@coverguard.io"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-8 py-4 text-lg font-semibold text-white shadow-sm hover:bg-brand-700 transition-colors"
+          >
+            Reach out to us
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+            </svg>
+          </a>
+          <p className="mt-4 text-sm text-gray-500">
+            investor@coverguard.io
+          </p>
         </div>
       </div>
     </section>

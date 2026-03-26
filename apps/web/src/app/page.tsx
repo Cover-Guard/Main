@@ -5,7 +5,6 @@ import {
   Hero,
   ProductOfferings,
   HowItWorks,
-  TeamSection,
   InvestorsSection,
   CTABanner,
   MarketingFooter,
@@ -34,7 +33,6 @@ export default async function HomePage() {
         <Hero />
         <ProductOfferings />
         <HowItWorks />
-        <TeamSection />
         <InvestorsSection />
         <CTABanner />
       </main>
