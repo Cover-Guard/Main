@@ -6,7 +6,6 @@ on:
 
 env:
   PRODUCTION_URL: https://coverguard.io
-  API_URL: https://api.coverguard.io
 
 concurrency:
   group: deploy-production
@@ -63,9 +62,9 @@ jobs:
           DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
           DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
 
-  # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
-  deploy-web:
-    name: Deploy Web to Vercel
+  # ── Deploy to Vercel (single project: web + API) ────────────────────────────
+  deploy:
+    name: Deploy to Vercel
     runs-on: ubuntu-latest
     needs: [migrate]
     environment: production
@@ -112,23 +111,24 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_API_URL: ${{ env.API_URL }}
           NEXT_PUBLIC_SITE_URL: ${{ env.PRODUCTION_URL }}
 
       - name: Deploy to Vercel production
         id: deploy
         run: |
-          MAX_RETRIES=3
+          MAX_RETRIES=4
+          DELAY=2
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Deployment attempt $i/$MAX_RETRIES..."
             if DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}); then
               echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
               break
             elif [ "$i" -lt "$MAX_RETRIES" ]; then
-              echo "Attempt $i failed, retrying in 30s..."
-              sleep 30
+              echo "Attempt $i failed, retrying in ${DELAY}s..."
+              sleep $DELAY
+              DELAY=$((DELAY * 2))
             else
-              echo "All $MAX_RETRIES deployment attempts failed"
+              echo "::error::All $MAX_RETRIES deployment attempts failed"
               exit 1
             fi
           done
@@ -144,140 +144,5 @@ jobs:
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           echo "| **Production URL** | [${PRODUCTION_URL}](${PRODUCTION_URL}) |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Vercel URL** | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | \`${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
-
-  # ── Deploy API to Vercel ──────────────────────────────────────────────────────
-  deploy-api:
-    name: Deploy API to Vercel
-    runs-on: ubuntu-latest
-    needs: [migrate]
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Ensure node/npm accessible to child processes
-        run: |
-          NODE_BIN_DIR="$(dirname "$(which node)")"
-          echo "$NODE_BIN_DIR" >> $GITHUB_PATH
-          sudo ln -sf "$NODE_BIN_DIR/node" /usr/local/bin/node
-          sudo ln -sf "$NODE_BIN_DIR/npm" /usr/local/bin/npm
-          sudo ln -sf "$NODE_BIN_DIR/npx" /usr/local/bin/npx
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      # Build shared package first (API depends on it), then generate
-      # Prisma client and bundle the API into dist/index.js via tsup.
-      - name: Build shared package
-        run: npm run build --workspace=@coverguard/shared
-
-      - name: Generate Prisma client
-        working-directory: apps/api
-        run: npx prisma generate
-        env:
-          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
-
-      - name: Build API bundle
-        run: npm run build --workspace=@coverguard/api
-
-      # Remove the workspace file: dependency so Vercel installs from
-      # the registry instead of trying to resolve the monorepo link.
-      # The shared package is already inlined in the tsup bundle.
-      - name: Strip workspace dep from package.json
-        working-directory: apps/api
-        run: |
-          node -e "
-            const p = require('./package.json');
-            delete p.dependencies['@coverguard/shared'];
-            require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
-          "
-
-      - name: Set up Vercel project link
-        run: |
-          mkdir -p apps/api/.vercel
-          echo '{"projectId":"'"$VERCEL_PROJECT_ID"'","orgId":"'"$VERCEL_ORG_ID"'"}' > apps/api/.vercel/project.json
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
-
-      - name: Pull Vercel environment
-        working-directory: apps/api
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
-
-      - name: Ensure npm accessible to child processes
-        run: |
-          NPM_BIN="$(which npm)"
-          echo "$(dirname "$NPM_BIN")" >> $GITHUB_PATH
-          sudo ln -sf "$NPM_BIN" /usr/local/bin/npm
-
-      - name: Build Vercel output
-        working-directory: apps/api
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
-
-      - name: Deploy to Vercel production
-        id: deploy
-        working-directory: apps/api
-        run: |
-          MAX_RETRIES=4
-          DELAY=2
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "Deployment attempt $i/$MAX_RETRIES..."
-            if DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}); then
-              echo "url=${DEPLOY_URL}" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            if [ "$i" -lt "$MAX_RETRIES" ]; then
-              echo "Attempt $i failed, retrying in ${DELAY}s..."
-              sleep $DELAY
-              DELAY=$((DELAY * 2))
-            fi
-          done
-          echo "::error::All $MAX_RETRIES deployment attempts failed"
-          exit 1
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
-
-      - name: Verify deployment health
-        if: steps.deploy.outputs.url != ''
-        run: |
-          echo "Checking health endpoint..."
-          HEALTH_URL="${{ steps.deploy.outputs.url }}/health"
-          for i in 1 2 3; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Health check passed"
-              break
-            fi
-            [ "$i" -lt 3 ] && sleep 5
-          done
-          if [ "$STATUS" != "200" ]; then
-            echo "::warning::Health check returned $STATUS — deployment may need attention"
-          fi
-
-      - name: Deployment summary
-        run: |
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          echo "### Deployed API to Production (Vercel)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| | |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **API URL** | [${API_URL}](${API_URL}) |" >> $GITHUB_STEP_SUMMARY
           echo "| **Vercel URL** | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${SHORT_SHA}\` |" >> $GITHUB_STEP_SUMMARY
