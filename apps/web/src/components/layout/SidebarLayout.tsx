@@ -27,7 +27,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { User } from '@coverguard/shared'
 
 const navItems = [
-  { href: '/',          label: 'New Check',  icon: Search,          exact: true },
+  { href: '/check',     label: 'New Check',  icon: Search,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
   { href: '/compare',   label: 'Compare',    icon: GitCompare,      exact: false },
