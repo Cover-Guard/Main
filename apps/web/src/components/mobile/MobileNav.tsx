@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { href: '/',          label: 'Check',     icon: Shield,          exact: true },
+  { href: '/check',     label: 'Check',     icon: Shield,          exact: true },
   { href: '/search',    label: 'Search',    icon: Search,          exact: false },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: false },
   { href: '/analytics', label: 'Analytics', icon: BarChart2,       exact: false },
@@ -26,6 +26,9 @@ const HIDDEN_ROUTES = ['/login', '/register', '/agents/login', '/agents/register
  * Lives outside SidebarLayout so it renders on top of page content.
  * Hidden on auth/onboarding pages — only visible after login.
  */
+/** Routes where MobileNav should be hidden (public / auth pages) */
+const hiddenRoutes = ['/', '/login', '/register', '/agents/login', '/agents/register', '/onboarding', '/forgot-password', '/reset-password', '/privacy', '/terms']
+
 export function MobileNav() {
   const pathname = usePathname()
 

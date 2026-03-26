@@ -80,8 +80,8 @@ export default function RegisterPage() {
     const supabase = createClient()
     await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
 
-    // 3. Redirect to New Check page
-    router.push('/')
+    // 3. Redirect to dashboard
+    router.push('/dashboard')
     router.refresh()
   }
 
@@ -92,7 +92,7 @@ export default function RegisterPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=/`,
+        redirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`,
       },
     })
     if (error) {
