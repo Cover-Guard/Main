@@ -45,7 +45,7 @@ export async function updateSession(request: NextRequest) {
   const authRoutes = ['/login', '/register', '/agents/login', '/agents/register']
   if (user && authRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 

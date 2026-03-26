@@ -72,7 +72,7 @@ export default function AgentRegisterPage() {
 
     const supabase = createClient()
     await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
-    router.push('/onboarding')
+    router.push('/')
     router.refresh()
   }
 
@@ -81,7 +81,7 @@ export default function AgentRegisterPage() {
     setOauthLoading(true)
     const supabase = createClient()
     const redirectTo =
-      `${window.location.origin}/api/auth/callback?next=/onboarding&role=${role}`
+      `${window.location.origin}/api/auth/callback?next=/&role=${role}`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
