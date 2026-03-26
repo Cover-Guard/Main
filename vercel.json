@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npm install",
-  "buildCommand": "npx prisma generate --schema=apps/api/prisma/schema.prisma && turbo run build",
+  "buildCommand": "cd apps/api && npx prisma generate && cd ../.. && turbo run build",
   "outputDirectory": "apps/web/.next",
   "git": {
     "deploymentEnabled": {
