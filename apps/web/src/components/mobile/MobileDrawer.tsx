@@ -7,7 +7,7 @@ import {
   Shield,
   LayoutDashboard,
   Users,
-  GitCompare,
+
   Wrench,
   BarChart2,
   Settings,
@@ -22,7 +22,6 @@ const navItems = [
   { href: '/',          label: 'New Check',  icon: Shield,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
-  { href: '/compare',   label: 'Compare',    icon: GitCompare,      exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
   { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },
   { href: '/account',   label: 'Settings',   icon: Settings,        exact: false },
