@@ -19,7 +19,6 @@ const PORT = parseInt(process.env.PORT ?? '4000', 10)
 
 // ─── Security / middleware ────────────────────────────────────────────────────
 
-app.use(helmet())
 app.set('trust proxy', 1) // trust X-Forwarded-For from load balancer / Vercel edge
 
 const allowedOrigins = (
@@ -29,6 +28,7 @@ const allowedOrigins = (
   .split(',')
   .map((o) => o.trim())
 
+// CORS must run before helmet so preflight OPTIONS requests get headers
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -37,8 +37,24 @@ app.use(
       callback(new Error(`CORS: origin '${origin}' not allowed`))
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   }),
 )
+
+// Explicitly handle all OPTIONS preflight requests
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error(`CORS: origin '${origin}' not allowed`))
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}))
+
+app.use(helmet())
 app.use(compression())
 app.use(express.json({ limit: '1mb' }))
 app.use(
