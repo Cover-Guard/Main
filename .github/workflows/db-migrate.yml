@@ -31,14 +31,39 @@ jobs:
 
       - name: Validate migration configuration
         run: |
-          if [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
-            echo "::error::SUPABASE_PROJECT_ID and/or SUPABASE_DB_PASSWORD secrets are not configured in the '${{ inputs.environment }}' environment"
+          if [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ] || [ -z "$SUPABASE_DB_REGION" ]; then
+            echo "::error::SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, and/or SUPABASE_DB_REGION secrets are not configured in the '${{ inputs.environment }}' environment"
             exit 1
           fi
           echo "Supabase secrets present. URLs will be constructed from SUPABASE_PROJECT_ID and SUPABASE_DB_PASSWORD."
         env:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
+      - name: Verify database connectivity
+        run: |
+          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          MAX_RETRIES=4
+          DELAY=2
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES: Testing TCP connectivity to ${POOLER_HOST}:5432..."
+            if nc -z -w 10 "${POOLER_HOST}" 5432 2>/dev/null; then
+              echo "Database is reachable"
+              exit 0
+            fi
+            if [ "$i" -lt "$MAX_RETRIES" ]; then
+              echo "Connection failed, retrying in ${DELAY}s..."
+              sleep $DELAY
+              DELAY=$((DELAY * 2))
+            fi
+          done
+
+          echo "::error::Cannot reach ${POOLER_HOST}:5432 after $MAX_RETRIES attempts"
+          exit 1
+        env:
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
 
       - name: Show migration status
         working-directory: apps/api
