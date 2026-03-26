@@ -1,9 +1,23 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "turbo run build --filter=@coverguard/web",
-  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
   "installCommand": "npm install",
-  "github": {
-    "enabled": false
-  }
+  "buildCommand": "npx prisma generate --schema=apps/api/prisma/schema.prisma && turbo run build",
+  "outputDirectory": "apps/web/.next",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "includeFiles": "apps/api/dist/**,apps/api/prisma/schema.prisma,apps/api/node_modules/.prisma/**,apps/api/node_modules/@prisma/client/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api" },
+    { "source": "/api/(.*)", "destination": "/api" }
+  ]
 }

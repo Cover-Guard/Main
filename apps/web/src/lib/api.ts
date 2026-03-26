@@ -14,7 +14,9 @@ import type {
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+// In production (Vercel), API is same-origin — use empty string.
+// In local dev, set NEXT_PUBLIC_API_URL=http://localhost:4000 in .env.local
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const supabase = createClient()
