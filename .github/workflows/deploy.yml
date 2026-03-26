@@ -204,6 +204,12 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
 
+      - name: Ensure npm accessible to child processes
+        run: |
+          NPM_BIN="$(which npm)"
+          echo "$(dirname "$NPM_BIN")" >> $GITHUB_PATH
+          sudo ln -sf "$NPM_BIN" /usr/local/bin/npm
+
       - name: Build Vercel output
         working-directory: apps/api
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
