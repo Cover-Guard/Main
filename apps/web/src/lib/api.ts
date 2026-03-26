@@ -20,21 +20,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
-    if (typeof window === 'undefined') {
-      // Server component: use the server Supabase client which has access
-      // to request cookies via next/headers.
-      const { createClient: createServerClient } = await import('./supabase/server')
-      const supabase = await createServerClient()
-      const { data } = await supabase.auth.getSession()
-      if (!data.session?.access_token) return {}
-      return { Authorization: `Bearer ${data.session.access_token}` }
-    }
-    // Browser: use the browser Supabase client (document.cookie)
     const supabase = createClient()
     const { data } = await supabase.auth.getSession()
     if (!data.session?.access_token) return {}
     return { Authorization: `Bearer ${data.session.access_token}` }
   } catch {
+    // Server-side render or missing session — return no auth headers.
+    // Endpoints that don't require auth (e.g. search) still work fine.
     return {}
   }
 }
