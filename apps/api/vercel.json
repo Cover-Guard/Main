@@ -4,6 +4,9 @@
   "installCommand": "npm install",
   "buildCommand": "npx prisma generate && npm run build",
   "outputDirectory": ".",
+  "github": {
+    "enabled": false
+  },
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
