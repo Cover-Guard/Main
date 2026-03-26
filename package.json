@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "npm run dev --prefix apps/web",
     "dev:all": "turbo run dev",
-    "build": "turbo run build --filter=@coverguard/web",
+    "build": "turbo run build",
     "test": "turbo run test -- --passWithNoTests",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
