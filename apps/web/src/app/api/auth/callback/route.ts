@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -10,8 +11,35 @@ export async function GET(request: Request) {
   const roleParam = searchParams.get('role')
   const agentRole = roleParam === 'AGENT' || roleParam === 'LENDER' ? roleParam : null
 
+  // Collect cookies that the Supabase client wants to set so we can forward
+  // them onto the final redirect response (NextResponse.redirect drops cookies
+  // set via the next/headers cookies() helper).
+  const cookieStore = await cookies()
+  const cookiesToForward: { name: string; value: string; options?: Record<string, unknown> }[] = []
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookieOptions: {
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      },
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookiesToForward.push({ name, value, options })
+          })
+        },
+      },
+    }
+  )
+
+  let redirectPath = next
+
   if (code) {
-    const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.exchangeCodeForSession(code)
@@ -54,10 +82,16 @@ export async function GET(request: Request) {
       // First-time user: redirect to onboarding if terms not yet accepted.
       const termsAccepted = user.user_metadata?.termsAcceptedAt
       if (!termsAccepted && next !== '/onboarding') {
-        return NextResponse.redirect(`${origin}/onboarding`)
+        redirectPath = '/onboarding'
       }
     }
   }
 
-  return NextResponse.redirect(`${origin}${next}`)
+  // Build the redirect response and attach all session cookies so the
+  // browser stores them before following the redirect.
+  const redirectResponse = NextResponse.redirect(`${origin}${redirectPath}`)
+  for (const { name, value, options } of cookiesToForward) {
+    redirectResponse.cookies.set(name, value, options as Record<string, string>)
+  }
+  return redirectResponse
 }
