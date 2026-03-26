@@ -5,21 +5,42 @@ import { useState, useCallback } from 'react'
 const MAX_COMPARE = 3
 const STORAGE_KEY = 'cg_compare_ids'
 
+function canUseStorage() {
+  return typeof window !== 'undefined'
+}
+
+function safeGet(key: string): string | null {
+  if (!canUseStorage()) return null
+  try {
+    return window.localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function safeSet(key: string, value: string): void {
+  if (!canUseStorage()) return
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+    // ignore write errors (privacy mode, quota, etc.)
+  }
+}
+
 export function useCompare() {
   const [ids, setIds] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return []
+    const stored = safeGet(STORAGE_KEY)
+    if (!stored) return []
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) return JSON.parse(stored) as string[]
+      return JSON.parse(stored) as string[]
     } catch {
-      // ignore
+      return []
     }
-    return []
   })
 
   const persist = useCallback((next: string[]) => {
     setIds(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    safeSet(STORAGE_KEY, JSON.stringify(next))
   }, [])
 
   const toggle = useCallback((id: string) => {
@@ -29,7 +50,7 @@ export function useCompare() {
         : prev.length < MAX_COMPARE
         ? [...prev, id]
         : prev
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      safeSet(STORAGE_KEY, JSON.stringify(next))
       return next
     })
   }, [])
