@@ -130,13 +130,18 @@ function AgentLoginForm() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="label">Work Email</label>
-              <input type="email" autoComplete="email" className="input mt-1" {...register('email')} />
+              <label htmlFor="agent-email" className="label">Work Email</label>
+              <input id="agent-email" type="email" autoComplete="email" className="input mt-1" {...register('email')} />
               {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
             </div>
             <div>
-              <label className="label">Password</label>
-              <input type="password" autoComplete="current-password" className="input mt-1" {...register('password')} />
+              <div className="flex items-center justify-between">
+                <label htmlFor="agent-password" className="label">Password</label>
+                <Link href="/forgot-password" className="text-xs text-brand-600 hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
+              <input id="agent-password" type="password" autoComplete="current-password" className="input mt-1" {...register('password')} />
               {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
             </div>
             <button type="submit" disabled={isSubmitting || oauthLoading} className="btn-primary w-full py-2.5">
