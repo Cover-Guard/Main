@@ -19,17 +19,25 @@ const tabs = [
   { href: '/account',   label: 'Account',   icon: User,            exact: false },
 ]
 
+const HIDDEN_ROUTES = ['/login', '/register', '/agents/login', '/agents/register', '/onboarding']
+
 /**
  * Fixed bottom navigation bar shown only on mobile (hidden at md+).
  * Lives outside SidebarLayout so it renders on top of page content.
+ * Hidden on auth/onboarding pages — only visible after login.
  */
 export function MobileNav() {
   const pathname = usePathname()
+
+  const hidden =
+    pathname === '/' || HIDDEN_ROUTES.some((r) => pathname.startsWith(r))
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href
     return pathname.startsWith(href)
   }
+
+  if (hidden) return null
 
   return (
     <nav
