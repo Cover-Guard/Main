@@ -93,9 +93,9 @@ export default function OnboardingPage() {
             {/* Full terms link */}
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
               By continuing, you agree to CoverGuard&apos;s{' '}
-              <a href="#" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>
+              <a href="/terms" target="_blank" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>
               {' '}and{' '}
-              <a href="#" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>
+              <a href="/privacy" target="_blank" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>
               . Your data is encrypted and never sold to third parties.
             </div>
 

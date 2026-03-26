@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Shield,
-  Search,
   LayoutDashboard,
   Users,
   GitCompare,
@@ -22,7 +21,6 @@ import { useRouter } from 'next/navigation'
 const navItems = [
   { href: '/',          label: 'New Check',  icon: Shield,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
-  { href: '/search',    label: 'Search',     icon: Search,          exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
   { href: '/compare',   label: 'Compare',    icon: GitCompare,      exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
@@ -68,7 +66,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   }
 
   function isActive(href: string, exact?: boolean) {
-    if (exact) return pathname === href
+    if (exact) return pathname === href || pathname === '/search'
     return pathname.startsWith(href)
   }
 
