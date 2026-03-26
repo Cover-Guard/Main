@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Shield, Search, LayoutDashboard, BarChart2, User, LogOut, ChevronDown } from 'lucide-react'
+import { Search, LayoutDashboard, BarChart2, User, LogOut, ChevronDown } from 'lucide-react'
+import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -29,9 +30,9 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2 text-brand-700">
-          <Shield className="h-7 w-7" />
-          <span className="text-lg font-bold tracking-tight">CoverGuard</span>
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <CoverGuardShield className="h-7 w-7" />
+          <span className="text-lg font-bold tracking-tight text-gray-900">CoverGuard</span>
         </Link>
 
         {/* Desktop nav */}

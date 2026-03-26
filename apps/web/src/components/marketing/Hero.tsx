@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { ArrowRight, Shield, Search, TrendingUp } from 'lucide-react'
+import { ArrowRight, Search, TrendingUp } from 'lucide-react'
+import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 export function Hero() {
   return (
@@ -14,7 +15,7 @@ export function Hero() {
         <div className="text-center max-w-4xl mx-auto">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-100 px-4 py-1.5 mb-8">
-            <Shield className="h-4 w-4 text-brand-600" />
+            <CoverGuardShield className="h-4 w-4" />
             <span className="text-sm font-medium text-brand-700">Property Insurability Intelligence</span>
           </div>
 
@@ -65,7 +66,7 @@ export function Hero() {
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mx-auto mb-3">
-              <Shield className="h-6 w-6 text-brand-600" />
+              <CoverGuardShield className="h-6 w-6" />
             </div>
             <div className="text-3xl font-bold text-gray-900">150+</div>
             <div className="text-sm text-gray-500 mt-1">Active Carriers</div>

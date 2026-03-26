@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Shield,
   Search,
   LayoutDashboard,
   Users,
@@ -20,6 +19,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 import { AIAdvisor } from './AIAdvisor'
 import { MobileDrawer } from '@/components/mobile/MobileDrawer'
 import { getMe } from '@/lib/api'
@@ -83,11 +83,11 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           <div className="flex h-12 items-center justify-between px-3 border-b border-white/10">
             {!collapsed && (
               <div className="flex items-center gap-2 min-w-0">
-                <Shield className="h-5 w-5 text-teal-400 shrink-0" />
+                <CoverGuardShield className="h-5 w-5 shrink-0" />
                 <span className="font-bold text-sm truncate">CoverGuard</span>
               </div>
             )}
-            {collapsed && <Shield className="h-5 w-5 text-teal-400 mx-auto" />}
+            {collapsed && <CoverGuardShield className="h-5 w-5 mx-auto" />}
             <button
               onClick={() => setCollapsed(!collapsed)}
               className={cn(
@@ -177,9 +177,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <Link href="/" className="flex items-center gap-2 text-brand-700">
-              <Shield className="h-5 w-5" />
-              <span className="text-base font-bold tracking-tight">CoverGuard</span>
+            <Link href="/" className="flex items-center gap-2">
+              <CoverGuardShield className="h-5 w-5" />
+              <span className="text-base font-bold tracking-tight text-gray-900">CoverGuard</span>
             </Link>
             {/* Spacer to keep logo centred */}
             <div className="w-9" />
@@ -189,7 +189,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           {bannerVisible && (
             <div className="hidden md:flex items-center justify-between bg-[#0d1929] px-4 h-10 shrink-0">
               <div className="flex items-center gap-2 text-white">
-                <Shield className="h-4 w-4 text-teal-400 shrink-0" />
+                <CoverGuardShield className="h-4 w-4 shrink-0" />
                 <span className="text-sm font-semibold">CoverGuard is on Android!</span>
                 <span className="text-white/50 text-xs hidden sm:inline">
                   Take insurance checks on the go.

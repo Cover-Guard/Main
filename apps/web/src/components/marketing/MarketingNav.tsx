@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Shield, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
+import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 const navLinks = [
   { label: 'Product', href: '#product' },
   { label: 'Solutions', href: '#solutions' },
-  { label: 'Team', href: '#team' },
+  { label: 'Pricing', href: '/pricing' },
   { label: 'Investors', href: '#investors' },
 ]
 
@@ -20,23 +21,31 @@ export function MarketingNav() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
+            <CoverGuardShield className="h-9 w-9" />
             <span className="text-xl font-bold text-gray-900">CoverGuard</span>
           </Link>
 
           {/* Desktop nav links */}
           <nav className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) =>
+              link.href.startsWith('#') ? (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  {link.label}
+                </Link>
+              )
+            )}
           </nav>
 
           {/* Desktop auth buttons */}
@@ -70,16 +79,27 @@ export function MarketingNav() {
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white">
           <div className="px-4 py-4 space-y-3">
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="block text-sm font-medium text-gray-600 hover:text-gray-900 py-2"
-                onClick={() => setMobileOpen(false)}
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) =>
+              link.href.startsWith('#') ? (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="block text-sm font-medium text-gray-600 hover:text-gray-900 py-2"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="block text-sm font-medium text-gray-600 hover:text-gray-900 py-2"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              )
+            )}
             <div className="pt-3 border-t border-gray-100 space-y-2">
               <Link
                 href="/login"

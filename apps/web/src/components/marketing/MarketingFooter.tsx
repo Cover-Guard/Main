@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Shield } from 'lucide-react'
+import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 const footerLinks = {
   Product: [
@@ -9,8 +9,7 @@ const footerLinks = {
     { label: 'Agent Dashboard', href: '#solutions' },
   ],
   Company: [
-    { label: 'About', href: '#team' },
-    { label: 'Team', href: '#team' },
+    { label: 'Pricing', href: '/pricing' },
     { label: 'Investors', href: '#investors' },
     { label: 'Careers', href: '#' },
   ],
@@ -35,9 +34,7 @@ export function MarketingFooter() {
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600">
-                <Shield className="h-4 w-4 text-white" />
-              </div>
+              <CoverGuardShield className="h-8 w-8" />
               <span className="text-lg font-bold text-white">CoverGuard</span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed">
