@@ -282,7 +282,7 @@ function RiskCircleOverlay({
       circleRef.current?.setMap(null)
       circleRef.current = null
     }
-  }, [map, center.lat, center.lng, radius, color])
+  }, [map, center, radius, color])
 
   return null
 }

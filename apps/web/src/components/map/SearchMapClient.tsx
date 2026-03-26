@@ -17,7 +17,6 @@ export function SearchMapClient({ query }: SearchMapClientProps) {
   useEffect(() => {
     if (!query) return
 
-    setError(null)
     const params: Record<string, string> = {}
     const zipMatch = query.match(/\b(\d{5})\b/)
     if (zipMatch) {
@@ -29,6 +28,7 @@ export function SearchMapClient({ query }: SearchMapClientProps) {
 
     searchProperties({ ...params, limit: 50 })
       .then((r) => {
+        setError(null)
         setProperties(r.properties)
         if (r.properties.length > 0) setSelected(r.properties[0]!)
       })
