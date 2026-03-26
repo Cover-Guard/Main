@@ -77,6 +77,14 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Ensure node/npm accessible to child processes
+        run: |
+          NODE_BIN_DIR="$(dirname "$(which node)")"
+          echo "$NODE_BIN_DIR" >> $GITHUB_PATH
+          sudo ln -sf "$NODE_BIN_DIR/node" /usr/local/bin/node
+          sudo ln -sf "$NODE_BIN_DIR/npm" /usr/local/bin/npm
+          sudo ln -sf "$NODE_BIN_DIR/npx" /usr/local/bin/npx
+
       - name: Install dependencies
         run: npm ci
 
@@ -96,12 +104,6 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
-
-      - name: Ensure npm accessible to child processes
-        run: |
-          NPM_BIN="$(which npm)"
-          echo "$(dirname "$NPM_BIN")" >> $GITHUB_PATH
-          sudo ln -sf "$NPM_BIN" /usr/local/bin/npm
 
       - name: Build project
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -158,6 +160,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Ensure node/npm accessible to child processes
+        run: |
+          NODE_BIN_DIR="$(dirname "$(which node)")"
+          echo "$NODE_BIN_DIR" >> $GITHUB_PATH
+          sudo ln -sf "$NODE_BIN_DIR/node" /usr/local/bin/node
+          sudo ln -sf "$NODE_BIN_DIR/npm" /usr/local/bin/npm
+          sudo ln -sf "$NODE_BIN_DIR/npx" /usr/local/bin/npx
 
       - name: Install dependencies
         run: npm ci
