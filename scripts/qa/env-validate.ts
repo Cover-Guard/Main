@@ -35,7 +35,7 @@ const VAR_SPECS: VarSpec[] = [
   // Web
   { name: 'NEXT_PUBLIC_SUPABASE_URL',   context: 'web', required: true,  description: 'Supabase project URL (Next.js)' },
   { name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', context: 'web', required: true, description: 'Supabase anon key (Next.js)' },
-  { name: 'NEXT_PUBLIC_MAPBOX_TOKEN',   context: 'web', required: true,  description: 'Mapbox GL access token' },
+  { name: 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY', context: 'web', required: true, description: 'Google Maps API key' },
   // Optional
   { name: 'ATTOM_API_KEY',              context: 'api', required: false, description: 'ATTOM property data API key (mock used if absent)' },
   { name: 'FBI_CDE_KEY',                context: 'api', required: false, description: 'FBI Crime Data Explorer API key (optional)' },

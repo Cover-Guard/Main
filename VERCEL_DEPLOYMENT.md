@@ -42,7 +42,7 @@ Set these in the Vercel project dashboard (Settings → Environment Variables):
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only service role key |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Same as SUPABASE_URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Same as SUPABASE_ANON_KEY |
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Yes | Mapbox GL token |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Yes | Google Maps API key |
 | `NEXT_PUBLIC_SITE_URL` | Yes | e.g. `https://coverguard.io` |
 | `ATTOM_API_KEY` | Optional | Property data (mock fallback if absent) |
 | `FBI_CDE_KEY` | Optional | Crime data |

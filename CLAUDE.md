@@ -51,7 +51,7 @@ Main-Branch/
 │   │       │   ├── search/     # SearchBar, SearchResults, PropertyCard (with compare toggle)
 │   │       │   ├── property/   # RiskSummary, RiskBreakdown, InsuranceCostEstimate,
 │   │       │   │               # InsurabilityPanel, ActiveCarriers, QuoteRequestModal
-│   │       │   ├── map/        # PropertyMap (Mapbox + risk layer toggles), PropertyMapInline,
+│   │       │   ├── map/        # PropertyMap (Google Maps + risk layer toggles), PropertyMapInline,
 │   │       │   │               # SearchMapClient
 │   │       │   ├── dashboard/  # AgentDashboard, ConsumerDashboard, ClientsPanel,
 │   │       │   │               # SavedPropertiesPanel
@@ -127,7 +127,7 @@ Main-Branch/
 | Database | Supabase (PostgreSQL) | Hosted; no local Postgres needed |
 | Auth | Supabase Auth | Email/password + Google OAuth |
 | ORM | Prisma 6 | Schema migrations + type-safe queries |
-| Maps | Mapbox GL / react-map-gl | Requires `NEXT_PUBLIC_MAPBOX_TOKEN` |
+| Maps | Google Maps / @vis.gl/react-google-maps | Requires `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` |
 | Validation | Zod | API routes + frontend forms |
 | HTTP client | `fetch` (native) | API integrations + web lib/api.ts |
 | Logging | Winston | JSON in production, colorized in dev |
@@ -214,7 +214,7 @@ All in `.env.example`. Key additions:
 
 | Variable | Where used | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Web | Map in search and property pages |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Web | Map in search and property pages |
 | `FBI_CDE_KEY` | API | FBI Crime Data Explorer (optional) |
 | `SUPABASE_URL` | API, Web | Supabase project URL |
 | `SUPABASE_ANON_KEY` | API, Web | Public anon key |
