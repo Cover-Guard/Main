@@ -66,8 +66,7 @@ export default function AgentRegisterPage() {
 
   async function onSubmit(data: FormData) {
     setError(null)
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
-    const res = await fetch(`${apiUrl}/api/auth/register`, {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

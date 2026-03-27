@@ -14,9 +14,10 @@ import type {
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
 
-// In production (Vercel), API is same-origin — use empty string.
-// In local dev, set NEXT_PUBLIC_API_URL=http://localhost:4000 in .env.local
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
+// Always use same-origin (relative) paths. In production, Next.js rewrites
+// proxy /api/* to the API backend, eliminating CORS. In local dev, the rewrite
+// forwards to http://localhost:4000 (set API_REWRITE_URL in .env.local).
+const API_URL = ''
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {

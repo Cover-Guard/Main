@@ -78,7 +78,7 @@ export async function GET(request: Request) {
         // role key is used (bypasses RLS) and all required columns are set.
         const { data: sessionData } = await supabase.auth.getSession()
         if (sessionData.session?.access_token) {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/sync-profile`, {
+          await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/sync-profile`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

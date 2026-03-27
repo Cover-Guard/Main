@@ -11,6 +11,19 @@
       "includeFiles": "dist/**,prisma/schema.prisma,node_modules/.prisma/**,node_modules/@prisma/client/**"
     }
   },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "https://coverguard.io" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization,X-Requested-With" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Max-Age", "value": "86400" },
+        { "key": "Vary", "value": "Origin" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/health", "destination": "/api" },
     { "source": "/(.*)", "destination": "/api" }

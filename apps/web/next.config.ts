@@ -15,6 +15,18 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'www.coverguard.io' },
     ],
   },
+  async rewrites() {
+    // Proxy /api/* requests to the API backend so the browser makes
+    // same-origin calls and CORS is never needed.
+    const apiUrl = process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL
+    if (!apiUrl) return []
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
+      },
+    ]
+  },
   async headers() {
     return [
       {
