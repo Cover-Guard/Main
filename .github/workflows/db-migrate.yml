@@ -112,36 +112,40 @@ jobs:
           done
 
       - name: Build connection URLs
-        id: db-urls
         run: |
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
-          DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
-          DIRECT_URL="postgresql://postgres:${ENCODED_PW}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres"
 
           {
-            echo "database_url<<GHEOF"
-            printf '%s\n' "$DATABASE_URL"
+            echo "DATABASE_URL<<GHEOF"
+            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
             echo "GHEOF"
-            echo "direct_url<<GHEOF"
-            printf '%s\n' "$DIRECT_URL"
+            echo "DIRECT_URL<<GHEOF"
+            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
             echo "GHEOF"
-          } >> "$GITHUB_OUTPUT"
+          } >> "$GITHUB_ENV"
 
-          echo "Connection URLs built — pooler host: ${POOLER_HOST}, user: ${DB_USER}"
+          echo "Connection URLs built — host: ${POOLER_HOST}, user: ${DB_USER}"
+
+      - name: Debug connection URL (no secrets)
+        run: |
+          node -e "
+            for (const name of ['DATABASE_URL', 'DIRECT_URL']) {
+              const url = new URL(process.env[name]);
+              console.log(name + ':');
+              console.log('  host:', url.hostname);
+              console.log('  port:', url.port);
+              console.log('  user:', url.username);
+              console.log('  pw_length:', decodeURIComponent(url.password).length);
+            }
+          "
 
       - name: Show migration status
         working-directory: apps/api
         run: npx prisma migrate status
-        env:
-          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
 
       - name: Apply migrations
         if: ${{ !inputs.dry_run }}
         working-directory: apps/api
         run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
