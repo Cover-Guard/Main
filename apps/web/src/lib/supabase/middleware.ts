@@ -67,16 +67,35 @@ export async function updateSession(request: NextRequest) {
   // ─── Subscription gate (feature flag) ──────────────────────────────────────
   // When STRIPE_SUBSCRIPTION_REQUIRED=true, authenticated users without an
   // active subscription are redirected to /pricing for all protected routes.
-  // Routes that should remain accessible without a subscription:
+  // A short-lived cookie (cg_sub_active, 5 min TTL) caches the result so the
+  // API isn't called on every single navigation.
   const subscriptionExemptRoutes = ['/pricing', '/account', '/onboarding']
   const isSubscriptionExempt = isPublic || subscriptionExemptRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
+  const SUB_COOKIE = 'cg_sub_active'
+  const SUB_COOKIE_TTL = 5 * 60 // 5 minutes
+
   if (
-    process.env.STRIPE_SUBSCRIPTION_REQUIRED === 'true' &&
+    process.env.STRIPE_SUBSCRIPTION_REQUIRED?.toLowerCase() === 'true' &&
     user &&
     !isSubscriptionExempt
   ) {
-    // Check subscription status via API
+    // Fast path: check cookie cache first
+    const cached = request.cookies.get(SUB_COOKIE)?.value
+    if (cached === '1') {
+      // Subscription is active (cached) — allow through
+      return supabaseResponse
+    }
+
+    if (cached === '0') {
+      // Subscription is inactive (cached) — redirect to pricing
+      const url = request.nextUrl.clone()
+      url.pathname = '/pricing'
+      url.searchParams.set('reason', 'subscription_required')
+      return NextResponse.redirect(url)
+    }
+
+    // Slow path: no cache — check subscription status via API
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
@@ -87,11 +106,28 @@ export async function updateSession(request: NextRequest) {
         })
         if (subRes.ok) {
           const subData = await subRes.json()
-          if (subData.success && subData.data.required && !subData.data.active) {
-            const url = request.nextUrl.clone()
-            url.pathname = '/pricing'
-            url.searchParams.set('reason', 'subscription_required')
-            return NextResponse.redirect(url)
+          const isActive = !subData.data.required || subData.data.active
+          // Cache the result in a cookie so subsequent navigations skip the API call
+          supabaseResponse.cookies.set(SUB_COOKIE, isActive ? '1' : '0', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: SUB_COOKIE_TTL,
+            path: '/',
+          })
+          if (!isActive) {
+            const pricingUrl = request.nextUrl.clone()
+            pricingUrl.pathname = '/pricing'
+            pricingUrl.searchParams.set('reason', 'subscription_required')
+            const redirectRes = NextResponse.redirect(pricingUrl)
+            redirectRes.cookies.set(SUB_COOKIE, '0', {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              maxAge: SUB_COOKIE_TTL,
+              path: '/',
+            })
+            return redirectRes
           }
         }
       }
