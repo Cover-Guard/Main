@@ -84,17 +84,30 @@ jobs:
           SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
 
+      - name: Build connection URLs
+        id: db-urls
+        run: |
+          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
+          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          DB_USER="postgres.${SUPABASE_PROJECT_ID}"
+          echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
+          echo "direct_url=postgresql://postgres:${ENCODED_PW}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres" >> $GITHUB_OUTPUT
+        env:
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
       - name: Show migration status
         working-directory: apps/api
         run: npx prisma migrate status
         env:
-          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
+          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
 
       - name: Apply migrations
         if: ${{ !inputs.dry_run }}
         working-directory: apps/api
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
+          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
