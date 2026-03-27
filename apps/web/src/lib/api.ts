@@ -10,6 +10,7 @@ import type {
   AnalyticsSummary,
   ApiResponse,
   User,
+  SubscriptionState,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -198,4 +199,28 @@ export async function chatWithAdvisor(
 
 export async function getAnalytics(): Promise<AnalyticsSummary> {
   return apiFetch('/api/analytics')
+}
+
+// ─── Stripe / Subscriptions ──────────────────────────────────────────────────
+
+export async function getSubscriptionState(): Promise<SubscriptionState> {
+  return apiFetch('/api/stripe/subscription')
+}
+
+export async function createCheckoutSession(priceId: string): Promise<{ url: string }> {
+  return apiFetch('/api/stripe/checkout', {
+    method: 'POST',
+    body: JSON.stringify({
+      priceId,
+      successUrl: `${window.location.origin}/dashboard?subscription=success`,
+      cancelUrl: `${window.location.origin}/pricing?subscription=canceled`,
+    }),
+  })
+}
+
+export async function createPortalSession(): Promise<{ url: string }> {
+  return apiFetch('/api/stripe/portal', {
+    method: 'POST',
+    body: JSON.stringify({ returnUrl: `${window.location.origin}/account` }),
+  })
 }

@@ -14,6 +14,8 @@ import { authRouter } from './routes/auth'
 import { clientsRouter } from './routes/clients'
 import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
+import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
+import { requireSubscription } from './middleware/subscription'
 
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '4000', 10)
@@ -65,6 +67,11 @@ app.use(
   }),
 )
 app.use(compression())
+
+// Stripe webhook must receive the raw body for signature verification —
+// mount it BEFORE the global express.json() parser.
+app.use('/api/stripe', stripeWebhookRouter)
+
 app.use(express.json({ limit: '1mb' }))
 app.use(
   morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
@@ -128,6 +135,7 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/auth', requestTimeout(15_000), authRouter)
+app.use('/api/stripe', requestTimeout(15_000), stripeRouter)
 
 // Search: moderate limit, fast timeout
 app.use(
@@ -158,10 +166,10 @@ app.use(
   requestTimeout(20_000),
 )
 
-app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
-app.use('/api/clients', requestTimeout(15_000), clientsRouter)
-app.use('/api/analytics', requestTimeout(20_000), analyticsRouter)
-app.use('/api/advisor', requestTimeout(30_000), advisorRouter)
+app.use('/api/properties', requestTimeout(45_000), requireSubscription, propertiesRouter)
+app.use('/api/clients', requestTimeout(15_000), requireSubscription, clientsRouter)
+app.use('/api/analytics', requestTimeout(20_000), requireSubscription, analyticsRouter)
+app.use('/api/advisor', requestTimeout(30_000), requireSubscription, advisorRouter)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 

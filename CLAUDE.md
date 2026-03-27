@@ -104,6 +104,7 @@ Main-Branch/
 │           │   │                   # Carrier, CarriersResult, CarrierWritingStatus, MarketCondition
 │           │   ├── user.ts         # User, Client, ClientStatus, SavedProperty,
 │           │   │                   # PropertyReport, AnalyticsSummary
+│           │   ├── subscription.ts  # Subscription, SubscriptionState, SubscriptionPlan
 │           │   └── api.ts          # ApiResponse
 │           ├── utils/          # formatters.ts, validators.ts
 │           └── constants/      # Risk thresholds, US states, cache TTLs
@@ -147,6 +148,7 @@ Main-Branch/
 | `QuoteRequest` | Binding quote request to a carrier |
 | `PropertyReport` | Generated PDF reports |
 | `SearchHistory` | Search audit trail |
+| `Subscription` | Stripe subscription (plan, status, period) |
 
 ---
 
@@ -189,6 +191,11 @@ PATCH /api/clients/:id                      Update client [auth]
 DEL  /api/clients/:id                       Delete client [auth]
 
 GET  /api/analytics                         Analytics summary [auth]
+
+GET  /api/stripe/subscription                Subscription status [auth]
+POST /api/stripe/checkout                    Create Stripe checkout session [auth]
+POST /api/stripe/portal                      Create Stripe billing portal session [auth]
+POST /api/stripe/webhook                     Stripe webhook (raw body, signature verified)
 ```
 
 ---
@@ -223,6 +230,13 @@ All in `.env.example`. Key additions:
 | `NEXT_PUBLIC_SUPABASE_URL` | Web | Same as SUPABASE_URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Web | Same as anon key |
 | `ATTOM_API_KEY` | API | Optional — mock data used if absent |
+| `STRIPE_SECRET_KEY` | API | Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | API | Stripe webhook signing secret |
+| `STRIPE_PRICE_INDIVIDUAL` | API | Stripe price ID for Individual plan |
+| `STRIPE_PRICE_PROFESSIONAL` | API | Stripe price ID for Professional plan |
+| `STRIPE_PRICE_TEAM` | API | Stripe price ID for Team plan |
+| `NEXT_PUBLIC_STRIPE_PRICE_*` | Web | Client-side Stripe price IDs for checkout |
+| `STRIPE_SUBSCRIPTION_REQUIRED` | API, Web | Feature flag — `"true"` to require active subscription (default: `"false"`) |
 
 ---
 

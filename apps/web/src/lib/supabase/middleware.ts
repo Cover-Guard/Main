@@ -64,5 +64,41 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // ─── Subscription gate (feature flag) ──────────────────────────────────────
+  // When STRIPE_SUBSCRIPTION_REQUIRED=true, authenticated users without an
+  // active subscription are redirected to /pricing for all protected routes.
+  // Routes that should remain accessible without a subscription:
+  const subscriptionExemptRoutes = ['/pricing', '/account', '/onboarding']
+  const isSubscriptionExempt = isPublic || subscriptionExemptRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
+
+  if (
+    process.env.STRIPE_SUBSCRIPTION_REQUIRED === 'true' &&
+    user &&
+    !isSubscriptionExempt
+  ) {
+    // Check subscription status via API
+    try {
+      const session = await supabase.auth.getSession()
+      const token = session.data.session?.access_token
+      if (token) {
+        const apiUrl = process.env.API_REWRITE_URL || 'http://localhost:4000'
+        const subRes = await fetch(`${apiUrl}/api/stripe/subscription`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (subRes.ok) {
+          const subData = await subRes.json()
+          if (subData.success && subData.data.required && !subData.data.active) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/pricing'
+            url.searchParams.set('reason', 'subscription_required')
+            return NextResponse.redirect(url)
+          }
+        }
+      }
+    } catch {
+      // If subscription check fails, allow access rather than blocking
+    }
+  }
+
   return supabaseResponse
 }

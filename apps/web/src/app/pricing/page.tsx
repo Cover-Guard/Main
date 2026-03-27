@@ -1,13 +1,11 @@
+'use client'
+
 import Link from 'next/link'
 import { MarketingNav, MarketingFooter } from '@/components/marketing'
 import { Check } from 'lucide-react'
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Pricing — CoverGuard',
-  description:
-    'Simple, transparent pricing for individuals and teams. Start free, upgrade when you need more.',
-}
+import { useState } from 'react'
+import { createCheckoutSession, createPortalSession } from '@/lib/api'
+import { createClient } from '@/lib/supabase/client'
 
 const plans = [
   {
@@ -15,9 +13,8 @@ const plans = [
     description: 'For home buyers and independent agents getting started.',
     price: '$29',
     period: '/month',
-    cta: 'Get Started',
-    ctaHref: '/register',
     highlighted: false,
+    priceEnvKey: 'NEXT_PUBLIC_STRIPE_PRICE_INDIVIDUAL',
     features: [
       '10 property searches per month',
       'Risk profiles (flood, fire, wind, earthquake, crime)',
@@ -31,9 +28,8 @@ const plans = [
     description: 'For active agents managing multiple clients and properties.',
     price: '$79',
     period: '/month',
-    cta: 'Get Started',
-    ctaHref: '/register',
     highlighted: true,
+    priceEnvKey: 'NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL',
     features: [
       '100 property searches per month',
       'Everything in Individual',
@@ -49,9 +45,8 @@ const plans = [
     description: 'For brokerages and teams that need scale and collaboration.',
     price: '$199',
     period: '/month',
-    cta: 'Contact Sales',
-    ctaHref: 'mailto:sales@coverguard.io',
     highlighted: false,
+    priceEnvKey: 'NEXT_PUBLIC_STRIPE_PRICE_TEAM',
     features: [
       'Unlimited property searches',
       'Everything in Professional',
@@ -64,7 +59,56 @@ const plans = [
   },
 ]
 
+// Stripe price IDs from env (available at build time via NEXT_PUBLIC_ prefix)
+const PRICE_IDS: Record<string, string | undefined> = {
+  NEXT_PUBLIC_STRIPE_PRICE_INDIVIDUAL: process.env.NEXT_PUBLIC_STRIPE_PRICE_INDIVIDUAL,
+  NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL: process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL,
+  NEXT_PUBLIC_STRIPE_PRICE_TEAM: process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM,
+}
+
 export default function PricingPage() {
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubscribe(plan: typeof plans[number]) {
+    setError(null)
+
+    // Check if user is authenticated
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session) {
+      // Not logged in — send to register
+      window.location.assign('/register')
+      return
+    }
+
+    const priceId = PRICE_IDS[plan.priceEnvKey]
+    if (!priceId) {
+      setError('This plan is not yet available. Please contact sales@coverguard.io.')
+      return
+    }
+
+    setLoadingPlan(plan.name)
+    try {
+      const { url } = await createCheckoutSession(priceId)
+      window.location.assign(url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start checkout. Please try again.')
+      setLoadingPlan(null)
+    }
+  }
+
+  async function handleManageSubscription() {
+    setError(null)
+    try {
+      const { url } = await createPortalSession()
+      window.location.assign(url)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open billing portal.')
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <MarketingNav />
@@ -83,6 +127,12 @@ export default function PricingPage() {
                 Start with a free trial. No credit card required. Upgrade anytime as your needs grow.
               </p>
             </div>
+
+            {error && (
+              <div className="mt-8 mx-auto max-w-lg rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 text-center">
+                {error}
+              </div>
+            )}
 
             {/* Pricing cards */}
             <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -111,16 +161,26 @@ export default function PricingPage() {
                     <span className="text-gray-500">{plan.period}</span>
                   </div>
 
-                  <Link
-                    href={plan.ctaHref}
-                    className={`mt-8 block w-full text-center rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${
-                      plan.highlighted
-                        ? 'bg-brand-600 text-white hover:bg-brand-700'
-                        : 'bg-gray-50 text-gray-900 border border-gray-200 hover:bg-gray-100'
-                    }`}
-                  >
-                    {plan.cta}
-                  </Link>
+                  {plan.name === 'Team' ? (
+                    <Link
+                      href="mailto:sales@coverguard.io"
+                      className="mt-8 block w-full text-center rounded-lg px-4 py-3 text-sm font-semibold bg-gray-50 text-gray-900 border border-gray-200 hover:bg-gray-100 transition-colors"
+                    >
+                      Contact Sales
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={() => handleSubscribe(plan)}
+                      disabled={loadingPlan !== null}
+                      className={`mt-8 block w-full text-center rounded-lg px-4 py-3 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                        plan.highlighted
+                          ? 'bg-brand-600 text-white hover:bg-brand-700'
+                          : 'bg-gray-50 text-gray-900 border border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {loadingPlan === plan.name ? 'Redirecting...' : 'Get Started'}
+                    </button>
+                  )}
 
                   <ul className="mt-8 space-y-4 flex-1">
                     {plan.features.map((feature) => (
@@ -132,6 +192,19 @@ export default function PricingPage() {
                   </ul>
                 </div>
               ))}
+            </div>
+
+            {/* Manage existing subscription */}
+            <div className="mt-12 text-center">
+              <p className="text-sm text-gray-500">
+                Already subscribed?{' '}
+                <button
+                  onClick={handleManageSubscription}
+                  className="text-brand-600 hover:underline font-medium"
+                >
+                  Manage your subscription
+                </button>
+              </p>
             </div>
           </div>
         </section>
