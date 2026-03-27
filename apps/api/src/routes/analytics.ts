@@ -1,11 +1,13 @@
 import { Router } from 'express'
 import { prisma } from '../utils/prisma'
 import { requireAuth } from '../middleware/auth'
+import { requireSubscription } from '../middleware/subscription'
 import type { Request } from 'express'
 import type { AuthenticatedRequest } from '../middleware/auth'
 
 export const analyticsRouter = Router()
 analyticsRouter.use(requireAuth)
+analyticsRouter.use(requireSubscription)
 
 analyticsRouter.get('/', async (req: Request, res, next) => {
   try {

@@ -8,7 +8,9 @@ import { hasActiveSubscription } from '../services/stripeService'
  * Stripe subscription, but ONLY when the STRIPE_SUBSCRIPTION_REQUIRED feature
  * flag is enabled. When the flag is off (default), this middleware is a no-op.
  *
- * Must be placed AFTER requireAuth in the middleware chain.
+ * IMPORTANT: Must be placed AFTER requireAuth in the middleware chain so that
+ * req.userId is already populated. Typically used as:
+ *   router.get('/path', requireAuth, requireSubscription, handler)
  */
 export async function requireSubscription(
   req: Request,
@@ -23,10 +25,12 @@ export async function requireSubscription(
 
   const { userId } = req as AuthenticatedRequest
 
-  // If the request is not authenticated (public endpoint), skip — the
-  // individual route's requireAuth will handle access control.
   if (!userId) {
-    next()
+    // This should not happen if requireAuth ran first. If it does, reject.
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+    })
     return
   }
 
