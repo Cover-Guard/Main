@@ -164,6 +164,10 @@ export async function getOrComputeInsuranceEstimate(
       earthquakeLow: earthquake?.low ?? null,
       earthquakeHigh: earthquake?.high ?? null,
       earthquakeAvg: earthquake?.avg ?? null,
+      fireRequired: !!fire,
+      fireLow: fire?.low ?? null,
+      fireHigh: fire?.high ?? null,
+      fireAvg: fire?.avg ?? null,
       expiresAt,
     }
 
@@ -237,6 +241,21 @@ function prismaEstimateToDto(
               notes: [
                 'Not included in standard homeowners policy',
                 'Available through CEA (California) or private insurers',
+              ],
+            },
+          ]
+        : []),
+      ...(e.fireRequired && e.fireAvg != null
+        ? [
+            {
+              type: 'FIRE' as const,
+              required: false,
+              averageAnnualPremium: e.fireAvg,
+              lowEstimate: e.fireLow!,
+              highEstimate: e.fireHigh!,
+              notes: [
+                'Separate fire/wildfire policy may be required in high-risk zones',
+                'FAIR Plan available as insurer of last resort',
               ],
             },
           ]
