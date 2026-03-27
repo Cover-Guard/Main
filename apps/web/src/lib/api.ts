@@ -51,6 +51,19 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ─── Properties ───────────────────────────────────────────────────────────────
 
+export interface PropertySuggestion {
+  id: string
+  address: string
+  city: string
+  state: string
+  zip: string
+}
+
+export async function suggestProperties(query: string, limit = 5): Promise<PropertySuggestion[]> {
+  const q = new URLSearchParams({ q: query, limit: String(limit) })
+  return apiFetch<PropertySuggestion[]>(`/api/properties/suggest?${q}`)
+}
+
 export async function searchProperties(params: PropertySearchParams): Promise<PropertySearchResult> {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)) })
