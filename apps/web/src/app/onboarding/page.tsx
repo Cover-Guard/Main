@@ -122,7 +122,7 @@ export default function OnboardingPage() {
               disabled={!accepted || loading}
               className="btn-primary w-full py-3 text-base"
             >
-              {loading ? 'Saving…' : 'Accept &amp; Continue to CoverGuard'}
+              {loading ? 'Saving…' : 'Accept & Continue to CoverGuard'}
             </button>
           </div>
         </div>
