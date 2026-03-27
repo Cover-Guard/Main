@@ -152,6 +152,17 @@ export async function deleteClient(id: string): Promise<void> {
   await apiFetch(`/api/clients/${id}`, { method: 'DELETE' })
 }
 
+// ─── AI Advisor ──────────────────────────────────────────────────────────────
+
+export async function chatWithAdvisor(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+): Promise<{ text: string }> {
+  return apiFetch('/api/advisor/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages }),
+  })
+}
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export async function getAnalytics(): Promise<AnalyticsSummary> {
