@@ -47,10 +47,29 @@ stripeRouter.get('/subscription', requireAuth, async (req: Request, res, next) =
 
 // ─── Create checkout session ─────────────────────────────────────────────────
 
+/** Validate that a URL belongs to the app's own origin to prevent open redirects. */
+function isSafeRedirectUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const allowedHosts = [
+      'localhost',
+      'coverguard.io',
+      'www.coverguard.io',
+    ]
+    // Allow exact matches and *.coverguard.io subdomains (Vercel previews)
+    if (allowedHosts.includes(parsed.hostname)) return true
+    if (parsed.hostname.endsWith('.coverguard.io')) return true
+    if (parsed.hostname.endsWith('.vercel.app')) return true
+    return false
+  } catch {
+    return false
+  }
+}
+
 const checkoutSchema = z.object({
   priceId: z.string().min(1),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
+  successUrl: z.string().url().refine(isSafeRedirectUrl, { message: 'successUrl must point to the application origin' }),
+  cancelUrl: z.string().url().refine(isSafeRedirectUrl, { message: 'cancelUrl must point to the application origin' }),
 })
 
 stripeRouter.post('/checkout', requireAuth, async (req: Request, res, next) => {

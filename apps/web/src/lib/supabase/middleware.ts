@@ -43,12 +43,27 @@ export async function updateSession(request: NextRequest) {
   const publicRoutes = ['/', '/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/pricing', '/search', '/onboarding']
   const isPublic = publicRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
+  const SUB_COOKIE = 'cg_sub_active'
+  const SUB_COOKIE_TTL = 5 * 60 // 5 minutes
+
   // If authenticated user visits login/register, redirect to dashboard
   const authRoutes = ['/login', '/register', '/agents/login', '/agents/register']
   if (user && authRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  // Clear subscription cache cookie when visiting auth routes (login/register)
+  // so a new user session doesn't inherit a stale value from a prior user.
+  if (!user && authRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
+    supabaseResponse.cookies.delete(SUB_COOKIE)
+  }
+
+  // Clear subscription cache cookie when arriving at dashboard after a fresh
+  // checkout so the middleware re-checks subscription status immediately.
+  if (user && pathname === '/dashboard' && request.nextUrl.searchParams.get('subscription') === 'success') {
+    supabaseResponse.cookies.delete(SUB_COOKIE)
   }
 
   // Require login for all non-public routes
@@ -71,9 +86,6 @@ export async function updateSession(request: NextRequest) {
   // API isn't called on every single navigation.
   const subscriptionExemptRoutes = ['/pricing', '/account', '/onboarding']
   const isSubscriptionExempt = isPublic || subscriptionExemptRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
-
-  const SUB_COOKIE = 'cg_sub_active'
-  const SUB_COOKIE_TTL = 5 * 60 // 5 minutes
 
   if (
     process.env.STRIPE_SUBSCRIPTION_REQUIRED?.toLowerCase() === 'true' &&

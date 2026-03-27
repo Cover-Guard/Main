@@ -10,11 +10,10 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
   apiVersion: '2025-02-24.acacia',
 })
 
-const PRICE_TO_PLAN: Record<string, 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'> = {
-  [process.env.STRIPE_PRICE_INDIVIDUAL ?? '']: 'INDIVIDUAL',
-  [process.env.STRIPE_PRICE_PROFESSIONAL ?? '']: 'PROFESSIONAL',
-  [process.env.STRIPE_PRICE_TEAM ?? '']: 'TEAM',
-}
+const PRICE_TO_PLAN: Record<string, 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'> = {}
+if (process.env.STRIPE_PRICE_INDIVIDUAL) PRICE_TO_PLAN[process.env.STRIPE_PRICE_INDIVIDUAL] = 'INDIVIDUAL'
+if (process.env.STRIPE_PRICE_PROFESSIONAL) PRICE_TO_PLAN[process.env.STRIPE_PRICE_PROFESSIONAL] = 'PROFESSIONAL'
+if (process.env.STRIPE_PRICE_TEAM) PRICE_TO_PLAN[process.env.STRIPE_PRICE_TEAM] = 'TEAM'
 
 function planFromPriceId(priceId: string): 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' {
   const plan = PRICE_TO_PLAN[priceId]

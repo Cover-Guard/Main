@@ -101,7 +101,9 @@ authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
-    res.json({ success: true, data: user })
+    // Omit internal fields that shouldn't be exposed to the client
+    const { stripeCustomerId: _stripe, ...profile } = user
+    res.json({ success: true, data: profile })
   } catch (err) {
     next(err)
   }
