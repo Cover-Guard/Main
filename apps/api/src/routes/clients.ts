@@ -35,6 +35,7 @@ clientsRouter.get('/', async (req: Request, res, next) => {
     const clients = await prisma.client.findMany({
       where: { agentId: userId },
       orderBy: { createdAt: 'desc' },
+      take: 200, // safety cap — prevents unbounded result sets
       include: { _count: { select: { savedProperties: true } } },
     })
     // Flatten _count into savedPropertyCount to match the Client DTO
@@ -81,8 +82,8 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
       return
     }
 
-    const updated = await prisma.client.findUniqueOrThrow({
-      where: { id },
+    const updated = await prisma.client.findFirstOrThrow({
+      where: { id, agentId: userId },
       include: { _count: { select: { savedProperties: true } } },
     })
     const { _count, ...client } = updated

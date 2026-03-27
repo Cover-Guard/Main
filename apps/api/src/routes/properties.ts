@@ -180,7 +180,7 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
 const saveSchema = z.object({
   notes: z.string().max(500).optional(),
   tags: z.array(z.string()).max(10).default([]),
-  clientId: z.string().uuid().optional(),
+  clientId: z.string().uuid().nullish(),
 })
 
 propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
@@ -202,15 +202,36 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
       return
     }
 
+    // Verify the client belongs to the requesting user (prevents cross-agent association)
+    if (body.clientId) {
+      const clientOwned = await prisma.client.findFirst({
+        where: { id: body.clientId, agentId: userId },
+        select: { id: true },
+      })
+      if (!clientOwned) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Client not found' },
+        })
+        return
+      }
+    }
+
     // Check if already saved to determine correct status code
     const existing = await prisma.savedProperty.findUnique({
       where: { userId_propertyId: { userId, propertyId } },
       select: { id: true },
     })
 
+    // body.clientId is string | null | undefined:
+    //   string   → set the association
+    //   null     → explicitly remove the association
+    //   undefined → leave unchanged on update, null on create
+    const clientIdUpdate = body.clientId === undefined ? undefined : (body.clientId ?? null)
+
     const saved = await prisma.savedProperty.upsert({
       where: { userId_propertyId: { userId, propertyId } },
-      update: { notes: body.notes, tags: body.tags, clientId: body.clientId ?? undefined },
+      update: { notes: body.notes, tags: body.tags, clientId: clientIdUpdate },
       create: { userId, propertyId, notes: body.notes, tags: body.tags, clientId: body.clientId ?? null },
     })
     res.status(existing ? 200 : 201).json({ success: true, data: saved })
