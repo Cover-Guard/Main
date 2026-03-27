@@ -13,19 +13,23 @@ const NDA_TEXT = `NON-DISCLOSURE AGREEMENT
 
 This Non-Disclosure Agreement ("Agreement") is entered into as of the date of account creation between CoverGuard, Inc. ("Company") and the individual registering for access to the CoverGuard platform ("User").
 
-1. CONFIDENTIAL INFORMATION. "Confidential Information" means any non-public information disclosed by the Company through the CoverGuard platform, including but not limited to: proprietary risk scoring methodologies, carrier availability data, underwriting intelligence, property insurability assessments, pricing algorithms, and any data derived therefrom.
+1. CONFIDENTIAL INFORMATION. "Confidential Information" means any non-public information disclosed by the Company through the CoverGuard platform, including but not limited to: proprietary risk scoring methodologies and algorithms, carrier availability data, underwriting intelligence, property insurability assessments, pricing models, system architecture and technical documentation, security protocols, business processes, and any data, analyses, compilations, or derivative works therefrom — whether disclosed in written, oral, electronic, or visual form.
 
-2. OBLIGATIONS. User agrees to: (a) hold all Confidential Information in strict confidence; (b) not disclose Confidential Information to any third party without the Company's prior written consent; (c) use Confidential Information solely for User's personal property research and decision-making purposes; and (d) not reproduce, distribute, or commercialize any Confidential Information.
+2. OBLIGATIONS. User agrees to: (a) hold all Confidential Information in strict confidence using at least the same degree of care User uses to protect their own confidential information, but no less than reasonable care; (b) not disclose Confidential Information to any third party without the Company's prior written consent; (c) use Confidential Information solely for User's personal property research and decision-making purposes as permitted by the Platform; (d) not reproduce, distribute, reverse-engineer, decompile, or commercialize any Confidential Information; (e) promptly notify the Company in writing upon becoming aware of any unauthorized disclosure, access, or use of Confidential Information; and (f) cooperate with the Company to mitigate any harm resulting from unauthorized disclosure.
 
-3. PERMITTED USE. User may access and use the platform's data outputs solely for lawful personal or professional real estate due diligence. Any systematic extraction, resale, redistribution, or commercial exploitation of the data is strictly prohibited.
+3. PERMITTED USE. User may access and use the Platform's data outputs solely for lawful personal or professional real estate due diligence. Any systematic extraction, scraping, automated collection, resale, redistribution, sublicensing, or commercial exploitation of the data is strictly prohibited.
 
-4. NO WARRANTY. The Company makes no representation or warranty that any information provided is complete, accurate, or current. All risk assessments and insurance estimates are informational only and do not constitute professional advice.
+4. DATA HANDLING. User shall not store Confidential Information on unsecured devices or systems, transmit Confidential Information over unencrypted channels, or commingle Confidential Information with data from other sources in a manner that could compromise its confidentiality. Upon termination of this Agreement or at the Company's written request, User shall promptly return or securely destroy all Confidential Information in their possession and certify such destruction in writing if requested.
 
-5. TERM. This Agreement remains in effect for the duration of User's access to the platform and for three (3) years following termination of access.
+5. NO WARRANTY. The Company makes no representation or warranty that any information provided is complete, accurate, or current. All risk assessments and insurance estimates are informational only and do not constitute professional insurance, financial, or legal advice.
 
-6. REMEDIES. User acknowledges that unauthorized disclosure of Confidential Information would cause irreparable harm, and the Company shall be entitled to seek equitable relief in addition to all other remedies available at law.
+6. TERM. This Agreement remains in effect for the duration of User's access to the Platform and for a period of five (5) years following termination of access, regardless of the reason for termination.
 
-7. GOVERNING LAW. This Agreement is governed by the laws of the State of Delaware, without regard to conflict of law principles.
+7. REMEDIES. User acknowledges that unauthorized disclosure of Confidential Information may cause irreparable harm to the Company that cannot be adequately compensated by monetary damages alone. The Company shall be entitled to seek injunctive relief and other equitable remedies in addition to all other remedies available at law or in equity, without the requirement of posting a bond.
+
+8. LEGAL COMPLIANCE. Nothing in this Agreement prohibits User from making disclosures required by applicable law, regulation, or court order, provided that User: (a) provides the Company with prompt written notice of such requirement (to the extent legally permitted); and (b) cooperates with the Company in seeking a protective order or other appropriate remedy to limit the scope of disclosure.
+
+9. GOVERNING LAW. This Agreement is governed by the laws of the State of Delaware, without regard to conflict of law principles. Any dispute arising under this Agreement shall be resolved in the state or federal courts located in Wilmington, Delaware.
 
 By creating an account, User agrees to be bound by the terms of this Agreement.`
 

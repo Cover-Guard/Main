@@ -69,19 +69,19 @@ export default function OnboardingPage() {
               icon={<AlertTriangle className="h-5 w-5 text-yellow-600" />}
               bg="bg-yellow-50"
               title="Not a Binding Insurance Quote"
-              body="All premium estimates provided by CoverGuard are informational only and do not constitute a binding insurance offer, commitment, or contract. Actual premiums are determined by licensed insurers based on full underwriting review."
+              body="All premium estimates provided by CoverGuard are informational only and do not constitute a binding insurance offer, commitment, or contract. Actual premiums are determined by licensed insurers based on full underwriting review. You should not rely solely on CoverGuard estimates when making purchasing decisions."
             />
             <DisclosureItem
               icon={<FileText className="h-5 w-5 text-blue-600" />}
               bg="bg-blue-50"
               title="Data Accuracy &amp; Limitations"
-              body="Risk scores are derived from publicly available datasets (FEMA, USGS, Cal Fire, FBI UCR) and third-party data providers. Data may be incomplete, outdated, or inaccurate for some locations. CoverGuard does not guarantee the accuracy of any risk assessment."
+              body="Risk scores are derived from publicly available datasets (FEMA, USGS, Cal Fire, FBI UCR) and third-party data providers. While we make reasonable efforts to ensure accuracy, data may be incomplete, outdated, or inaccurate for some locations. CoverGuard does not guarantee the accuracy, completeness, or timeliness of any risk assessment. All data should be independently verified before making decisions."
             />
             <DisclosureItem
               icon={<Lock className="h-5 w-5 text-green-600" />}
               bg="bg-green-50"
               title="Not Financial or Legal Advice"
-              body="Nothing on CoverGuard constitutes financial, legal, or insurance advice. You should consult a licensed insurance professional and conduct your own due diligence before making any real estate or insurance decision."
+              body="Nothing on CoverGuard constitutes financial, legal, or insurance advice. You should consult a licensed insurance professional and conduct your own due diligence before making any real estate or insurance decision. CoverGuard is not a licensed insurance agent, broker, or carrier."
             />
             <DisclosureItem
               icon={<CheckCircle className="h-5 w-5 text-brand-600" />}
@@ -96,7 +96,8 @@ export default function OnboardingPage() {
               <a href="/terms" target="_blank" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>
               {' '}and{' '}
               <a href="/privacy" target="_blank" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>
-              . Your data is encrypted and never sold to third parties.
+              . Your data is encrypted in transit and at rest, and is never sold to third parties. We maintain
+              comprehensive security controls to protect the confidentiality, integrity, and availability of your information.
             </div>
 
             {error && (
