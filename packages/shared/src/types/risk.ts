@@ -21,7 +21,7 @@ export interface FloodRisk extends RiskFactor {
 }
 
 export interface FireRisk extends RiskFactor {
-  firHazardSeverityZone: string | null // CA-specific
+  fireHazardSeverityZone: string | null // CA-specific
   wildlandUrbanInterface: boolean
   nearestFireStation: number | null // miles
   vegetationDensity: string | null

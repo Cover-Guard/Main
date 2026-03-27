@@ -93,7 +93,7 @@ export async function getOrComputeRiskProfile(propertyId: string): Promise<Prope
       floodData.inSpecialFloodHazardArea ?? false,
     )
     const fireScore = computeFireScore(
-      fireData.firHazardSeverityZone ?? null,
+      fireData.fireHazardSeverityZone ?? null,
       fireData.wildlandUrbanInterface ?? false,
     )
     const windScore = computeWindScore(
@@ -129,7 +129,7 @@ export async function getOrComputeRiskProfile(propertyId: string): Promise<Prope
       floodAnnualChance: floodData.annualChanceOfFlooding ?? null,
       fireRiskLevel: scoreToLevel(fireScore),
       fireRiskScore: fireScore,
-      firHazardZone: fireData.firHazardSeverityZone ?? null,
+      fireHazardZone: fireData.fireHazardSeverityZone ?? null,
       wildlandUrbanInterface: fireData.wildlandUrbanInterface ?? false,
       windRiskLevel: scoreToLevel(windScore),
       windRiskScore: windScore,
@@ -194,12 +194,12 @@ function prismaProfileToDto(
       trend: 'STABLE',
       description: 'Wildfire risk based on Cal Fire and USFS hazard zones',
       details: [
-        p.firHazardZone ? `Hazard zone: ${p.firHazardZone}` : 'No state hazard zone data',
+        p.fireHazardZone ? `Hazard zone: ${p.fireHazardZone}` : 'No state hazard zone data',
         p.wildlandUrbanInterface ? 'In Wildland-Urban Interface' : 'Not in WUI',
       ],
       dataSource: 'Cal Fire / USFS',
       lastUpdated: now,
-      firHazardSeverityZone: p.firHazardZone,
+      fireHazardSeverityZone: p.fireHazardZone,
       wildlandUrbanInterface: p.wildlandUrbanInterface,
       nearestFireStation: p.nearestFireStation,
       vegetationDensity: null,

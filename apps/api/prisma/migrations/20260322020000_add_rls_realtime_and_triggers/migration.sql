@@ -48,7 +48,7 @@ BEGIN
     "updatedAt"
   )
   VALUES (
-    NEW.id,
+    NEW.id::text,
     NEW.email,
     -- Google provides full_name / name; fall back to the email local-part
     COALESCE(
@@ -107,7 +107,7 @@ BEGIN
                     "avatarUrl"
                   ),
     "updatedAt" = NOW()
-  WHERE id = NEW.id;
+  WHERE id = NEW.id::text;
 
   RETURN NEW;
 END;
@@ -129,7 +129,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  DELETE FROM public.users WHERE id = OLD.id;
+  DELETE FROM public.users WHERE id = OLD.id::text;
   RETURN OLD;
 END;
 $$;
@@ -187,13 +187,13 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "users: select own" ON public.users;
 CREATE POLICY "users: select own"
   ON public.users FOR SELECT
-  USING (auth.uid() = id);
+  USING (auth.uid()::text =id);
 
 DROP POLICY IF EXISTS "users: update own" ON public.users;
 CREATE POLICY "users: update own"
   ON public.users FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  USING (auth.uid()::text =id)
+  WITH CHECK (auth.uid()::text =id);
 
 -- The handle_new_user trigger runs as SECURITY DEFINER, which means it
 -- executes with the function owner's privileges (superuser) and is exempt
@@ -202,7 +202,7 @@ CREATE POLICY "users: update own"
 DROP POLICY IF EXISTS "users: insert own" ON public.users;
 CREATE POLICY "users: insert own"
   ON public.users FOR INSERT
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK (auth.uid()::text =id);
 
 
 -- ── 2.5  saved_properties ─────────────────────────────────────────────────────
@@ -212,23 +212,23 @@ ALTER TABLE public.saved_properties ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "saved_properties: select own" ON public.saved_properties;
 CREATE POLICY "saved_properties: select own"
   ON public.saved_properties FOR SELECT
-  USING (auth.uid() = "userId");
+  USING (auth.uid()::text ="userId");
 
 DROP POLICY IF EXISTS "saved_properties: insert own" ON public.saved_properties;
 CREATE POLICY "saved_properties: insert own"
   ON public.saved_properties FOR INSERT
-  WITH CHECK (auth.uid() = "userId");
+  WITH CHECK (auth.uid()::text ="userId");
 
 DROP POLICY IF EXISTS "saved_properties: update own" ON public.saved_properties;
 CREATE POLICY "saved_properties: update own"
   ON public.saved_properties FOR UPDATE
-  USING (auth.uid() = "userId")
-  WITH CHECK (auth.uid() = "userId");
+  USING (auth.uid()::text ="userId")
+  WITH CHECK (auth.uid()::text ="userId");
 
 DROP POLICY IF EXISTS "saved_properties: delete own" ON public.saved_properties;
 CREATE POLICY "saved_properties: delete own"
   ON public.saved_properties FOR DELETE
-  USING (auth.uid() = "userId");
+  USING (auth.uid()::text ="userId");
 
 
 -- ── 2.6  property_reports ─────────────────────────────────────────────────────
@@ -238,17 +238,17 @@ ALTER TABLE public.property_reports ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "property_reports: select own" ON public.property_reports;
 CREATE POLICY "property_reports: select own"
   ON public.property_reports FOR SELECT
-  USING (auth.uid() = "userId");
+  USING (auth.uid()::text ="userId");
 
 DROP POLICY IF EXISTS "property_reports: insert own" ON public.property_reports;
 CREATE POLICY "property_reports: insert own"
   ON public.property_reports FOR INSERT
-  WITH CHECK (auth.uid() = "userId");
+  WITH CHECK (auth.uid()::text ="userId");
 
 DROP POLICY IF EXISTS "property_reports: delete own" ON public.property_reports;
 CREATE POLICY "property_reports: delete own"
   ON public.property_reports FOR DELETE
-  USING (auth.uid() = "userId");
+  USING (auth.uid()::text ="userId");
 
 
 -- ── 2.7  clients ──────────────────────────────────────────────────────────────
@@ -258,23 +258,23 @@ ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "clients: select own" ON public.clients;
 CREATE POLICY "clients: select own"
   ON public.clients FOR SELECT
-  USING (auth.uid() = "agentId");
+  USING (auth.uid()::text ="agentId");
 
 DROP POLICY IF EXISTS "clients: insert own" ON public.clients;
 CREATE POLICY "clients: insert own"
   ON public.clients FOR INSERT
-  WITH CHECK (auth.uid() = "agentId");
+  WITH CHECK (auth.uid()::text ="agentId");
 
 DROP POLICY IF EXISTS "clients: update own" ON public.clients;
 CREATE POLICY "clients: update own"
   ON public.clients FOR UPDATE
-  USING (auth.uid() = "agentId")
-  WITH CHECK (auth.uid() = "agentId");
+  USING (auth.uid()::text ="agentId")
+  WITH CHECK (auth.uid()::text ="agentId");
 
 DROP POLICY IF EXISTS "clients: delete own" ON public.clients;
 CREATE POLICY "clients: delete own"
   ON public.clients FOR DELETE
-  USING (auth.uid() = "agentId");
+  USING (auth.uid()::text ="agentId");
 
 
 -- ── 2.8  quote_requests ───────────────────────────────────────────────────────
@@ -284,12 +284,12 @@ ALTER TABLE public.quote_requests ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "quote_requests: select own" ON public.quote_requests;
 CREATE POLICY "quote_requests: select own"
   ON public.quote_requests FOR SELECT
-  USING (auth.uid() = "userId");
+  USING (auth.uid()::text ="userId");
 
 DROP POLICY IF EXISTS "quote_requests: insert own" ON public.quote_requests;
 CREATE POLICY "quote_requests: insert own"
   ON public.quote_requests FOR INSERT
-  WITH CHECK (auth.uid() = "userId");
+  WITH CHECK (auth.uid()::text ="userId");
 
 -- Status updates come from admin/service role only; users cannot self-update.
 
@@ -303,7 +303,7 @@ ALTER TABLE public.search_history ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "search_history: select own" ON public.search_history;
 CREATE POLICY "search_history: select own"
   ON public.search_history FOR SELECT
-  USING (auth.uid() = "userId");
+  USING (auth.uid()::text ="userId");
 
 -- Writes come from the service-role API only; no direct insert policy needed.
 

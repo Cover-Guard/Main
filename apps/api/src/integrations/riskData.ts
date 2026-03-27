@@ -115,7 +115,7 @@ interface ArcGISFeatureResult {
 
 export async function fetchFireRisk(lat: number, lng: number, state: string): Promise<Partial<FireRisk>> {
   const result: Partial<FireRisk> = {
-    firHazardSeverityZone: null,
+    fireHazardSeverityZone: null,
     wildlandUrbanInterface: false,
   }
 
@@ -128,7 +128,7 @@ export async function fetchFireRisk(lat: number, lng: number, state: string): Pr
         const data = (await res.json()) as ArcGISFeatureResult
         const hazClass = data.features?.[0]?.attributes?.HAZ_CLASS as string | undefined
         if (hazClass) {
-          result.firHazardSeverityZone = hazClass
+          result.fireHazardSeverityZone = hazClass
           result.wildlandUrbanInterface = ['HIGH', 'VERY HIGH', 'EXTREME'].includes(hazClass)
         }
       }

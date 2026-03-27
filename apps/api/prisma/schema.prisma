@@ -118,7 +118,7 @@ model RiskProfile {
   // Fire
   fireRiskLevel          RiskLevel @default(LOW)
   fireRiskScore          Int
-  firHazardZone          String?
+  fireHazardZone         String?
   wildlandUrbanInterface Boolean   @default(false)
   nearestFireStation     Float? // miles
 
