@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../generated/prisma/client'
 import { logger } from './logger'
 
 declare global {
@@ -10,16 +11,21 @@ const isProduction = process.env.NODE_ENV === 'production'
 /**
  * Connection configuration:
  * - DATABASE_URL should point to the Supabase pgBouncer (Transaction Mode, port 6543)
- *   for all runtime queries. Use ?pgbouncer=true&connection_limit=1 in the URL.
+ *   with ?pgbouncer=true in the URL.
  * - DIRECT_URL should point to the direct PostgreSQL connection (port 5432).
- *   Prisma uses DIRECT_URL for migrations and schema introspection (via directUrl in
- *   schema.prisma) while using DATABASE_URL for all application queries.
- *
- * Set DATABASE_URL to the pgBouncer URL for all production deployments.
+ *   Prisma CLI uses DIRECT_URL for schema introspection (via prisma.config.ts)
+ *   while the app uses DATABASE_URL for all runtime queries through the pg adapter.
  */
-export const prisma =
-  global.__prisma ??
-  new PrismaClient({
+function createPrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('DATABASE_URL environment variable is not set')
+  }
+
+  const adapter = new PrismaPg({ connectionString })
+
+  return new PrismaClient({
+    adapter,
     log: isProduction
       ? [
           { level: 'error', emit: 'stdout' },
@@ -31,6 +37,9 @@ export const prisma =
           { level: 'warn', emit: 'stdout' },
         ],
   })
+}
+
+export const prisma = global.__prisma ?? createPrismaClient()
 
 if (!isProduction) {
   global.__prisma = prisma

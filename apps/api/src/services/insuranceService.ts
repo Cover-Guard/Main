@@ -2,7 +2,7 @@ import { prisma } from '../utils/prisma'
 import { insuranceCache, insuranceDeduplicator } from '../utils/cache'
 import type { InsuranceCostEstimate } from '@coverguard/shared'
 import { INSURANCE_ESTIMATE_CACHE_TTL_SECONDS } from '@coverguard/shared'
-import { ConfidenceLevel } from '@prisma/client'
+import { ConfidenceLevel } from '../generated/prisma/client'
 
 interface InsuranceInputs {
   propertyId: string
