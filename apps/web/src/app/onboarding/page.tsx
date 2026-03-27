@@ -27,7 +27,7 @@ export default function OnboardingPage() {
       // Update profile in API
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/me/terms`, {
+        await fetch('/api/auth/me/terms', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

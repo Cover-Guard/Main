@@ -116,7 +116,7 @@ export function CompareView() {
     searchDebounce.current = setTimeout(async () => {
       setSearchLoading(true)
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/properties/search?address=${encodeURIComponent(query)}`)
+        const res = await fetch(`/api/properties/search?address=${encodeURIComponent(query)}`)
         const json = await res.json()
         setSearchResults(json.data?.properties?.slice(0, 5) ?? [])
       } catch { setSearchResults([]) }

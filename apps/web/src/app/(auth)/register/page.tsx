@@ -68,8 +68,7 @@ export default function RegisterPage() {
     setError(null)
 
     // 1. Register via API (creates Supabase auth user + profile)
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
-    const res = await fetch(`${apiUrl}/api/auth/register`, {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
