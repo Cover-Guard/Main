@@ -180,6 +180,7 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
 const saveSchema = z.object({
   notes: z.string().max(500).optional(),
   tags: z.array(z.string()).max(10).default([]),
+  clientId: z.string().uuid().optional(),
 })
 
 propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
@@ -209,8 +210,8 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
 
     const saved = await prisma.savedProperty.upsert({
       where: { userId_propertyId: { userId, propertyId } },
-      update: { notes: body.notes, tags: body.tags },
-      create: { userId, propertyId, notes: body.notes, tags: body.tags },
+      update: { notes: body.notes, tags: body.tags, clientId: body.clientId ?? undefined },
+      create: { userId, propertyId, notes: body.notes, tags: body.tags, clientId: body.clientId ?? null },
     })
     res.status(existing ? 200 : 201).json({ success: true, data: saved })
   } catch (err) {
