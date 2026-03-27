@@ -28,7 +28,7 @@ export function SearchBar({ defaultValue = '', autoFocus, className }: SearchBar
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
     const trimmed = value.trim()
-    if (trimmed.length < 2) {
+    if (trimmed.length < 2 || trimmed.length > 500) {
       setSuggestions([])
       setShowSuggestions(false)
       return
@@ -57,7 +57,7 @@ export function SearchBar({ defaultValue = '', autoFocus, className }: SearchBar
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const q = query.trim()
+    const q = query.trim().slice(0, 500)
     if (!q) return
     setShowSuggestions(false)
     router.push(`/search?q=${encodeURIComponent(q)}`)

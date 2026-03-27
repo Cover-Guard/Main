@@ -50,6 +50,11 @@ interface OpenFemaFloodClaim {
 }
 
 export async function fetchFloodRisk(lat: number, lng: number, zip: string): Promise<Partial<FloodRisk>> {
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    logger.warn('Invalid coordinates for flood risk', { lat, lng })
+    return { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }
+  }
+
   const baseUrl = process.env.FEMA_API_BASE_URL ?? 'https://hazards.fema.gov/gis/nfhl/rest/services'
   const nfhlUrl = new URL(`${baseUrl}/public/NFHL/MapServer/28/query`)
   nfhlUrl.searchParams.set('geometry', `${lng},${lat}`)
@@ -75,7 +80,11 @@ export async function fetchFloodRisk(lat: number, lng: number, zip: string): Pro
           firmPanelId: feature.FIRM_PAN ?? null,
           baseFloodElevation: feature.STATIC_BFE ?? null,
           inSpecialFloodHazardArea: inSFHA,
-          annualChanceOfFlooding: inSFHA ? 1.0 : 0.2,
+          annualChanceOfFlooding: inSFHA
+            ? (feature.FLD_ZONE?.startsWith('V') ? 1.5
+               : feature.FLD_ZONE === 'AE' || feature.FLD_ZONE === 'AH' ? 1.0
+               : 1.0)
+            : (feature.FLD_ZONE === 'X500' ? 0.2 : 0.1),
         }
       }
     }
@@ -86,7 +95,7 @@ export async function fetchFloodRisk(lat: number, lng: number, zip: string): Pro
   // Enrich with OpenFEMA historical claims for the ZIP
   if (zip) {
     try {
-      const claimsUrl = `https://www.fema.gov/api/open/v2/nfipClaims?$filter=reportedZipCode eq '${zip}'&$select=amountPaidOnBuildingClaim,dateOfLoss&$top=100&$format=json`
+      const claimsUrl = `https://www.fema.gov/api/open/v2/nfipClaims?$filter=reportedZipCode eq '${encodeURIComponent(zip)}'&$select=amountPaidOnBuildingClaim,dateOfLoss&$top=100&$format=json`
       const claimsRes = await fetch(claimsUrl, { signal: AbortSignal.timeout(8000) })
       if (claimsRes.ok) {
         const claimsData = (await claimsRes.json()) as { NfipClaims: OpenFemaFloodClaim[] }
@@ -114,6 +123,11 @@ interface ArcGISFeatureResult {
 }
 
 export async function fetchFireRisk(lat: number, lng: number, state: string): Promise<Partial<FireRisk>> {
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    logger.warn('Invalid coordinates for fire risk', { lat, lng })
+    return {}
+  }
+
   const result: Partial<FireRisk> = {
     fireHazardSeverityZone: null,
     wildlandUrbanInterface: false,
@@ -164,6 +178,11 @@ interface UsgsDesignMapResponse {
 }
 
 export async function fetchEarthquakeRisk(lat: number, lng: number): Promise<Partial<EarthquakeRisk>> {
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    logger.warn('Invalid coordinates for earthquake risk', { lat, lng })
+    return {}
+  }
+
   // 1. USGS Design Maps (ASCE 7-22) — spectral acceleration
   try {
     const url = `https://earthquake.usgs.gov/ws/designmaps/asce7-22.json?latitude=${lat}&longitude=${lng}&riskCategory=II&siteClass=C&title=CoverGuard`
@@ -205,6 +224,11 @@ interface NoaaHurricaneResponse {
 }
 
 export async function fetchWindRisk(lat: number, lng: number, state: string): Promise<Partial<WindRisk>> {
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    logger.warn('Invalid coordinates for wind risk', { lat, lng })
+    return {}
+  }
+
   const hurricaneStates = ['FL', 'TX', 'LA', 'MS', 'AL', 'GA', 'SC', 'NC', 'VA', 'MD', 'DE', 'NJ', 'NY', 'CT', 'RI', 'MA', 'ME']
   const tornadoStates   = ['TX', 'OK', 'KS', 'NE', 'SD', 'ND', 'MO', 'IA', 'IL', 'IN', 'OH', 'AR', 'LA', 'MS', 'AL', 'TN', 'KY']
   const hailStates      = ['TX', 'OK', 'KS', 'NE', 'SD', 'ND', 'CO', 'WY', 'MT', 'MN', 'IA', 'MO']
@@ -247,6 +271,11 @@ interface FbiAgencyData {
 }
 
 export async function fetchCrimeRisk(lat: number, lng: number, zip: string): Promise<Partial<CrimeRisk>> {
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    logger.warn('Invalid coordinates for crime risk', { lat, lng })
+    return {}
+  }
+
   const fbiKey = process.env.FBI_CDE_KEY
 
   if (!fbiKey) {
@@ -254,10 +283,12 @@ export async function fetchCrimeRisk(lat: number, lng: number, zip: string): Pro
     return {}
   }
 
+  const fbiHeaders = { 'x-api-key': fbiKey }
+
   try {
     // FBI CDE: get agencies near this ZIP code
-    const agenciesUrl = `https://api.usa.gov/crime/fbi/cde/agencies/byZip/${zip}?API_KEY=${fbiKey}`
-    const agenciesRes = await fetch(agenciesUrl, { signal: AbortSignal.timeout(10000) })
+    const agenciesUrl = `https://api.usa.gov/crime/fbi/cde/agencies/byZip/${encodeURIComponent(zip)}`
+    const agenciesRes = await fetch(agenciesUrl, { signal: AbortSignal.timeout(10000), headers: fbiHeaders })
     if (!agenciesRes.ok) return {}
 
     const agencies = (await agenciesRes.json()) as { results?: Array<{ ori: string }> }
@@ -265,8 +296,8 @@ export async function fetchCrimeRisk(lat: number, lng: number, zip: string): Pro
     if (!ori) return {}
 
     // Get summary stats for this agency
-    const summaryUrl = `https://api.usa.gov/crime/fbi/cde/summarized/agency/${ori}/offenses?from=2020&to=2023&API_KEY=${fbiKey}`
-    const summaryRes = await fetch(summaryUrl, { signal: AbortSignal.timeout(10000) })
+    const summaryUrl = `https://api.usa.gov/crime/fbi/cde/summarized/agency/${encodeURIComponent(ori)}/offenses?from=2020&to=2023`
+    const summaryRes = await fetch(summaryUrl, { signal: AbortSignal.timeout(10000), headers: fbiHeaders })
     if (!summaryRes.ok) return {}
 
     const summaryData = (await summaryRes.json()) as FbiAgencyData

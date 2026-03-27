@@ -69,7 +69,7 @@ export async function searchProperties(
             resultCount: total,
           },
         })
-        .catch((err) => logger.warn('Failed to record search history', { err }))
+        .catch((err) => logger.error('Failed to record search history', { error: err instanceof Error ? err.message : err }))
       return dbResult
     }
   }
@@ -88,7 +88,7 @@ export async function searchProperties(
         resultCount: result.total,
       },
     })
-    .catch((err) => logger.warn('Failed to record search history', { err }))
+    .catch((err) => logger.error('Failed to record search history', { error: err instanceof Error ? err.message : err }))
 
   // Batch-upsert results into DB cache — avoids N sequential round trips
   if (result.properties.length > 0) {

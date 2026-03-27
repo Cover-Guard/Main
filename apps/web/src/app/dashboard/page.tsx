@@ -13,15 +13,26 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  let userRole: 'BUYER' | 'AGENT' | 'LENDER' | 'ADMIN' = 'BUYER'
+  // Determine user role: try API first, fall back to Supabase auth metadata
+  const VALID_ROLES = ['BUYER', 'AGENT', 'LENDER', 'ADMIN'] as const
+  type Role = (typeof VALID_ROLES)[number]
+  let userRole: Role = 'BUYER'
+
   try {
-    const res = await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
-    })
-    const json = await res.json()
-    if (json.success) userRole = json.data.role
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      const res = await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const json = await res.json()
+      if (json.success) userRole = json.data.role
+    }
   } catch {
-    // default to BUYER
+    // API unavailable — fall back to Supabase auth metadata
+    const metadataRole = user.user_metadata?.role as string | undefined
+    if (metadataRole && (VALID_ROLES as readonly string[]).includes(metadataRole)) {
+      userRole = metadataRole as Role
+    }
   }
 
   const isAgent = userRole === 'AGENT' || userRole === 'LENDER' || userRole === 'ADMIN'

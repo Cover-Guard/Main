@@ -77,7 +77,9 @@ function PortalSelect({ onSelect }: { onSelect: (portal: Portal) => void }) {
 function IndividualLoginForm({ onBack }: { onBack: () => void }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') ?? '/dashboard'
+  const rawRedirect = searchParams.get('redirectTo') ?? '/dashboard'
+  // Validate redirect is a safe relative path to prevent open redirect attacks
+  const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard'
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState(false)
 

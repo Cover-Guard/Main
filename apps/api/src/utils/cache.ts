@@ -37,7 +37,7 @@ export class LRUCache<T> {
     if (this.map.has(key)) this.map.delete(key)
     if (this.map.size >= this.maxSize) {
       // Evict the oldest (first) entry
-      const firstKey = this.map.keys().next().value
+      const firstKey = this.map.keys().next().value as string | undefined
       if (firstKey !== undefined) this.map.delete(firstKey)
     }
     this.map.set(key, { value, expiresAt: Date.now() + (ttlMs ?? this.defaultTtlMs) })

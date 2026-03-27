@@ -14,7 +14,7 @@ const clientSchema = z.object({
   firstName: z.string().min(1).max(50),
   lastName:  z.string().min(1).max(50),
   email:     z.string().email(),
-  phone:     z.string().optional(),
+  phone:     z.string().max(30).optional(),
   notes:     z.string().max(500).optional(),
 })
 
@@ -22,7 +22,7 @@ const updateSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
   lastName:  z.string().min(1).max(50).optional(),
   email:     z.string().email().optional(),
-  phone:     z.string().optional(),
+  phone:     z.string().max(30).optional(),
   notes:     z.string().max(500).optional(),
   status:    z.enum(['ACTIVE', 'PROSPECT', 'CLOSED', 'INACTIVE']).optional(),
 })
@@ -32,9 +32,13 @@ const updateSchema = z.object({
 clientsRouter.get('/', async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
+    const page = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
     const clients = await prisma.client.findMany({
       where: { agentId: userId },
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: (page - 1) * limit,
     })
     res.json({ success: true, data: clients })
   } catch (err) { next(err) }
@@ -65,17 +69,20 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
       return
     }
 
-    // updateMany scoped to agentId ensures no authorization bypass via race condition
-    const result = await prisma.client.updateMany({
-      where: { id, agentId: userId },
-      data: body,
+    // Use a transaction to atomically update and re-read, scoped to agentId
+    // to prevent authorization bypass and race conditions.
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.client.updateMany({
+        where: { id, agentId: userId },
+        data: body,
+      })
+      if (result.count === 0) return null
+      return tx.client.findFirst({ where: { id, agentId: userId } })
     })
-    if (result.count === 0) {
+    if (!updated) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
       return
     }
-
-    const updated = await prisma.client.findUniqueOrThrow({ where: { id } })
     res.json({ success: true, data: updated })
   } catch (err) { next(err) }
 })

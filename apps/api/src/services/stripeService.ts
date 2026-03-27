@@ -8,6 +8,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
   apiVersion: '2025-02-24.acacia',
+  maxNetworkRetries: 0, // No automatic retries — errors surface immediately; user must confirm retry
 })
 
 const PRICE_TO_PLAN: Record<string, 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'> = {}
@@ -18,7 +19,10 @@ if (process.env.STRIPE_PRICE_TEAM) PRICE_TO_PLAN[process.env.STRIPE_PRICE_TEAM] 
 function planFromPriceId(priceId: string): 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' {
   const plan = PRICE_TO_PLAN[priceId]
   if (!plan) {
-    logger.warn(`Unknown Stripe price ID "${priceId}" — defaulting to INDIVIDUAL`)
+    // Log as error for investigation, but default to INDIVIDUAL so the
+    // subscription is still recorded in the DB. A missing subscription is
+    // worse than a wrong plan — plan can be corrected manually.
+    logger.error(`Unknown Stripe price ID "${priceId}" — defaulting to INDIVIDUAL. Configure STRIPE_PRICE_* env vars.`)
   }
   return plan ?? 'INDIVIDUAL'
 }
@@ -49,9 +53,10 @@ export async function getOrCreateStripeCustomer(userId: string): Promise<string>
 
   if (user.stripeCustomerId) return user.stripeCustomerId
 
+  const customerName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
   const customer = await stripe.customers.create({
     email: user.email,
-    name: `${user.firstName} ${user.lastName}`.trim(),
+    name: customerName,
     metadata: { userId: user.id },
   })
 
@@ -73,7 +78,10 @@ export async function getOrCreateStripeCustomer(userId: string): Promise<string>
     await stripe.customers.del(customer.id).catch((err) =>
       logger.warn(`Failed to clean up duplicate Stripe customer ${customer.id}: ${(err as Error).message}`),
     )
-    return existing.stripeCustomerId!
+    if (!existing.stripeCustomerId) {
+      throw new Error(`Stripe customer ID unexpectedly null for user ${userId} after concurrent update`)
+    }
+    return existing.stripeCustomerId
   }
 
   return customer.id
@@ -99,7 +107,10 @@ export async function createCheckoutSession(
     subscription_data: { metadata: { userId } },
   })
 
-  return session.url!
+  if (!session.url) {
+    throw new Error('Stripe checkout session did not return a URL')
+  }
+  return session.url
 }
 
 // ─── Customer Portal ─────────────────────────────────────────────────────────

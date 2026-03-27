@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express'
 import { supabaseAdmin } from '../utils/supabaseAdmin'
 import { prisma } from '../utils/prisma'
 import { tokenCache } from '../utils/cache'
+import { logger } from '../utils/logger'
 
 export interface AuthenticatedRequest extends Request {
   userId: string
@@ -87,6 +88,7 @@ export async function requireAuth(
     select: { id: true, role: true },
   })
   if (!user) {
+    logger.warn(`Authenticated user ${data.user.id} not found in database — possible sync issue`)
     res.status(401).json({
       success: false,
       error: { code: 'USER_NOT_FOUND', message: 'User profile not found' },
