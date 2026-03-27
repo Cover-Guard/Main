@@ -74,7 +74,7 @@ export default function OnboardingPage() {
             <DisclosureItem
               icon={<FileText className="h-5 w-5 text-blue-600" />}
               bg="bg-blue-50"
-              title="Data Accuracy &amp; Limitations"
+              title="Data Accuracy & Limitations"
               body="Risk scores are derived from publicly available datasets (FEMA, USGS, Cal Fire, FBI UCR) and third-party data providers. While we make reasonable efforts to ensure accuracy, data may be incomplete, outdated, or inaccurate for some locations. CoverGuard does not guarantee the accuracy, completeness, or timeliness of any risk assessment. All data should be independently verified before making decisions."
             />
             <DisclosureItem
@@ -146,7 +146,7 @@ function DisclosureItem({
     <div className={`flex gap-4 rounded-lg p-4 ${bg}`}>
       <div className="mt-0.5 shrink-0">{icon}</div>
       <div>
-        <p className="font-semibold text-gray-900" dangerouslySetInnerHTML={{ __html: title }} />
+        <p className="font-semibold text-gray-900">{title}</p>
         <p className="mt-1 text-sm text-gray-600">{body}</p>
       </div>
     </div>

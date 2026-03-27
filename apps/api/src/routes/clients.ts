@@ -63,17 +63,17 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
       return
     }
 
-    // Use a single findFirst + update to avoid race condition between updateMany and findUniqueOrThrow
-    const existing = await prisma.client.findFirst({ where: { id, agentId: userId } })
-    if (!existing) {
+    // updateMany scoped to agentId ensures no authorization bypass via race condition
+    const result = await prisma.client.updateMany({
+      where: { id, agentId: userId },
+      data: body,
+    })
+    if (result.count === 0) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
       return
     }
 
-    const updated = await prisma.client.update({
-      where: { id },
-      data: body,
-    })
+    const updated = await prisma.client.findUniqueOrThrow({ where: { id } })
     res.json({ success: true, data: updated })
   } catch (err) { next(err) }
 })

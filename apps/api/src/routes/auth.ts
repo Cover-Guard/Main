@@ -9,6 +9,16 @@ import type { AuthenticatedRequest } from '../middleware/auth'
 
 export const authRouter = Router()
 
+const VALID_ROLES = ['BUYER', 'AGENT', 'LENDER', 'ADMIN'] as const
+type ValidRole = (typeof VALID_ROLES)[number]
+
+function toValidRole(value: unknown): ValidRole {
+  if (typeof value === 'string' && (VALID_ROLES as readonly string[]).includes(value)) {
+    return value as ValidRole
+  }
+  return 'BUYER'
+}
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -148,7 +158,7 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
         lastName: authUser?.user_metadata?.lastName
           ?? authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ')
           ?? '',
-        role: (authUser?.user_metadata?.role as never) ?? 'BUYER',
+        role: toValidRole(authUser?.user_metadata?.role),
         company: authUser?.user_metadata?.company ?? null,
         licenseNumber: authUser?.user_metadata?.licenseNumber ?? null,
         termsAcceptedAt: new Date(),

@@ -74,6 +74,30 @@ function computeWindPremium(
   return { low: Math.round(avg * 0.7), high: Math.round(avg * 1.4), avg }
 }
 
+function computeEarthquakePremium(
+  earthquakeScore: number,
+  estimatedValue: number,
+): { low: number; high: number; avg: number } | null {
+  if (earthquakeScore < 40) return null
+
+  const dwellingValue = estimatedValue * 0.8
+  const base = dwellingValue * 0.003
+  const avg = Math.round(base * (1 + earthquakeScore / 150))
+  return { low: Math.round(avg * 0.6), high: Math.round(avg * 1.5), avg }
+}
+
+function computeFirePremium(
+  fireScore: number,
+  estimatedValue: number,
+): { low: number; high: number; avg: number } | null {
+  if (fireScore < 55) return null
+
+  const dwellingValue = estimatedValue * 0.8
+  const base = dwellingValue * 0.004
+  const avg = Math.round(base * (1 + fireScore / 200))
+  return { low: Math.round(avg * 0.65), high: Math.round(avg * 1.4), avg }
+}
+
 export async function getOrComputeInsuranceEstimate(
   propertyId: string,
 ): Promise<InsuranceCostEstimate> {
@@ -115,8 +139,10 @@ export async function getOrComputeInsuranceEstimate(
     const homeowners = computeHomeownersPremium(inputs)
     const flood = computeFloodPremium(inputs.inSFHA, inputs.floodRiskScore, inputs.estimatedValue)
     const wind = computeWindPremium(inputs.hurricaneRisk, inputs.windRiskScore, inputs.estimatedValue)
+    const earthquake = computeEarthquakePremium(inputs.earthquakeRiskScore, inputs.estimatedValue)
+    const fire = computeFirePremium(inputs.fireRiskScore, inputs.estimatedValue)
 
-    const annualTotal = homeowners.avg + (flood?.avg ?? 0) + (wind?.avg ?? 0)
+    const annualTotal = homeowners.avg + (flood?.avg ?? 0) + (wind?.avg ?? 0) + (earthquake?.avg ?? 0) + (fire?.avg ?? 0)
     const expiresAt = new Date(Date.now() + INSURANCE_ESTIMATE_CACHE_TTL_SECONDS * 1000)
 
     const estimateData = {
@@ -134,6 +160,10 @@ export async function getOrComputeInsuranceEstimate(
       windLow: wind?.low ?? null,
       windHigh: wind?.high ?? null,
       windAvg: wind?.avg ?? null,
+      earthquakeRequired: !!earthquake,
+      earthquakeLow: earthquake?.low ?? null,
+      earthquakeHigh: earthquake?.high ?? null,
+      earthquakeAvg: earthquake?.avg ?? null,
       expiresAt,
     }
 
@@ -192,6 +222,21 @@ function prismaEstimateToDto(
               highEstimate: e.windHigh!,
               notes: [
                 'May be excluded from standard homeowners policy in high-risk areas',
+              ],
+            },
+          ]
+        : []),
+      ...(e.earthquakeRequired && e.earthquakeAvg != null
+        ? [
+            {
+              type: 'EARTHQUAKE' as const,
+              required: false,
+              averageAnnualPremium: e.earthquakeAvg,
+              lowEstimate: e.earthquakeLow!,
+              highEstimate: e.earthquakeHigh!,
+              notes: [
+                'Not included in standard homeowners policy',
+                'Available through CEA (California) or private insurers',
               ],
             },
           ]

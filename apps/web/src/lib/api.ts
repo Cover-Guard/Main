@@ -165,7 +165,7 @@ export async function getClients(): Promise<Client[]> {
   return apiFetch('/api/clients')
 }
 
-export async function createClient2(data: {
+export async function createClientProfile(data: {
   firstName: string
   lastName: string
   email: string

@@ -46,6 +46,7 @@ async function fetchAttom<T>(path: string, params: Record<string, string>): Prom
 
   const res = await fetch(url.toString(), {
     headers: { apikey: apiKey, accept: 'application/json' },
+    signal: AbortSignal.timeout(8000),
   })
 
   if (!res.ok) {

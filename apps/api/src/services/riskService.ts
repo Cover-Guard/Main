@@ -107,12 +107,15 @@ export async function getOrComputeRiskProfile(propertyId: string): Promise<Prope
       crimeData.propertyCrimeIndex ?? 2110,
     )
 
-    const overallScore = Math.round(
-      floodScore * 0.3 +
-        fireScore * 0.25 +
-        windScore * 0.2 +
-        earthquakeScore * 0.15 +
-        crimeScore * 0.1,
+    const overallScore = Math.min(
+      100,
+      Math.round(
+        floodScore * 0.3 +
+          fireScore * 0.25 +
+          windScore * 0.2 +
+          earthquakeScore * 0.15 +
+          crimeScore * 0.1,
+      ),
     )
 
     const expiresAt = new Date(Date.now() + RISK_CACHE_TTL_SECONDS * 1000)

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, User, Mail, Phone, Trash2, ChevronDown, ChevronUp, Pencil, Search, X, Check, AlertTriangle } from 'lucide-react'
 import type { Client, ClientStatus } from '@coverguard/shared'
-import { getClients, createClient2, updateClient, deleteClient } from '@/lib/api'
+import { getClients, createClientProfile, updateClient, deleteClient } from '@/lib/api'
 
 const STATUS_COLORS: Record<ClientStatus, string> = {
   ACTIVE:   'bg-green-100 text-green-700',
@@ -98,7 +98,7 @@ export function ClientsPanel() {
     setAddSaving(true)
     setAddError(null)
     try {
-      const client = await createClient2({
+      const client = await createClientProfile({
         firstName: addForm.firstName,
         lastName: addForm.lastName,
         email: addForm.email,
