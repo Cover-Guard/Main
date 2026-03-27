@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { PropertyMap } from './PropertyMap'
-import type { Property } from '@coverguard/shared'
-import { searchProperties } from '@/lib/api'
+import type { Property, PropertyRiskProfile } from '@coverguard/shared'
+import { searchProperties, getPropertyRisk } from '@/lib/api'
 
 interface SearchMapClientProps {
   query: string | null
@@ -12,8 +12,10 @@ interface SearchMapClientProps {
 export function SearchMapClient({ query }: SearchMapClientProps) {
   const [properties, setProperties] = useState<Property[]>([])
   const [selected, setSelected] = useState<Property | null>(null)
+  const [riskProfile, setRiskProfile] = useState<PropertyRiskProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Fetch properties when query changes
   useEffect(() => {
     if (!query) return
 
@@ -38,6 +40,29 @@ export function SearchMapClient({ query }: SearchMapClientProps) {
       })
   }, [query])
 
+  // Fetch risk profile when selected property changes
+  const selectedId = selected?.id ?? null
+  useEffect(() => {
+    if (!selectedId) return
+
+    let cancelled = false
+
+    getPropertyRisk(selectedId)
+      .then((profile) => {
+        if (!cancelled) setRiskProfile(profile)
+      })
+      .catch(() => {
+        if (!cancelled) setRiskProfile(null)
+      })
+
+    return () => { cancelled = true }
+  }, [selectedId])
+
+  const handleSelectProperty = useCallback((property: Property) => {
+    setSelected(property)
+    setRiskProfile(null) // Clear stale risk data immediately
+  }, [])
+
   const visibleProperties = query ? properties : []
   const visibleSelected = query ? selected : null
 
@@ -51,7 +76,8 @@ export function SearchMapClient({ query }: SearchMapClientProps) {
       <PropertyMap
         properties={visibleProperties}
         selectedProperty={visibleSelected}
-        onSelectProperty={setSelected}
+        riskProfile={riskProfile}
+        onSelectProperty={handleSelectProperty}
         className="h-full w-full"
         zoom={visibleProperties.length === 1 ? 15 : 12}
       />
