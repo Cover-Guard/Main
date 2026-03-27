@@ -30,6 +30,7 @@ export async function GET(request: Request) {
         },
         setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
           cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options as Record<string, string>)
             cookiesToForward.push({ name, value, options })
           })
         },
@@ -42,7 +43,15 @@ export async function GET(request: Request) {
   if (code) {
     const {
       data: { user },
+      error: exchangeError,
     } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (exchangeError) {
+      console.error('OAuth code exchange failed:', exchangeError.message)
+      const errorUrl = new URL('/login', origin)
+      errorUrl.searchParams.set('error', 'OAuth sign-in failed. Please try again.')
+      return NextResponse.redirect(errorUrl.toString())
+    }
 
     if (user) {
       // If a role was forwarded from the agent registration page, write it
