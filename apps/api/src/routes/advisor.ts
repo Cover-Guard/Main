@@ -57,7 +57,7 @@ advisorRouter.post('/chat', requireAuth, async (req, res) => {
     const anthropic = new Anthropic({ apiKey })
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 512,
       system: SYSTEM_PROMPT,
       messages: trimmedMessages,
