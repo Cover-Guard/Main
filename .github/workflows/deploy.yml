@@ -29,6 +29,11 @@ jobs:
       - name: Verify database connectivity
         id: check-db-url
         run: |
+          # Trim leading/trailing whitespace from secrets (common copy-paste issue)
+          SUPABASE_PROJECT_ID="$(echo "$SUPABASE_PROJECT_ID" | xargs)"
+          SUPABASE_DB_PASSWORD="$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')"
+          SUPABASE_DB_REGION="$(echo "$SUPABASE_DB_REGION" | xargs)"
+
           # All Supabase DB secrets must be present
           if [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ] || [ -z "$SUPABASE_DB_REGION" ]; then
             echo "::error::SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, and/or SUPABASE_DB_REGION secrets are not configured in the 'production' environment. Add these secrets in GitHub Settings → Environments → production → Environment secrets."
@@ -108,8 +113,13 @@ jobs:
         if: steps.check-db-url.outputs.db_url_set == 'true'
         id: db-urls
         run: |
+          # Trim whitespace from secrets before building URLs
+          SUPABASE_PROJECT_ID="$(echo "$SUPABASE_PROJECT_ID" | xargs)"
+          SUPABASE_DB_PASSWORD="$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')"
+          SUPABASE_DB_REGION="$(echo "$SUPABASE_DB_REGION" | xargs)"
+
           # URL-encode the password to handle special characters (@, #, %, etc.)
-          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
+          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD.trim()))")
           POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
@@ -248,7 +258,12 @@ jobs:
       - name: Build DB connection URLs
         id: api-db-urls
         run: |
-          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
+          # Trim whitespace from secrets before building URLs
+          SUPABASE_PROJECT_ID="$(echo "$SUPABASE_PROJECT_ID" | xargs)"
+          SUPABASE_DB_PASSWORD="$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')"
+          SUPABASE_DB_REGION="$(echo "$SUPABASE_DB_REGION" | xargs)"
+
+          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD.trim()))")
           POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
           echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
