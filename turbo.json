@@ -22,7 +22,10 @@
     "typecheck": {
       "dependsOn": ["^build"]
     },
-    "db:migrate": {
+    "db:pull": {
+      "cache": false
+    },
+    "db:generate": {
       "cache": false
     },
     "db:seed": {

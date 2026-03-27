@@ -73,11 +73,11 @@ log "Checking database connection..."
 source .env 2>/dev/null || true
 if [ -z "${DATABASE_URL:-}" ]; then
   warn "DATABASE_URL is not set in .env — skipping migrations."
-  warn "Set DATABASE_URL and DIRECT_URL, then run: npm run db:migrate"
+  warn "Set DATABASE_URL and DIRECT_URL, then run: npm run db:generate"
 else
-  log "Running Prisma migrations (deploy)..."
-  npm run db:migrate
-  ok "Database migrations applied"
+  log "Generating Prisma client..."
+  npm run db:generate
+  ok "Prisma client generated"
 
   log "Seeding database..."
   npm run db:seed || warn "Seed failed (this is OK if data already exists)"
@@ -109,7 +109,7 @@ echo "  3. Run the dev servers:"
 echo "     npm run dev:all    # web :3000, api :4000"
 echo ""
 echo "  4. Other useful commands:"
-echo "     npm run db:migrate:dev  # Create new Prisma migration"
+echo "     npm run db:pull         # Sync schema from Supabase"
 echo "     npm run db:studio       # Open Prisma Studio"
 echo "     npm run db:push         # Push Supabase migrations"
 echo "     npm run typecheck       # Type-check all packages"

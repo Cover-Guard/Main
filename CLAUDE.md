@@ -235,8 +235,11 @@ npm run typecheck
 npm run lint
 npm run test
 
-# After schema.prisma changes (Client, QuoteRequest, User.termsAcceptedAt added):
-npm run db:migrate:dev -- --name add-clients-quotes-terms
+# DB migrations are managed by Supabase GitHub Integration (supabase/migrations/*.sql).
+# Prisma is used as ORM only — no prisma migrate needed.
+# After schema changes in Supabase, sync Prisma schema:
+npm run db:pull        # Introspect live DB → update schema.prisma
+npm run db:generate    # Regenerate Prisma client from schema.prisma
 npm run db:seed
 npm run db:studio      # Prisma Studio GUI
 ```
@@ -265,7 +268,7 @@ npm run db:studio      # Prisma Studio GUI
 4. **Supabase admin is server-only.** Never import `supabaseAdmin` from frontend code.
 5. **Check your branch.** Work on the designated `claude/` branch.
 6. **No secrets.** Never commit `.env` files or API keys.
-7. **DB migrations needed.** After any `schema.prisma` change, run `db:migrate:dev`.
+7. **DB migrations via Supabase.** Schema changes go in `supabase/migrations/*.sql`. After applying, run `db:pull` then `db:generate` to sync Prisma.
 8. **Two portals.** Agent flows use `/agents/*`; consumer flows use `/(auth)/*`.
 9. **Onboarding required.** New users must accept terms at `/onboarding` before accessing the app.
 10. **Keep this file updated.** After adding routes, models, or patterns, update the relevant section.
