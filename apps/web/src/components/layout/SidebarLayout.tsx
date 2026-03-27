@@ -70,7 +70,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     : user?.email?.split('@')[0] ?? ''
 
   function isActive(href: string, exact?: boolean) {
-    if (exact) return pathname === href || pathname === '/search'
+    if (exact) return pathname === href
     return pathname === href || pathname.startsWith(href + '/')
   }
 

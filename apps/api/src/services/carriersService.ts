@@ -167,9 +167,12 @@ function getMarketCondition(state: string, overallRiskScore: number): MarketCond
   const crisisStates: Record<string, true> = { FL: true, LA: true, CA: true }
   const hardStates: Record<string, true>   = { TX: true, CO: true, WA: true, OR: true, OK: true }
 
+  // Severity ordering: SOFT < MODERATE < HARD < CRISIS
+  // Higher risk + worse state = harder market
   if (crisisStates[state] && overallRiskScore > 60) return 'CRISIS'
   if (crisisStates[state] || (hardStates[state] && overallRiskScore > 50)) return 'HARD'
-  if (hardStates[state] || overallRiskScore > 70) return 'MODERATE'
+  if (hardStates[state] || overallRiskScore > 70) return 'HARD'
+  if (overallRiskScore > 50) return 'MODERATE'
   return 'SOFT'
 }
 

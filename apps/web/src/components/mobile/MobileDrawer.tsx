@@ -57,15 +57,19 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   }, [open])
 
   async function signOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch {
+      // Sign-out failed — still redirect to login
+    }
     onClose()
     router.push('/login')
     router.refresh()
   }
 
   function isActive(href: string, exact?: boolean) {
-    if (exact) return pathname === href || pathname === '/search'
+    if (exact) return pathname === href
     return pathname.startsWith(href)
   }
 

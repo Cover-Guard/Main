@@ -147,9 +147,10 @@ stripeWebhookRouter.post(
           logger.debug(`Unhandled Stripe event type: ${event.type}`)
       }
     } catch (err) {
-      logger.error(`Error handling Stripe event ${event.type}: ${(err as Error).message}`)
-      // Return 500 so Stripe retries the webhook
-      res.status(500).json({ success: false, error: { code: 'WEBHOOK_HANDLER_ERROR', message: 'Failed to process event' } })
+      logger.error(`Error handling Stripe event ${event.type} (${event.id}): ${(err as Error).message}`)
+      // Return 200 to prevent Stripe from auto-retrying. The error is logged
+      // and should be investigated manually. Users must confirm any retry.
+      res.json({ received: true, error: true })
       return
     }
 

@@ -8,6 +8,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
   apiVersion: '2025-02-24.acacia',
+  maxNetworkRetries: 0, // No automatic retries — errors surface immediately; user must confirm retry
 })
 
 const PRICE_TO_PLAN: Record<string, 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'> = {}
@@ -18,9 +19,10 @@ if (process.env.STRIPE_PRICE_TEAM) PRICE_TO_PLAN[process.env.STRIPE_PRICE_TEAM] 
 function planFromPriceId(priceId: string): 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' {
   const plan = PRICE_TO_PLAN[priceId]
   if (!plan) {
-    logger.warn(`Unknown Stripe price ID "${priceId}" — defaulting to INDIVIDUAL`)
+    logger.error(`Unknown Stripe price ID "${priceId}" — cannot determine subscription plan`)
+    throw new Error(`Unknown Stripe price ID: ${priceId}`)
   }
-  return plan ?? 'INDIVIDUAL'
+  return plan
 }
 
 function toDbStatus(
