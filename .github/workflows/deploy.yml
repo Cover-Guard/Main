@@ -13,168 +13,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ── Run DB Migrations ─────────────────────────────────────────────────────────
-  migrate:
-    name: Run DB Migrations
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci --workspace=@coverguard/api
-
-      - name: Sanitize Supabase secrets
-        run: |
-          # Trim leading/trailing whitespace from secrets (common copy-paste issue).
-          # Write cleaned values to $GITHUB_ENV using heredoc format (handles special chars).
-          CLEAN_ID="$(printf '%s' "$RAW_PROJECT_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          CLEAN_PW="$(printf '%s' "$RAW_DB_PASSWORD" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          CLEAN_REGION="$(printf '%s' "$RAW_DB_REGION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-
-          if [ -z "$CLEAN_ID" ] || [ -z "$CLEAN_PW" ] || [ -z "$CLEAN_REGION" ]; then
-            echo "::error::SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, and/or SUPABASE_DB_REGION secrets are not configured in the 'production' environment. Add these secrets in GitHub Settings → Environments → production → Environment secrets."
-            exit 1
-          fi
-
-          # Warn if trimming actually changed anything
-          if [ "$CLEAN_ID" != "$RAW_PROJECT_ID" ]; then echo "::warning::SUPABASE_PROJECT_ID had leading/trailing whitespace — auto-trimmed"; fi
-          if [ "$CLEAN_PW" != "$RAW_DB_PASSWORD" ]; then echo "::warning::SUPABASE_DB_PASSWORD had leading/trailing whitespace — auto-trimmed"; fi
-          if [ "$CLEAN_REGION" != "$RAW_DB_REGION" ]; then echo "::warning::SUPABASE_DB_REGION had leading/trailing whitespace — auto-trimmed"; fi
-
-          # Use heredoc delimiters to safely handle special characters in values
-          {
-            echo "SUPABASE_PROJECT_ID<<GHEOF"
-            printf '%s\n' "$CLEAN_ID"
-            echo "GHEOF"
-            echo "SUPABASE_DB_PASSWORD<<GHEOF"
-            printf '%s\n' "$CLEAN_PW"
-            echo "GHEOF"
-            echo "SUPABASE_DB_REGION<<GHEOF"
-            printf '%s\n' "$CLEAN_REGION"
-            echo "GHEOF"
-          } >> "$GITHUB_ENV"
-
-          echo "Sanitized — Project ID length: ${#CLEAN_ID}, Password length: ${#CLEAN_PW}, Region: ${CLEAN_REGION}"
-        env:
-          RAW_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-          RAW_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          RAW_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
-
-      - name: Debug sanitized values
-        run: |
-          echo "SUPABASE_PROJECT_ID length: ${#SUPABASE_PROJECT_ID}"
-          echo "SUPABASE_DB_PASSWORD length: ${#SUPABASE_DB_PASSWORD}"
-          echo "SUPABASE_DB_REGION value: ${SUPABASE_DB_REGION}"
-          echo "Pooler host would be: aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
-          echo "DB user would be: postgres.${SUPABASE_PROJECT_ID}"
-
-      - name: Verify database connectivity
-        id: check-db-url
-        run: |
-          # Use the Supabase connection pooler instead of the direct connection
-          # (db.*.supabase.co:5432) which is IPv6-only and unreachable from
-          # GitHub Actions runners.
-          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
-
-          # Retry connectivity check with exponential backoff.
-          # GitHub Actions runners sometimes need a moment to establish
-          # outbound connectivity to cloud database endpoints.
-          MAX_RETRIES=4
-          DELAY=2
-          CONNECTED=false
-
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "Attempt $i/$MAX_RETRIES: Testing TCP connectivity to ${POOLER_HOST}..."
-
-            # Try transaction-mode port (6543) first, then session-mode port (5432).
-            # Prisma uses DIRECT_URL (port 5432) for migrations, but checking both
-            # ports helps diagnose whether the host is reachable at all.
-            if nc -z -w 10 "${POOLER_HOST}" 6543 2>/dev/null; then
-              echo "Pooler reachable on port 6543 (transaction mode)"
-            fi
-
-            if nc -z -w 10 "${POOLER_HOST}" 5432 2>/dev/null; then
-              echo "Pooler reachable on port 5432 (session mode)"
-              CONNECTED=true
-              break
-            fi
-
-            if [ "$i" -lt "$MAX_RETRIES" ]; then
-              echo "Connection failed, retrying in ${DELAY}s..."
-              sleep $DELAY
-              DELAY=$((DELAY * 2))
-            fi
-          done
-
-          if [ "$CONNECTED" = "true" ]; then
-            echo "Database is reachable"
-            echo "db_url_set=true" >> $GITHUB_OUTPUT
-          else
-            echo "::error::Cannot reach ${POOLER_HOST}:5432 after $MAX_RETRIES attempts from GitHub Actions. Verify that SUPABASE_DB_REGION is correct and the Supabase project is active."
-            exit 1
-          fi
-
-      - name: Build connection URLs
-        if: steps.check-db-url.outputs.db_url_set == 'true'
-        run: |
-          # URL-encode the password to handle special characters (@, #, %, etc.)
-          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
-          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
-          DB_USER="postgres.${SUPABASE_PROJECT_ID}"
-
-          # Write directly to $GITHUB_ENV so subsequent steps get them as env vars.
-          # This avoids $GITHUB_OUTPUT step-output passing which can corrupt special chars.
-          {
-            echo "DATABASE_URL<<GHEOF"
-            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
-            echo "GHEOF"
-            echo "DIRECT_URL<<GHEOF"
-            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
-            echo "GHEOF"
-          } >> "$GITHUB_ENV"
-
-          # Log non-sensitive connection details for debugging
-          echo "Connection URLs built — host: ${POOLER_HOST}, user: ${DB_USER}, pw_length: ${#ENCODED_PW}"
-
-      - name: Debug connection URL (no secrets)
-        if: steps.check-db-url.outputs.db_url_set == 'true'
-        run: |
-          # Parse and display non-sensitive parts of the connection URLs
-          node -e "
-            for (const name of ['DATABASE_URL', 'DIRECT_URL']) {
-              const url = new URL(process.env[name]);
-              console.log(name + ':');
-              console.log('  host:', url.hostname);
-              console.log('  port:', url.port);
-              console.log('  user:', url.username);
-              console.log('  db:  ', url.pathname.slice(1));
-              console.log('  pw_length:', decodeURIComponent(url.password).length);
-            }
-          "
-
-      - name: Verify Prisma can connect
-        if: steps.check-db-url.outputs.db_url_set == 'true'
-        working-directory: apps/api
-        run: |
-          if ! npx prisma migrate status 2>&1; then
-            echo ""
-            echo "::error::Database connection/auth failed. Verify SUPABASE_DB_PASSWORD in GitHub environment 'production' matches Supabase Dashboard → Settings → Database."
-            exit 1
-          fi
-
-      - name: Run Prisma migrations
-        if: steps.check-db-url.outputs.db_url_set == 'true'
-        working-directory: apps/api
-        run: npx prisma migrate deploy
+  # ── NOTE: DB migrations are handled by Supabase GitHub Integration ───────────
+  # Schema changes go in supabase/migrations/*.sql and are auto-applied by
+  # Supabase when pushed to the linked branch. Prisma is used as ORM only —
+  # `prisma generate` creates the client, no `prisma migrate` needed.
 
   # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
   deploy-web:
     name: Deploy Web to Vercel
     runs-on: ubuntu-latest
-    needs: [migrate]
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -258,7 +105,6 @@ jobs:
   deploy-api:
     name: Deploy API to Vercel
     runs-on: ubuntu-latest
-    needs: [migrate]
     environment: production
     steps:
       - uses: actions/checkout@v4

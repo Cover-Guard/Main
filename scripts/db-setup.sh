@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # =============================================================================
-# CoverGuard — Database Setup & Migration Script
-# Handles both Prisma and Supabase CLI migration workflows.
+# CoverGuard — Database Setup Script
+# DB migrations are managed by Supabase GitHub Integration.
+# Prisma is used as ORM only — this script handles client generation and sync.
 #
 # Usage:
-#   ./scripts/db-setup.sh                 # Full setup (migrate + seed)
-#   ./scripts/db-setup.sh migrate         # Run pending Prisma migrations
-#   ./scripts/db-setup.sh migrate:dev     # Create + apply a new dev migration
+#   ./scripts/db-setup.sh                 # Full setup (pull + generate + seed)
+#   ./scripts/db-setup.sh pull            # Introspect live DB → update schema.prisma
+#   ./scripts/db-setup.sh generate        # Regenerate Prisma client
 #   ./scripts/db-setup.sh seed            # Seed the database
-#   ./scripts/db-setup.sh reset           # Reset DB and re-apply all migrations
 #   ./scripts/db-setup.sh push            # Push Supabase migrations (supabase db push)
 #   ./scripts/db-setup.sh link            # Link to Supabase project
-#   ./scripts/db-setup.sh status          # Show migration status
+#   ./scripts/db-setup.sh status          # Show Supabase migration files
 # =============================================================================
 
 set -euo pipefail
@@ -36,48 +36,32 @@ case "$COMMAND" in
     npx --prefix apps/api prisma generate
     ok "Prisma client generated"
 
-    log "Step 2/3: Deploying Prisma migrations..."
-    npx --prefix apps/api prisma migrate deploy
-    ok "Migrations applied"
+    log "Step 2/3: Pulling schema from Supabase..."
+    npx --prefix apps/api prisma db pull || warn "db pull skipped (check DATABASE_URL)"
+    ok "Schema synced"
 
     log "Step 3/3: Seeding database..."
     npm run db:seed --prefix apps/api || warn "Seed skipped (data may already exist)"
     ok "Database setup complete"
     ;;
 
-  migrate)
-    log "Deploying pending Prisma migrations..."
-    npx --prefix apps/api prisma migrate deploy
-    ok "Migrations deployed"
+  pull)
+    log "Pulling schema from Supabase (introspecting live DB)..."
+    npx --prefix apps/api prisma db pull
+    ok "schema.prisma updated from live database"
+    log "Run 'npm run db:generate' to regenerate the Prisma client"
     ;;
 
-  migrate:dev)
-    MIGRATION_NAME="${2:-}"
-    if [ -z "$MIGRATION_NAME" ]; then
-      err "Usage: ./scripts/db-setup.sh migrate:dev <migration-name>"
-      exit 1
-    fi
-    log "Creating new migration: $MIGRATION_NAME"
-    npx --prefix apps/api prisma migrate dev --name "$MIGRATION_NAME"
-    ok "Migration '$MIGRATION_NAME' created and applied"
+  generate)
+    log "Generating Prisma client..."
+    npx --prefix apps/api prisma generate
+    ok "Prisma client generated"
     ;;
 
   seed)
     log "Seeding database..."
     npm run db:seed --prefix apps/api
     ok "Database seeded"
-    ;;
-
-  reset)
-    warn "This will RESET the database and re-apply all migrations!"
-    read -rp "Are you sure? (y/N): " confirm
-    if [[ "$confirm" =~ ^[Yy]$ ]]; then
-      log "Resetting database..."
-      npx --prefix apps/api prisma migrate reset
-      ok "Database reset complete"
-    else
-      log "Cancelled."
-    fi
     ;;
 
   push)
@@ -103,9 +87,6 @@ case "$COMMAND" in
     ;;
 
   status)
-    log "Prisma migration status:"
-    npx --prefix apps/api prisma migrate status
-    echo ""
     log "Supabase migration files:"
     ls -la supabase/migrations/ 2>/dev/null || warn "No Supabase migrations directory found"
     ;;
@@ -116,14 +97,13 @@ case "$COMMAND" in
     echo "Usage: ./scripts/db-setup.sh [command]"
     echo ""
     echo "Commands:"
-    echo "  setup         Full setup: generate + migrate + seed (default)"
-    echo "  migrate       Deploy pending Prisma migrations"
-    echo "  migrate:dev   Create a new dev migration (requires name)"
+    echo "  setup         Full setup: generate + pull + seed (default)"
+    echo "  pull          Introspect live DB → update schema.prisma"
+    echo "  generate      Regenerate Prisma client from schema.prisma"
     echo "  seed          Seed the database"
-    echo "  reset         Reset DB and re-apply everything"
     echo "  push          Push Supabase migrations to remote"
     echo "  link          Link to a Supabase project (requires project-ref)"
-    echo "  status        Show migration status"
+    echo "  status        Show Supabase migration files"
     exit 1
     ;;
 esac
