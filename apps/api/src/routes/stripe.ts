@@ -87,7 +87,7 @@ stripeRouter.post('/checkout', requireAuth, async (req: Request, res, next) => {
 // ─── Customer portal ─────────────────────────────────────────────────────────
 
 const portalSchema = z.object({
-  returnUrl: z.string().url(),
+  returnUrl: z.string().url().refine(isSafeRedirectUrl, { message: 'returnUrl must point to the application origin' }),
 })
 
 stripeRouter.post('/portal', requireAuth, async (req: Request, res, next) => {

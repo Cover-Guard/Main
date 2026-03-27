@@ -123,7 +123,8 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const body = updateProfileSchema.parse(req.body)
     const user = await prisma.user.update({ where: { id: userId }, data: body })
-    res.json({ success: true, data: user })
+    const { stripeCustomerId: _stripe, ...profile } = user
+    res.json({ success: true, data: profile })
   } catch (err) {
     next(err)
   }
