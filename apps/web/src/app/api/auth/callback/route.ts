@@ -3,7 +3,12 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const requestUrl = new URL(request.url)
+  const searchParams = requestUrl.searchParams
+  // Prefer the configured site URL over the request origin — on hosted
+  // platforms the internal origin may differ from the public URL which
+  // causes cookie domain mismatches and redirect loops.
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
   // Role hint forwarded from the agent register page via the redirectTo URL.

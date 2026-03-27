@@ -111,7 +111,7 @@ function IndividualLoginForm({ onBack }: { onBack: () => void }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     })
     if (error) {

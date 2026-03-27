@@ -85,7 +85,7 @@ export default function AgentRegisterPage() {
     setOauthLoading(true)
     const supabase = createClient()
     const redirectTo =
-      `${window.location.origin}/api/auth/callback?next=/dashboard&role=${role}`
+      `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback?next=/dashboard&role=${role}`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },

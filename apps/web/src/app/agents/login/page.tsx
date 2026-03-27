@@ -48,7 +48,7 @@ function AgentLoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     })
     if (error) { setError(error.message); setOauthLoading(false) }
