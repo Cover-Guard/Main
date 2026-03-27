@@ -4,6 +4,7 @@ export * from './types/risk'
 export * from './types/insurance'
 export * from './types/user'
 export * from './types/api'
+export * from './types/subscription'
 
 // Utils
 export * from './utils/formatters'

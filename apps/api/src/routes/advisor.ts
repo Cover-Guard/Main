@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth'
+import { requireSubscription } from '../middleware/subscription'
 import { logger } from '../utils/logger'
 
 export const advisorRouter = Router()
@@ -48,7 +49,7 @@ function getAnthropicClient(): Anthropic | null {
   return anthropicClient
 }
 
-advisorRouter.post('/chat', requireAuth, async (req, res) => {
+advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res) => {
   try {
     const client = getAnthropicClient()
     if (!client) {

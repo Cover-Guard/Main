@@ -24,7 +24,8 @@ model User {
   role            UserRole  @default(BUYER)
   company         String?
   licenseNumber   String? // agents / lenders
-  avatarUrl       String?
+  avatarUrl         String?
+  stripeCustomerId  String?   @unique // Stripe customer ID
   termsAcceptedAt   DateTime? // null = has not yet accepted terms
   ndaAcceptedAt     DateTime? // set at registration when user agrees to NDA
   privacyAcceptedAt DateTime? // set at registration when user agrees to Privacy Policy
@@ -36,6 +37,7 @@ model User {
   clients         Client[]
   quoteRequests   QuoteRequest[]
   searchHistories SearchHistory[]
+  subscriptions   Subscription[]
 
   @@index([role])
   @@map("users")
@@ -316,4 +318,45 @@ model SearchHistory {
   @@index([userId, searchedAt(sort: Desc)])
   @@index([searchedAt(sort: Desc)])
   @@map("search_history")
+}
+
+// ─── Subscriptions (Stripe) ──────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String
+  stripeSubscriptionId String             @unique
+  stripePriceId        String
+  plan                 SubscriptionPlan   @default(INDIVIDUAL)
+  status               SubscriptionStatus @default(INCOMPLETE)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([status])
+  @@index([stripeSubscriptionId])
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  INDIVIDUAL
+  PROFESSIONAL
+  TEAM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  PAUSED
 }

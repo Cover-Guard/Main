@@ -14,6 +14,7 @@ import { authRouter } from './routes/auth'
 import { clientsRouter } from './routes/clients'
 import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
+import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '4000', 10)
@@ -65,6 +66,11 @@ app.use(
   }),
 )
 app.use(compression())
+
+// Stripe webhook must receive the raw body for signature verification —
+// mount it BEFORE the global express.json() parser.
+app.use('/api/stripe', stripeWebhookRouter)
+
 app.use(express.json({ limit: '1mb' }))
 app.use(
   morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
@@ -128,6 +134,7 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/auth', requestTimeout(15_000), authRouter)
+app.use('/api/stripe', requestTimeout(15_000), stripeRouter)
 
 // Search: moderate limit, fast timeout
 app.use(

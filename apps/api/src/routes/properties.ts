@@ -6,6 +6,7 @@ import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
 import { requireAuth } from '../middleware/auth'
+import { requireSubscription } from '../middleware/subscription'
 import { prisma } from '../utils/prisma'
 import type { AuthenticatedRequest } from '../middleware/auth'
 import type { Request, Response } from 'express'
@@ -181,7 +182,7 @@ const saveSchema = z.object({
   tags: z.array(z.string()).max(10).default([]),
 })
 
-propertiesRouter.post('/:id/save', requireAuth, async (req: Request, res, next) => {
+propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const body = saveSchema.parse(req.body)
@@ -198,7 +199,7 @@ propertiesRouter.post('/:id/save', requireAuth, async (req: Request, res, next) 
   }
 })
 
-propertiesRouter.delete('/:id/save', requireAuth, async (req: Request, res, next) => {
+propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     await prisma.savedProperty.deleteMany({
@@ -246,7 +247,7 @@ const quoteRequestSchema = z.object({
   notes: z.string().max(1000).optional(),
 })
 
-propertiesRouter.post('/:id/quote-request', requireAuth, async (req: Request, res, next) => {
+propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const body = quoteRequestSchema.parse(req.body)
@@ -267,7 +268,7 @@ propertiesRouter.post('/:id/quote-request', requireAuth, async (req: Request, re
   }
 })
 
-propertiesRouter.get('/:id/quote-requests', requireAuth, async (req: Request, res, next) => {
+propertiesRouter.get('/:id/quote-requests', requireAuth, requireSubscription, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const requests = await prisma.quoteRequest.findMany({
