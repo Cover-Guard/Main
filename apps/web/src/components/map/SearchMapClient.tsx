@@ -32,10 +32,15 @@ export function SearchMapClient({ query }: SearchMapClientProps) {
       .then((r) => {
         setError(null)
         setProperties(r.properties)
-        if (r.properties.length > 0) setSelected(r.properties[0]!)
+        if (r.properties.length > 0) {
+          setSelected(r.properties[0]!)
+        } else {
+          setSelected(null)
+        }
       })
       .catch(() => {
         setProperties([])
+        setSelected(null)
         setError('Unable to load properties on the map. Please try again.')
       })
   }, [query])
