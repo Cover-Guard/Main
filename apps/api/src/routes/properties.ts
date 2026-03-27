@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { searchProperties, getPropertyById } from '../services/propertyService'
+import { searchProperties, suggestProperties, getPropertyById } from '../services/propertyService'
 import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
@@ -52,6 +52,24 @@ function extractOptionalUserId(req: Request): string | undefined {
     return undefined
   }
 }
+
+// ─── Typeahead suggestions ────────────────────────────────────────────────────
+
+const suggestSchema = z.object({
+  q: z.string().min(2).max(200),
+  limit: z.coerce.number().int().min(1).max(10).default(5),
+})
+
+propertiesRouter.get('/suggest', async (req, res, next) => {
+  try {
+    const params = suggestSchema.parse(req.query)
+    const suggestions = await suggestProperties(params.q, params.limit)
+    setCacheHeaders(res, 300, 60) // 5 min CDN cache for suggestions
+    res.json({ success: true, data: suggestions })
+  } catch (err) {
+    next(err)
+  }
+})
 
 propertiesRouter.get('/search', async (req, res, next) => {
   try {

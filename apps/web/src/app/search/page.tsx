@@ -15,15 +15,42 @@ interface SearchPageProps {
 
 /** Parse a free-text query into search params (shared logic). */
 function parseSearchQuery(query: string) {
-  const zipMatch = query.match(/\b(\d{5})\b/)
-  if (zipMatch) return { zip: zipMatch[1], address: query }
+  // Try to extract: "123 Main St, Austin, TX 78701" → address, city, state, zip
+  const fullMatch = query.match(
+    /^(.+?),\s*([^,]+?),\s*([A-Za-z]{2})\s+(\d{5})$/,
+  )
+  if (fullMatch) {
+    return {
+      address: fullMatch[1]!.trim(),
+      city: fullMatch[2]!.trim(),
+      state: fullMatch[3]!.toUpperCase(),
+      zip: fullMatch[4],
+    }
+  }
 
-  const stateMatch = query.match(/,\s*([A-Z]{2})\s*(\d{5})?$/)
+  // "Austin, TX 78701" or "Austin, TX"
+  const cityStateZip = query.match(/^([^,]+),\s*([A-Za-z]{2})\s*(\d{5})?$/)
+  if (cityStateZip) {
+    return {
+      city: cityStateZip[1]!.trim(),
+      state: cityStateZip[2]!.toUpperCase(),
+      zip: cityStateZip[3],
+    }
+  }
+
+  // Extract ZIP if present anywhere
+  const zipMatch = query.match(/\b(\d{5})\b/)
+  if (zipMatch) {
+    const address = query.replace(zipMatch[0], '').replace(/,\s*$/, '').trim()
+    return { zip: zipMatch[1], ...(address ? { address } : {}) }
+  }
+
+  // "City, ST" pattern with lowercase
+  const stateMatch = query.match(/,\s*([A-Za-z]{2})\s*$/)
   if (stateMatch) {
     return {
-      address: query.split(',')[0]?.trim(),
-      state: stateMatch[1],
-      zip: stateMatch[2],
+      address: query.slice(0, stateMatch.index).trim(),
+      state: stateMatch[1]!.toUpperCase(),
     }
   }
 
