@@ -44,7 +44,7 @@ export function PropertyMap({
   zoom = 13,
   className = '',
 }: PropertyMapProps) {
-  const [activeLayer, setActiveLayer] = useState<RiskLayer | null>(null)
+  const [activeLayers, setActiveLayers] = useState<Set<RiskLayer>>(new Set())
   const [popupInfo, setPopupInfo] = useState<Property | null>(null)
 
   const mapCenter = center ??
@@ -62,9 +62,16 @@ export function PropertyMap({
     }[layer]
   }, [riskProfile])
 
-  const activeRiskScore = activeLayer ? getRiskScore(activeLayer) : null
+  const toggleLayer = useCallback((layer: RiskLayer) => {
+    setActiveLayers((prev) => {
+      const next = new Set(prev)
+      if (next.has(layer)) next.delete(layer)
+      else next.add(layer)
+      return next
+    })
+  }, [])
+
   const riskCenter = selectedProperty ?? properties[0] ?? null
-  const circleRadius = activeRiskScore !== null ? 500 + activeRiskScore * 20 : 0
 
   if (!GOOGLE_MAPS_KEY) {
     return (
@@ -87,14 +94,19 @@ export function PropertyMap({
           disableDefaultUI={false}
           style={{ width: '100%', height: '100%' }}
         >
-          {/* Risk layer circle overlay */}
-          {activeLayer && riskCenter && activeRiskScore !== null && (
-            <RiskCircleOverlay
-              center={{ lat: riskCenter.lat, lng: riskCenter.lng }}
-              radius={circleRadius}
-              color={RISK_LAYER_COLORS[activeLayer]}
-            />
-          )}
+          {/* Risk layer circle overlays */}
+          {riskCenter && Array.from(activeLayers).map((layer) => {
+            const score = getRiskScore(layer)
+            if (score === null) return null
+            return (
+              <RiskCircleOverlay
+                key={layer}
+                center={{ lat: riskCenter.lat, lng: riskCenter.lng }}
+                radius={500 + score * 20}
+                color={RISK_LAYER_COLORS[layer]}
+              />
+            )
+          })}
 
           {/* Property markers */}
           {properties.map((p) => (
@@ -161,14 +173,15 @@ export function PropertyMap({
           <div className="flex flex-col gap-1">
             {(Object.keys(RISK_LAYER_LABELS) as RiskLayer[]).map((layer) => {
               const score = getRiskScore(layer)
+              const isActive = activeLayers.has(layer)
               return (
                 <button
                   key={layer}
-                  onClick={() => setActiveLayer(activeLayer === layer ? null : layer)}
+                  onClick={() => toggleLayer(layer)}
                   className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                    activeLayer === layer ? 'text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'
+                    isActive ? 'text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'
                   }`}
-                  style={activeLayer === layer ? { backgroundColor: RISK_LAYER_COLORS[layer] } : {}}
+                  style={isActive ? { backgroundColor: RISK_LAYER_COLORS[layer] } : {}}
                 >
                   <span
                     className="h-2 w-2 rounded-full"
@@ -176,7 +189,7 @@ export function PropertyMap({
                   />
                   {RISK_LAYER_LABELS[layer]}
                   {score !== null && (
-                    <span className={`ml-auto rounded px-1 py-0.5 text-xs ${activeLayer === layer ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`ml-auto rounded px-1 py-0.5 text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
                       {score}
                     </span>
                   )}
