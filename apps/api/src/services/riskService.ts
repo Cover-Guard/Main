@@ -204,8 +204,6 @@ function prismaProfileToDto(
       dataSource: 'Cal Fire / USFS',
       lastUpdated: now,
       fireHazardSeverityZone: p.fireHazardZone,
-      // Deprecated alias for backward compatibility with older clients
-      fireHazardSeverityZone_deprecated: p.fireHazardZone,
       wildlandUrbanInterface: p.wildlandUrbanInterface,
       nearestFireStation: p.nearestFireStation,
       vegetationDensity: null,

@@ -19,10 +19,12 @@ if (process.env.STRIPE_PRICE_TEAM) PRICE_TO_PLAN[process.env.STRIPE_PRICE_TEAM] 
 function planFromPriceId(priceId: string): 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' {
   const plan = PRICE_TO_PLAN[priceId]
   if (!plan) {
-    logger.error(`Unknown Stripe price ID "${priceId}" — cannot determine subscription plan`)
-    throw new Error(`Unknown Stripe price ID: ${priceId}`)
+    // Log as error for investigation, but default to INDIVIDUAL so the
+    // subscription is still recorded in the DB. A missing subscription is
+    // worse than a wrong plan — plan can be corrected manually.
+    logger.error(`Unknown Stripe price ID "${priceId}" — defaulting to INDIVIDUAL. Configure STRIPE_PRICE_* env vars.`)
   }
-  return plan
+  return plan ?? 'INDIVIDUAL'
 }
 
 function toDbStatus(
