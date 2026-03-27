@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Shield } from 'lucide-react'
+import { Shield, User, Users, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const schema = z.object({
@@ -16,7 +16,65 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-function LoginForm() {
+type Portal = 'select' | 'individual' | 'agent'
+
+function PortalSelect({ onSelect }: { onSelect: (portal: Portal) => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-lg">
+        <div className="mb-10 text-center">
+          <Link href="/" className="inline-flex items-center gap-2 text-brand-700">
+            <Shield className="h-8 w-8" />
+            <span className="text-2xl font-bold">CoverGuard</span>
+          </Link>
+          <h1 className="mt-6 text-2xl font-bold text-gray-900">Welcome back</h1>
+          <p className="mt-2 text-gray-500">How would you like to sign in?</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <button
+            onClick={() => onSelect('individual')}
+            className="card group flex flex-col items-center gap-4 p-8 text-center transition-shadow hover:shadow-lg hover:ring-2 hover:ring-brand-500"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 group-hover:bg-blue-100">
+              <User className="h-7 w-7" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Individual</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Home buyers and property owners
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onSelect('agent')}
+            className="card group flex flex-col items-center gap-4 p-8 text-center transition-shadow hover:shadow-lg hover:ring-2 hover:ring-brand-500"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100">
+              <Users className="h-7 w-7" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Agent / Team</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Real estate agents and lenders
+              </p>
+            </div>
+          </button>
+        </div>
+
+        <p className="mt-8 text-center text-sm text-gray-500">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="text-brand-600 hover:underline">
+            Create one free
+          </Link>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function IndividualLoginForm({ onBack }: { onBack: () => void }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') ?? '/'
@@ -80,6 +138,15 @@ function LoginForm() {
         </div>
 
         <div className="card p-8">
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to portal selection
+          </button>
+
           {error && (
             <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
@@ -153,10 +220,29 @@ function LoginForm() {
   )
 }
 
-export default function LoginPage() {
+function LoginPage() {
+  const router = useRouter()
+  const [portal, setPortal] = useState<Portal>('select')
+
+  function handleSelect(selected: Portal) {
+    if (selected === 'agent') {
+      router.push('/agents/login')
+    } else {
+      setPortal(selected)
+    }
+  }
+
+  if (portal === 'select') {
+    return <PortalSelect onSelect={handleSelect} />
+  }
+
+  return <IndividualLoginForm onBack={() => setPortal('select')} />
+}
+
+export default function LoginPageWrapper() {
   return (
     <Suspense>
-      <LoginForm />
+      <LoginPage />
     </Suspense>
   )
 }
