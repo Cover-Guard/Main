@@ -99,8 +99,8 @@ export async function fetchFloodRisk(lat: number, lng: number, zip: string): Pro
           )
         }
       }
-    } catch {
-      // OpenFEMA claims non-critical
+    } catch (err) {
+      logger.warn('OpenFEMA claims API unavailable', { err })
     }
   }
 
@@ -132,8 +132,8 @@ export async function fetchFireRisk(lat: number, lng: number, state: string): Pr
           result.wildlandUrbanInterface = ['HIGH', 'VERY HIGH', 'EXTREME'].includes(hazClass)
         }
       }
-    } catch {
-      logger.warn('Cal Fire FHSZ API unavailable')
+    } catch (err) {
+      logger.warn('Cal Fire FHSZ API unavailable', { err })
     }
   }
 
@@ -150,8 +150,8 @@ export async function fetchFireRisk(lat: number, lng: number, state: string): Pr
           (wuiClass === 'Intermix' || wuiClass === 'Interface')
       }
     }
-  } catch {
-    // USFS WUI non-critical
+  } catch (err) {
+    logger.warn('USFS WUI API unavailable', { err })
   }
 
   return result
@@ -177,8 +177,8 @@ export async function fetchEarthquakeRisk(lat: number, lng: number): Promise<Par
 
       return { seismicZone, nearestFaultLine: pga > 0.3 ? 5 : 25 }
     }
-  } catch {
-    logger.warn('USGS Design Maps API unavailable')
+  } catch (err) {
+    logger.warn('USGS Design Maps API unavailable', { err })
   }
 
   // 2. Fallback: USGS Hazard Curves API
@@ -191,8 +191,8 @@ export async function fetchEarthquakeRisk(lat: number, lng: number): Promise<Par
         return { seismicZone: 'C' } // Elevated zone if hazard data present
       }
     }
-  } catch {
-    // Hazard curves non-critical
+  } catch (err) {
+    logger.warn('USGS Hazard Curves API unavailable', { err })
   }
 
   return {}
@@ -225,8 +225,8 @@ export async function fetchWindRisk(lat: number, lng: number, state: string): Pr
           hurricaneRisk = true // confirmed coastal hurricane surge zone
         }
       }
-    } catch {
-      // NOAA SLOSH non-critical
+    } catch (err) {
+      logger.warn('NOAA SLOSH API unavailable', { err })
     }
   }
 

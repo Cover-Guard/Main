@@ -39,6 +39,7 @@ export function SearchMapClient({ query, initialProperties }: SearchMapClientPro
         if (!cancelled) setRiskProfile(profile)
       })
       .catch(() => {
+        // Risk data unavailable for this property — map still functions without it
         if (!cancelled) setRiskProfile(null)
       })
 

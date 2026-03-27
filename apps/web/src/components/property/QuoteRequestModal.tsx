@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Carrier, CoverageType } from '@coverguard/shared'
+import { formatCoverageType } from '@coverguard/shared'
 import { X, Send, CheckCircle } from 'lucide-react'
 import { requestBindingQuote } from '@/lib/api'
 
@@ -149,13 +150,3 @@ export function QuoteRequestModal({ carrier, propertyId, propertyAddress, onClos
   )
 }
 
-function formatCoverageType(type: string): string {
-  return ({
-    HOMEOWNERS:    'Homeowners',
-    FLOOD:         'Flood',
-    EARTHQUAKE:    'Earthquake',
-    WIND_HURRICANE: 'Wind/Hurricane',
-    UMBRELLA:      'Umbrella',
-    FIRE:          'Fire',
-  } as Record<string, string>)[type] ?? type
-}

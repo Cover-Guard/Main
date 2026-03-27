@@ -58,15 +58,22 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const body = updateSchema.parse(req.body)
     const id = String(req.params.id)
-    const client = await prisma.client.updateMany({
-      where: { id, agentId: userId },
-      data: body,
-    })
-    if (client.count === 0) {
+    if (!id || id === 'undefined') {
+      res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Client ID is required' } })
+      return
+    }
+
+    // Use a single findFirst + update to avoid race condition between updateMany and findUniqueOrThrow
+    const existing = await prisma.client.findFirst({ where: { id, agentId: userId } })
+    if (!existing) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
       return
     }
-    const updated = await prisma.client.findUniqueOrThrow({ where: { id } })
+
+    const updated = await prisma.client.update({
+      where: { id },
+      data: body,
+    })
     res.json({ success: true, data: updated })
   } catch (err) { next(err) }
 })
@@ -76,7 +83,16 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
 clientsRouter.delete('/:id', async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    await prisma.client.deleteMany({ where: { id: String(req.params.id), agentId: userId } })
+    const id = String(req.params.id)
+    if (!id || id === 'undefined') {
+      res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Client ID is required' } })
+      return
+    }
+    const result = await prisma.client.deleteMany({ where: { id, agentId: userId } })
+    if (result.count === 0) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
+      return
+    }
     res.json({ success: true, data: null })
   } catch (err) { next(err) }
 })

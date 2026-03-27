@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma'
 import { propertyCache } from '../utils/cache'
+import { logger } from '../utils/logger'
 import { searchPropertiesByAddress } from '../integrations/propertyData'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
 
@@ -68,7 +69,7 @@ export async function searchProperties(
             resultCount: total,
           },
         })
-        .catch(() => undefined)
+        .catch((err) => logger.warn('Failed to record search history', { err }))
       return dbResult
     }
   }

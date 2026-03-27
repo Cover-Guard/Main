@@ -144,6 +144,7 @@ export function AccountSettings() {
   const [activeTab, setActiveTab] = useState<Tab>('account')
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Profile edit
   const [editing, setEditing] = useState(false)
@@ -181,7 +182,7 @@ export function AccountSettings() {
           licenseNumber: u.licenseNumber ?? '',
         })
       })
-      .catch(() => null)
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load account details'))
       .finally(() => setLoading(false))
 
     // Load notification prefs from localStorage
@@ -192,8 +193,12 @@ export function AccountSettings() {
   }, [])
 
   async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch {
+      // Sign-out may fail if session is already expired — continue with redirect
+    }
     window.location.href = '/login'
   }
 
@@ -296,6 +301,13 @@ export function AccountSettings() {
         <Settings className="h-5 w-5 text-gray-600" />
         <h1 className="text-xl font-bold text-gray-900">Settings</h1>
       </div>
+
+      {loadError && (
+        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+          {loadError}
+        </div>
+      )}
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar tabs */}

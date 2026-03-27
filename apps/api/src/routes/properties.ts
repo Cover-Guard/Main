@@ -12,6 +12,19 @@ import type { Request, Response } from 'express'
 
 export const propertiesRouter = Router()
 
+// ─── Property ID param validation ────────────────────────────────────────────
+
+propertiesRouter.param('id', (req, res, next, id) => {
+  if (!id || id === 'undefined' || id === 'null') {
+    res.status(400).json({
+      success: false,
+      error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
+    })
+    return
+  }
+  next()
+})
+
 // ─── Cache-Control helper ─────────────────────────────────────────────────────
 
 /** CDN-cacheable data — `s-maxage` is honoured by CDNs (Vercel Edge, CloudFront, etc.)
@@ -42,7 +55,9 @@ function extractOptionalUserId(req: Request): string | undefined {
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) return undefined
   try {
-    const payload = header.split(' ')[1]!.split('.')[1]
+    const token = header.split(' ')[1]
+    if (!token) return undefined
+    const payload = token.split('.')[1]
     if (!payload) return undefined
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       sub?: string

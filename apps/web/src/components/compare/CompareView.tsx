@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import type { Property, PropertyRiskProfile, InsuranceCostEstimate, InsurabilityStatus } from '@coverguard/shared'
 import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyInsurability } from '@/lib/api'
@@ -67,19 +67,10 @@ export function CompareView() {
   const [search, setSearch] = useState<{ idx: number; query: string } | null>(null)
   const [searchResults, setSearchResults] = useState<Property[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const searchDebounce = useRef<NodeJS.Timeout | null>(null)
 
-  // Read property IDs from URL (supports ?a=&b=&c= and ?ids=id1,id2,id3)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const idsParam = params.get('ids')
-    const ids = idsParam
-      ? idsParam.split(',').slice(0, 3)
-      : [params.get('a'), params.get('b'), params.get('c')]
-    ids.forEach((id, idx) => { if (id) loadProperty(id, idx) })
-  }, [])
-
-  async function loadProperty(id: string, idx: number) {
+  const loadProperty = useCallback(async function loadProperty(id: string, idx: number) {
     setLoading((prev) => { const n = [...prev]; n[idx] = true; return n })
     try {
       const [prop, risk, ins, insur] = await Promise.allSettled([
@@ -102,7 +93,17 @@ export function CompareView() {
     } finally {
       setLoading((prev) => { const n = [...prev]; n[idx] = false; return n })
     }
-  }
+  }, [])
+
+  // Read property IDs from URL (supports ?a=&b=&c= and ?ids=id1,id2,id3)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const idsParam = params.get('ids')
+    const ids = idsParam
+      ? idsParam.split(',').slice(0, 3)
+      : [params.get('a'), params.get('b'), params.get('c')]
+    ids.forEach((id, idx) => { if (id) loadProperty(id, idx) })
+  }, [loadProperty])
 
   function removeSlot(idx: number) {
     setSlots((prev) => { const n = [...prev]; n[idx] = null; return n })
@@ -111,16 +112,27 @@ export function CompareView() {
   async function handleSearchChange(query: string) {
     if (!search) return
     setSearch({ ...search, query })
+    setSearchError(null)
     if (searchDebounce.current) clearTimeout(searchDebounce.current)
     if (!query.trim()) { setSearchResults([]); return }
     searchDebounce.current = setTimeout(async () => {
       setSearchLoading(true)
       try {
         const res = await fetch(`/api/properties/search?address=${encodeURIComponent(query)}`)
+        if (!res.ok) {
+          setSearchResults([])
+          setSearchError('Search failed. Please try again.')
+          return
+        }
         const json = await res.json()
-        setSearchResults(json.data?.properties?.slice(0, 5) ?? [])
-      } catch { setSearchResults([]) }
-      finally { setSearchLoading(false) }
+        const properties = json.data?.properties
+        setSearchResults(Array.isArray(properties) ? properties.slice(0, 5) : [])
+      } catch {
+        setSearchResults([])
+        setSearchError('Network error. Check your connection.')
+      } finally {
+        setSearchLoading(false)
+      }
     }, 400)
   }
 
@@ -198,6 +210,7 @@ export function CompareView() {
                     />
                   </div>
                   {searchLoading && <p className="text-xs text-gray-400 mt-2 px-1">Searching…</p>}
+                  {searchError && <p className="text-xs text-red-500 mt-2 px-1">{searchError}</p>}
                   {searchResults.length > 0 && (
                     <div className="mt-1.5 space-y-1">
                       {searchResults.map((p) => (

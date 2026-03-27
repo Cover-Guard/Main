@@ -42,14 +42,18 @@ export default function ResetPasswordPage() {
 
   async function onSubmit(data: FormData) {
     setError(null)
-    const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({ password: data.password })
-    if (error) {
-      setError(error.message)
-      return
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password: data.password })
+      if (error) {
+        setError(error.message)
+        return
+      }
+      setSuccess(true)
+      setTimeout(() => router.push('/dashboard'), 2500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     }
-    setSuccess(true)
-    setTimeout(() => router.push('/dashboard'), 2500)
   }
 
   if (!sessionReady) {

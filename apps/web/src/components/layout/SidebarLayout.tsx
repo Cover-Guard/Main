@@ -43,12 +43,21 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    getMe().then(setUser).catch(() => {})
+    getMe()
+      .then(setUser)
+      .catch(() => {
+        // User not authenticated or session expired — sidebar renders without user info.
+        setUser(null)
+      })
   }, [])
 
   async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch {
+      // Sign-out may fail if session is already expired — continue with redirect
+    }
     window.location.href = '/login'
   }
 

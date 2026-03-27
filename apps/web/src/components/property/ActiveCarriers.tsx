@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { CarriersResult, Carrier } from '@coverguard/shared'
+import { formatCoverageType } from '@coverguard/shared'
 import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp, Send } from 'lucide-react'
 import { QuoteRequestModal } from './QuoteRequestModal'
 
@@ -164,13 +165,3 @@ function CarrierRow({
   )
 }
 
-function formatCoverageType(type: string): string {
-  return ({
-    HOMEOWNERS:    'Homeowners',
-    FLOOD:         'Flood',
-    EARTHQUAKE:    'Earthquake',
-    WIND_HURRICANE: 'Wind/Hurricane',
-    UMBRELLA:      'Umbrella',
-    FIRE:          'Fire',
-  } as Record<string, string>)[type] ?? type
-}

@@ -89,33 +89,42 @@ function IndividualLoginForm({ onBack }: { onBack: () => void }) {
 
   async function onSubmit(data: FormData) {
     setError(null)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
 
-    if (error) {
-      setError(error.message)
-      return
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      router.push(redirectTo)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     }
-
-    router.push(redirectTo)
-    router.refresh()
   }
 
   async function signInWithGoogle() {
     setError(null)
     setOauthLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
-      },
-    })
-    if (error) {
-      setError(error.message)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        },
+      })
+      if (error) {
+        setError(error.message)
+        setOauthLoading(false)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start Google sign-in.')
       setOauthLoading(false)
     }
   }

@@ -1,5 +1,5 @@
 import type { InsuranceCostEstimate as IInsuranceCostEstimate } from '@coverguard/shared'
-import { formatCurrency } from '@coverguard/shared'
+import { formatCurrency, formatCoverageType } from '@coverguard/shared'
 import { AlertTriangle, Info } from 'lucide-react'
 
 interface InsuranceCostEstimateProps {
@@ -70,23 +70,15 @@ export function InsuranceCostEstimate({ estimate }: InsuranceCostEstimateProps) 
       )}
 
       {/* Disclaimer */}
-      <div className="border-t border-gray-100 p-5">
-        <div className="flex gap-2 text-xs text-gray-400">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-500" />
-          <p>{estimate.disclaimers[0]}</p>
+      {estimate.disclaimers.length > 0 && (
+        <div className="border-t border-gray-100 p-5">
+          <div className="flex gap-2 text-xs text-gray-400">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-500" />
+            <p>{estimate.disclaimers[0]}</p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
-function formatCoverageType(type: string): string {
-  return {
-    HOMEOWNERS: 'Homeowners',
-    FLOOD: 'Flood',
-    EARTHQUAKE: 'Earthquake',
-    WIND_HURRICANE: 'Wind / Hurricane',
-    UMBRELLA: 'Umbrella',
-    FIRE: 'Fire',
-  }[type] ?? type
-}
