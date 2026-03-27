@@ -82,6 +82,28 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
 
+      - name: Debug connection string (no secrets)
+        if: steps.check-db-url.outputs.db_url_set == 'true'
+        run: |
+          echo "DATABASE_URL username: postgres.${SUPABASE_PROJECT_ID}"
+          echo "DATABASE_URL host: aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          echo "Project ID length: ${#SUPABASE_PROJECT_ID}"
+          echo "Password length: ${#SUPABASE_DB_PASSWORD}"
+          echo "Region: ${SUPABASE_DB_REGION}"
+          # Check for leading/trailing whitespace in secrets
+          TRIMMED_ID=$(echo "$SUPABASE_PROJECT_ID" | tr -d '[:space:]')
+          if [ "$TRIMMED_ID" != "$SUPABASE_PROJECT_ID" ]; then
+            echo "::warning::SUPABASE_PROJECT_ID contains whitespace — remove it from the secret"
+          fi
+          TRIMMED_PW=$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')
+          if [ "$TRIMMED_PW" != "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::warning::SUPABASE_DB_PASSWORD contains whitespace — remove it from the secret"
+          fi
+        env:
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
       - name: Run Prisma migrations
         if: steps.check-db-url.outputs.db_url_set == 'true'
         working-directory: apps/api
