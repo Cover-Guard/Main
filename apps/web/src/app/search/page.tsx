@@ -102,16 +102,6 @@ async function SearchMapPanel({ query, properties }: { query: string | null; pro
   return <SearchMapClient query={query} initialProperties={properties} />
 }
 
-function SearchSkeleton() {
-  return (
-    <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="card h-28 animate-pulse bg-gray-100" />
-      ))}
-    </div>
-  )
-}
-
 function MapSkeleton() {
   return <div className="h-full w-full animate-pulse bg-gray-200" />
 }

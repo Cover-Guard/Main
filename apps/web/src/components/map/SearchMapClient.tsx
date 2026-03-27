@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { PropertyMap } from './PropertyMap'
 import type { Property, PropertyRiskProfile } from '@coverguard/shared'
 import { getPropertyRisk } from '@/lib/api'
@@ -12,21 +12,20 @@ interface SearchMapClientProps {
 }
 
 export function SearchMapClient({ query, initialProperties }: SearchMapClientProps) {
-  const [properties, setProperties] = useState<Property[]>(initialProperties ?? [])
-  const [selected, setSelected] = useState<Property | null>(
-    initialProperties?.[0] ?? null,
-  )
-  const [riskProfile, setRiskProfile] = useState<PropertyRiskProfile | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const properties = initialProperties ?? []
+  const firstProperty = properties[0] ?? null
 
-  // Sync when initialProperties change (e.g. new server navigation)
-  useEffect(() => {
-    if (initialProperties) {
-      setProperties(initialProperties)
-      setSelected(initialProperties[0] ?? null)
-      setRiskProfile(null)
-    }
-  }, [initialProperties])
+  const [selected, setSelected] = useState<Property | null>(firstProperty)
+  const [riskProfile, setRiskProfile] = useState<PropertyRiskProfile | null>(null)
+
+  // Reset selection when the property list identity changes (new search).
+  // Use a ref to detect prop changes without an effect.
+  const prevFirstIdRef = useRef(firstProperty?.id)
+  if (firstProperty?.id !== prevFirstIdRef.current) {
+    prevFirstIdRef.current = firstProperty?.id
+    setSelected(firstProperty)
+    setRiskProfile(null)
+  }
 
   // Fetch risk profile when selected property changes
   const selectedId = selected?.id ?? null
@@ -56,11 +55,6 @@ export function SearchMapClient({ query, initialProperties }: SearchMapClientPro
 
   return (
     <div className="relative h-full w-full">
-      {error && (
-        <div className="absolute top-3 left-1/2 z-20 -translate-x-1/2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700 shadow-sm">
-          {error}
-        </div>
-      )}
       <PropertyMap
         properties={visibleProperties}
         selectedProperty={visibleSelected}
