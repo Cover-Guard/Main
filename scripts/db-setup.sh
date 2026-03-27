@@ -32,13 +32,13 @@ COMMAND="${1:-setup}"
 case "$COMMAND" in
   setup)
     log "Running full database setup..."
-    log "Step 1/3: Generating Prisma client..."
-    npx --prefix apps/api prisma generate
-    ok "Prisma client generated"
-
-    log "Step 2/3: Pulling schema from Supabase..."
+    log "Step 1/3: Pulling schema from Supabase..."
     npx --prefix apps/api prisma db pull || warn "db pull skipped (check DATABASE_URL)"
     ok "Schema synced"
+
+    log "Step 2/3: Generating Prisma client..."
+    npx --prefix apps/api prisma generate
+    ok "Prisma client generated"
 
     log "Step 3/3: Seeding database..."
     npm run db:seed --prefix apps/api || warn "Seed skipped (data may already exist)"
