@@ -15,7 +15,7 @@ export default async function DashboardPage() {
 
   let userRole: 'BUYER' | 'AGENT' | 'LENDER' | 'ADMIN' = 'BUYER'
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/me`, {
       headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
     })
     const json = await res.json()
