@@ -29,7 +29,7 @@ jobs:
       - name: Sanitize Supabase secrets
         run: |
           # Trim leading/trailing whitespace from secrets (common copy-paste issue).
-          # Write cleaned values to $GITHUB_ENV so every subsequent step gets them.
+          # Write cleaned values to $GITHUB_ENV using heredoc format (handles special chars).
           CLEAN_ID="$(printf '%s' "$RAW_PROJECT_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           CLEAN_PW="$(printf '%s' "$RAW_DB_PASSWORD" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           CLEAN_REGION="$(printf '%s' "$RAW_DB_REGION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
@@ -40,18 +40,36 @@ jobs:
           fi
 
           # Warn if trimming actually changed anything
-          [ "$CLEAN_ID" != "$RAW_PROJECT_ID" ] && echo "::warning::SUPABASE_PROJECT_ID had leading/trailing whitespace — auto-trimmed"
-          [ "$CLEAN_PW" != "$RAW_DB_PASSWORD" ] && echo "::warning::SUPABASE_DB_PASSWORD had leading/trailing whitespace — auto-trimmed"
-          [ "$CLEAN_REGION" != "$RAW_DB_REGION" ] && echo "::warning::SUPABASE_DB_REGION had leading/trailing whitespace — auto-trimmed"
+          if [ "$CLEAN_ID" != "$RAW_PROJECT_ID" ]; then echo "::warning::SUPABASE_PROJECT_ID had leading/trailing whitespace — auto-trimmed"; fi
+          if [ "$CLEAN_PW" != "$RAW_DB_PASSWORD" ]; then echo "::warning::SUPABASE_DB_PASSWORD had leading/trailing whitespace — auto-trimmed"; fi
+          if [ "$CLEAN_REGION" != "$RAW_DB_REGION" ]; then echo "::warning::SUPABASE_DB_REGION had leading/trailing whitespace — auto-trimmed"; fi
 
-          echo "SUPABASE_PROJECT_ID=${CLEAN_ID}" >> $GITHUB_ENV
-          echo "SUPABASE_DB_PASSWORD=${CLEAN_PW}" >> $GITHUB_ENV
-          echo "SUPABASE_DB_REGION=${CLEAN_REGION}" >> $GITHUB_ENV
-          echo "Project ID length: ${#CLEAN_ID}, Password length: ${#CLEAN_PW}, Region: ${CLEAN_REGION}"
+          # Use heredoc delimiters to safely handle special characters in values
+          {
+            echo "SUPABASE_PROJECT_ID<<GHEOF"
+            printf '%s\n' "$CLEAN_ID"
+            echo "GHEOF"
+            echo "SUPABASE_DB_PASSWORD<<GHEOF"
+            printf '%s\n' "$CLEAN_PW"
+            echo "GHEOF"
+            echo "SUPABASE_DB_REGION<<GHEOF"
+            printf '%s\n' "$CLEAN_REGION"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+
+          echo "Sanitized — Project ID length: ${#CLEAN_ID}, Password length: ${#CLEAN_PW}, Region: ${CLEAN_REGION}"
         env:
           RAW_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
           RAW_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           RAW_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
+      - name: Debug sanitized values
+        run: |
+          echo "SUPABASE_PROJECT_ID length: ${#SUPABASE_PROJECT_ID}"
+          echo "SUPABASE_DB_PASSWORD length: ${#SUPABASE_DB_PASSWORD}"
+          echo "SUPABASE_DB_REGION value: ${SUPABASE_DB_REGION}"
+          echo "Pooler host would be: aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          echo "DB user would be: postgres.${SUPABASE_PROJECT_ID}"
 
       - name: Verify database connectivity
         id: check-db-url
@@ -59,7 +77,7 @@ jobs:
           # Use the Supabase connection pooler instead of the direct connection
           # (db.*.supabase.co:5432) which is IPv6-only and unreachable from
           # GitHub Actions runners.
-          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
 
           # Retry connectivity check with exponential backoff.
           # GitHub Actions runners sometimes need a moment to establish
@@ -105,7 +123,7 @@ jobs:
         run: |
           # URL-encode the password to handle special characters (@, #, %, etc.)
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
-          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
           echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
@@ -241,9 +259,18 @@ jobs:
           CLEAN_ID="$(printf '%s' "$RAW_PROJECT_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           CLEAN_PW="$(printf '%s' "$RAW_DB_PASSWORD" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           CLEAN_REGION="$(printf '%s' "$RAW_DB_REGION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          echo "SUPABASE_PROJECT_ID=${CLEAN_ID}" >> $GITHUB_ENV
-          echo "SUPABASE_DB_PASSWORD=${CLEAN_PW}" >> $GITHUB_ENV
-          echo "SUPABASE_DB_REGION=${CLEAN_REGION}" >> $GITHUB_ENV
+          {
+            echo "SUPABASE_PROJECT_ID<<GHEOF"
+            printf '%s\n' "$CLEAN_ID"
+            echo "GHEOF"
+            echo "SUPABASE_DB_PASSWORD<<GHEOF"
+            printf '%s\n' "$CLEAN_PW"
+            echo "GHEOF"
+            echo "SUPABASE_DB_REGION<<GHEOF"
+            printf '%s\n' "$CLEAN_REGION"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+          echo "Sanitized — Project ID length: ${#CLEAN_ID}, Password length: ${#CLEAN_PW}, Region: ${CLEAN_REGION}"
         env:
           RAW_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
           RAW_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -253,7 +280,7 @@ jobs:
         id: api-db-urls
         run: |
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
-          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
           echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
           echo "direct_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres" >> $GITHUB_OUTPUT
