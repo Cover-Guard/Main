@@ -71,7 +71,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href || pathname === '/search'
-    return pathname.startsWith(href)
+    return pathname === href || pathname.startsWith(href + '/')
   }
 
   return (

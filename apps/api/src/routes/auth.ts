@@ -9,6 +9,16 @@ import type { AuthenticatedRequest } from '../middleware/auth'
 
 export const authRouter = Router()
 
+const VALID_ROLES = ['BUYER', 'AGENT', 'LENDER', 'ADMIN'] as const
+type ValidRole = (typeof VALID_ROLES)[number]
+
+function toValidRole(value: unknown): ValidRole {
+  if (typeof value === 'string' && (VALID_ROLES as readonly string[]).includes(value)) {
+    return value as ValidRole
+  }
+  return 'BUYER'
+}
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -28,34 +38,55 @@ authRouter.post('/register', async (req, res, next) => {
   try {
     const body = registerSchema.parse(req.body)
 
-    // Create Supabase auth user
+    const agreedAt = new Date()
+
+    // Create Supabase auth user with metadata so it stays in sync with the
+    // Prisma profile and downstream checks (e.g. OAuth callback termsAcceptedAt
+    // guard) work correctly.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: body.email,
       password: body.password,
       email_confirm: true,
-    })
-
-    if (authError || !authData.user) {
-      res.status(400).json({ success: false, error: { code: 'AUTH_ERROR', message: authError?.message ?? 'Registration failed' } })
-      return
-    }
-
-    const agreedAt = new Date()
-
-    // Create user profile in our DB
-    const user = await prisma.user.create({
-      data: {
-        id: authData.user.id,
-        email: body.email,
+      user_metadata: {
         firstName: body.firstName,
         lastName: body.lastName,
         role: body.role,
         company: body.company ?? null,
         licenseNumber: body.licenseNumber ?? null,
-        ndaAcceptedAt: agreedAt,
-        privacyAcceptedAt: agreedAt,
-        termsAcceptedAt: agreedAt,
+        termsAcceptedAt: agreedAt.toISOString(),
+        ndaAcceptedAt: agreedAt.toISOString(),
+        privacyAcceptedAt: agreedAt.toISOString(),
       },
+    })
+
+    if (authError || !authData.user) {
+      // Supabase returns "User already registered" for duplicate emails
+      const isDuplicate = authError?.message?.toLowerCase().includes('already registered')
+      const status = isDuplicate ? 409 : 400
+      const code = isDuplicate ? 'DUPLICATE_EMAIL' : 'AUTH_ERROR'
+      res.status(status).json({ success: false, error: { code, message: authError?.message ?? 'Registration failed' } })
+      return
+    }
+
+    // Upsert user profile in our DB.  The Supabase handle_new_user trigger may
+    // have already inserted a skeleton row (without agreement timestamps) by the
+    // time this code runs, so we use upsert to fill in / overwrite the record
+    // rather than failing with a P2002 unique constraint violation.
+    const profileData = {
+      email: body.email,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      role: body.role,
+      company: body.company ?? null,
+      licenseNumber: body.licenseNumber ?? null,
+      ndaAcceptedAt: agreedAt,
+      privacyAcceptedAt: agreedAt,
+      termsAcceptedAt: agreedAt,
+    }
+    const user = await prisma.user.upsert({
+      where: { id: authData.user.id },
+      update: profileData,
+      create: { id: authData.user.id, ...profileData },
     })
 
     res.status(201).json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
@@ -136,7 +167,7 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
         lastName: authUser?.user_metadata?.lastName
           ?? authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ')
           ?? '',
-        role: (authUser?.user_metadata?.role as never) ?? 'BUYER',
+        role: toValidRole(authUser?.user_metadata?.role),
         company: authUser?.user_metadata?.company ?? null,
         licenseNumber: authUser?.user_metadata?.licenseNumber ?? null,
         termsAcceptedAt: new Date(),
@@ -176,7 +207,7 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
         lastName: authUser.user_metadata?.lastName
           ?? authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ')
           ?? '',
-        role: (authUser.user_metadata?.role as never) ?? 'BUYER',
+        role: toValidRole(authUser.user_metadata?.role),
         company: authUser.user_metadata?.company ?? null,
         licenseNumber: authUser.user_metadata?.licenseNumber ?? null,
         avatarUrl: authUser.user_metadata?.avatar_url ?? null,

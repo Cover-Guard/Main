@@ -88,7 +88,7 @@ export async function searchProperties(
         resultCount: result.total,
       },
     })
-    .catch(() => undefined)
+    .catch((err) => logger.warn('Failed to record search history', { err }))
 
   // Batch-upsert results into DB cache — avoids N sequential round trips
   if (result.properties.length > 0) {

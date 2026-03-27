@@ -137,7 +137,7 @@ export function ConsumerDashboard() {
               Search any US address to see flood, fire, earthquake, wind, and crime risk.
             </p>
             <Link
-              href="/"
+              href="/search"
               className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
             >
               <Search className="h-4 w-4" />

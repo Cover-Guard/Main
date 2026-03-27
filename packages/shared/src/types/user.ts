@@ -10,6 +10,8 @@ export interface User {
   licenseNumber: string | null // for agents
   avatarUrl: string | null
   termsAcceptedAt: string | null // null = onboarding not yet completed
+  ndaAcceptedAt: string | null
+  privacyAcceptedAt: string | null
   createdAt: string
   updatedAt: string
 }

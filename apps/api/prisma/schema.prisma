@@ -180,6 +180,10 @@ model InsuranceEstimate {
   earthquakeLow         Int?
   earthquakeHigh        Int?
   earthquakeAvg         Int?
+  fireRequired          Boolean         @default(false)
+  fireLow               Int?
+  fireHigh              Int?
+  fireAvg               Int?
   windRequired          Boolean         @default(false)
   windLow               Int?
   windHigh              Int?

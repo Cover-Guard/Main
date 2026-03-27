@@ -52,7 +52,14 @@ export async function requireAuth(
     return
   }
 
-  const token = authHeader.split(' ')[1]!
+  const token = authHeader.split(' ')[1]
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Malformed bearer token' },
+    })
+    return
+  }
 
   // Fast path: token already validated and not yet expired in local cache
   const cached = tokenCache.get(token)
