@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { MobileNav } from '@/components/mobile/MobileNav'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -49,8 +48,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={inter.variable}>
       <body className="font-sans">
         {children}
-        {/* Fixed bottom nav — visible only on mobile (md:hidden inside MobileNav) */}
-        <MobileNav />
       </body>
     </html>
   )
