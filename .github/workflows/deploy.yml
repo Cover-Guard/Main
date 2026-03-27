@@ -31,9 +31,8 @@ jobs:
         run: |
           # All Supabase DB secrets must be present
           if [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ] || [ -z "$SUPABASE_DB_REGION" ]; then
-            echo "::warning::SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, and/or SUPABASE_DB_REGION secrets are not configured — skipping migration"
-            echo "db_url_set=false" >> $GITHUB_OUTPUT
-            exit 0
+            echo "::error::SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, and/or SUPABASE_DB_REGION secrets are not configured in the 'production' environment. Add these secrets in GitHub Settings → Environments → production → Environment secrets."
+            exit 1
           fi
 
           # Use the Supabase connection pooler instead of the direct connection
@@ -75,9 +74,8 @@ jobs:
             echo "Database is reachable"
             echo "db_url_set=true" >> $GITHUB_OUTPUT
           else
-            echo "::error::Cannot reach ${POOLER_HOST}:5432 after $MAX_RETRIES attempts from GitHub Actions"
-            echo "db_url_set=false" >> $GITHUB_OUTPUT
-            exit 0
+            echo "::error::Cannot reach ${POOLER_HOST}:5432 after $MAX_RETRIES attempts from GitHub Actions. Verify that SUPABASE_DB_REGION is correct and the Supabase project is active."
+            exit 1
           fi
         env:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
