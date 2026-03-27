@@ -28,19 +28,31 @@ authRouter.post('/register', async (req, res, next) => {
   try {
     const body = registerSchema.parse(req.body)
 
-    // Create Supabase auth user
+    const agreedAt = new Date()
+
+    // Create Supabase auth user with metadata so it stays in sync with the
+    // Prisma profile and downstream checks (e.g. OAuth callback termsAcceptedAt
+    // guard) work correctly.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: body.email,
       password: body.password,
       email_confirm: true,
+      user_metadata: {
+        firstName: body.firstName,
+        lastName: body.lastName,
+        role: body.role,
+        company: body.company ?? null,
+        licenseNumber: body.licenseNumber ?? null,
+        termsAcceptedAt: agreedAt.toISOString(),
+        ndaAcceptedAt: agreedAt.toISOString(),
+        privacyAcceptedAt: agreedAt.toISOString(),
+      },
     })
 
     if (authError || !authData.user) {
       res.status(400).json({ success: false, error: { code: 'AUTH_ERROR', message: authError?.message ?? 'Registration failed' } })
       return
     }
-
-    const agreedAt = new Date()
 
     // Create user profile in our DB
     const user = await prisma.user.create({
