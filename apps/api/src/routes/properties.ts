@@ -224,10 +224,10 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
     })
 
     // body.clientId is string | null | undefined:
-    //   string   → set the association
-    //   null     → explicitly remove the association
+    //   string    → set the association
+    //   null      → explicitly remove the association
     //   undefined → leave unchanged on update, null on create
-    const clientIdUpdate = body.clientId === undefined ? undefined : (body.clientId ?? null)
+    const clientIdUpdate = body.clientId === undefined ? undefined : body.clientId
 
     const saved = await prisma.savedProperty.upsert({
       where: { userId_propertyId: { userId, propertyId } },

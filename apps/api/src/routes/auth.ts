@@ -4,35 +4,11 @@ import { supabaseAdmin } from '../utils/supabaseAdmin'
 import { prisma } from '../utils/prisma'
 import { requireAuth } from '../middleware/auth'
 import { logger } from '../utils/logger'
+import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
 import type { Request } from 'express'
 import type { AuthenticatedRequest } from '../middleware/auth'
 
 export const authRouter = Router()
-
-/** Fields to select when including a property in a response.
- *  Excludes internal fields like `externalId` that are not in the shared Property type. */
-const PROPERTY_PUBLIC_SELECT = {
-  id: true,
-  address: true,
-  city: true,
-  state: true,
-  zip: true,
-  county: true,
-  lat: true,
-  lng: true,
-  propertyType: true,
-  yearBuilt: true,
-  squareFeet: true,
-  bedrooms: true,
-  bathrooms: true,
-  lotSize: true,
-  estimatedValue: true,
-  lastSalePrice: true,
-  lastSaleDate: true,
-  parcelId: true,
-  createdAt: true,
-  updatedAt: true,
-} as const
 
 const VALID_ROLES = ['BUYER', 'AGENT', 'LENDER', 'ADMIN'] as const
 type ValidRole = (typeof VALID_ROLES)[number]
@@ -161,6 +137,7 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
       where: { userId },
       include: { property: { select: PROPERTY_PUBLIC_SELECT } },
       orderBy: { savedAt: 'desc' },
+      take: 200, // safety cap — prevents unbounded result sets
     })
     res.json({ success: true, data: saved })
   } catch (err) {
@@ -276,6 +253,7 @@ authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
       where: { userId },
       include: { property: { select: PROPERTY_PUBLIC_SELECT } },
       orderBy: { generatedAt: 'desc' },
+      take: 200, // safety cap — prevents unbounded result sets
     })
     res.json({ success: true, data: reports })
   } catch (err) {
