@@ -59,4 +59,40 @@ export interface AnalyticsSummary {
   riskDistribution: Array<{ level: string; count: number }>
   topStates: Array<{ state: string; count: number }>
   recentActivity: Array<{ type: string; description: string; timestamp: string }>
+
+  // Quote request metrics
+  quoteRequests: {
+    total: number
+    pending: number
+    sent: number
+    responded: number
+    declined: number
+  }
+
+  // Client pipeline breakdown
+  clientPipeline: {
+    active: number
+    prospect: number
+    closed: number
+    inactive: number
+  }
+
+  // Regional risk data (per state)
+  regionalRisk: Array<{
+    state: string
+    propertyCount: number
+    avgOverallScore: number
+    avgFloodScore: number
+    avgFireScore: number
+    avgWindScore: number
+    avgEarthquakeScore: number
+    avgCrimeScore: number
+    dominantRiskLevel: string
+  }>
+
+  // Searches by month (12 months)
+  searchesByMonth: Array<{ month: string; count: number }>
+
+  // Average insurance cost across saved properties
+  avgInsuranceCost: number | null
 }
