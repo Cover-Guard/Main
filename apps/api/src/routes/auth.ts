@@ -202,7 +202,7 @@ authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
     if (error) {
       // DB already deleted — log but don't fail the request
-      logger.error('Supabase auth delete failed: %s', error.message)
+      logger.error(`Supabase auth delete failed: ${error.message}`)
     }
 
     res.json({ success: true, data: { deleted: true } })
