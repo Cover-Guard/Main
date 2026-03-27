@@ -29,23 +29,35 @@ Guidelines:
 - Stay focused on property insurance, risk, and insurability topics. Politely redirect off-topic questions.
 - Format responses with markdown (bold, bullet points, numbered lists) for readability.`
 
+const chatSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().min(1).max(10000),
+  })).min(1).max(50),
+})
+
+// Reuse a single client instance (the SDK handles connection pooling internally)
+let anthropicClient: Anthropic | null = null
+
+function getAnthropicClient(): Anthropic | null {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return null
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({ apiKey })
+  }
+  return anthropicClient
+}
+
 advisorRouter.post('/chat', requireAuth, async (req, res) => {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
+    const client = getAnthropicClient()
+    if (!client) {
       res.status(503).json({
         success: false,
-        error: { code: 'SERVICE_UNAVAILABLE', message: 'AI Advisor is not configured' },
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'AI Advisor is not configured. Please set the ANTHROPIC_API_KEY environment variable.' },
       })
       return
     }
-
-    const chatSchema = z.object({
-      messages: z.array(z.object({
-        role: z.enum(['user', 'assistant']),
-        content: z.string().min(1).max(10000),
-      })).min(1).max(50),
-    })
 
     const parsed = chatSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -61,9 +73,7 @@ advisorRouter.post('/chat', requireAuth, async (req, res) => {
     // Limit conversation history to last 20 messages to control token usage
     const trimmedMessages = messages.slice(-20)
 
-    const anthropic = new Anthropic({ apiKey })
-
-    const response = await anthropic.messages.create({
+    const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       system: SYSTEM_PROMPT,
@@ -78,10 +88,59 @@ advisorRouter.post('/chat', requireAuth, async (req, res) => {
 
     res.json({ success: true, data: { text } })
   } catch (err) {
-    logger.error('AI Advisor error', { error: err })
+    const authReq = req as AuthenticatedRequest
+
+    if (err instanceof Anthropic.AuthenticationError) {
+      logger.error(`AI Advisor auth error — user=${authReq.userId}`, { status: err.status, message: err.message })
+      // Reset client so a corrected key is picked up on next request
+      anthropicClient = null
+      res.status(503).json({
+        success: false,
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'AI Advisor authentication failed. Please check the API key configuration.' },
+      })
+      return
+    }
+
+    if (err instanceof Anthropic.RateLimitError) {
+      logger.warn(`AI Advisor rate limited — user=${authReq.userId}`, { status: err.status })
+      res.status(429).json({
+        success: false,
+        error: { code: 'RATE_LIMITED', message: 'AI Advisor is temporarily busy. Please try again in a moment.' },
+      })
+      return
+    }
+
+    if (err instanceof Anthropic.NotFoundError) {
+      logger.error(`AI Advisor model not found — user=${authReq.userId}`, { status: err.status, message: err.message })
+      res.status(503).json({
+        success: false,
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'AI Advisor model is unavailable. Please try again later.' },
+      })
+      return
+    }
+
+    if (err instanceof Anthropic.APIConnectionError) {
+      logger.error(`AI Advisor connection error — user=${authReq.userId}`, { message: err.message })
+      res.status(502).json({
+        success: false,
+        error: { code: 'BAD_GATEWAY', message: 'Could not reach AI service. Please try again.' },
+      })
+      return
+    }
+
+    if (err instanceof Anthropic.APIError) {
+      logger.error(`AI Advisor API error — user=${authReq.userId}`, { status: err.status, message: err.message })
+      res.status(err.status >= 500 ? 502 : 500).json({
+        success: false,
+        error: { code: 'ADVISOR_ERROR', message: 'AI service returned an error. Please try again.' },
+      })
+      return
+    }
+
+    logger.error('AI Advisor unexpected error', { error: err })
     res.status(500).json({
       success: false,
-      error: { code: 'ADVISOR_ERROR', message: 'Failed to get AI response' },
+      error: { code: 'ADVISOR_ERROR', message: 'Failed to get AI response. Please try again.' },
     })
   }
 })

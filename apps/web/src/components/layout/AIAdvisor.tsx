@@ -61,11 +61,19 @@ export function AIAdvisor() {
 
       const response = await chatWithAdvisor(history)
       setMessages((prev) => [...prev, { role: 'advisor', text: response.text }])
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'advisor', text: 'Sorry, I couldn\'t connect to the AI service right now. Please try again in a moment.' },
-      ])
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : ''
+      let displayMessage: string
+      if (errorMessage.includes('rate limit') || errorMessage.includes('busy')) {
+        displayMessage = 'The AI Advisor is temporarily busy. Please wait a moment and try again.'
+      } else if (errorMessage.includes('not configured') || errorMessage.includes('authentication') || errorMessage.includes('API key')) {
+        displayMessage = 'The AI Advisor service is not available right now. Please contact support if this persists.'
+      } else if (errorMessage.includes('Network error') || errorMessage.includes('timed out')) {
+        displayMessage = 'Could not reach the AI service. Please check your connection and try again.'
+      } else {
+        displayMessage = 'Sorry, I couldn\'t get a response right now. Please try again in a moment.'
+      }
+      setMessages((prev) => [...prev, { role: 'advisor', text: displayMessage }])
     } finally {
       setThinking(false)
     }
