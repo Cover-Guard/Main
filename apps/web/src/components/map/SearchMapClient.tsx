@@ -3,47 +3,30 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PropertyMap } from './PropertyMap'
 import type { Property, PropertyRiskProfile } from '@coverguard/shared'
-import { searchProperties, getPropertyRisk } from '@/lib/api'
+import { getPropertyRisk } from '@/lib/api'
 
 interface SearchMapClientProps {
   query: string | null
+  /** Pre-fetched properties from the server — avoids a duplicate client-side fetch (and CORS). */
+  initialProperties?: Property[]
 }
 
-export function SearchMapClient({ query }: SearchMapClientProps) {
-  const [properties, setProperties] = useState<Property[]>([])
-  const [selected, setSelected] = useState<Property | null>(null)
+export function SearchMapClient({ query, initialProperties }: SearchMapClientProps) {
+  const [properties, setProperties] = useState<Property[]>(initialProperties ?? [])
+  const [selected, setSelected] = useState<Property | null>(
+    initialProperties?.[0] ?? null,
+  )
   const [riskProfile, setRiskProfile] = useState<PropertyRiskProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch properties when query changes
+  // Sync when initialProperties change (e.g. new server navigation)
   useEffect(() => {
-    if (!query) return
-
-    const params: Record<string, string> = {}
-    const zipMatch = query.match(/\b(\d{5})\b/)
-    if (zipMatch) {
-      params.zip = zipMatch[1]!
-      params.address = query
-    } else {
-      params.address = query
+    if (initialProperties) {
+      setProperties(initialProperties)
+      setSelected(initialProperties[0] ?? null)
+      setRiskProfile(null)
     }
-
-    searchProperties({ ...params, limit: 50 })
-      .then((r) => {
-        setError(null)
-        setProperties(r.properties)
-        if (r.properties.length > 0) {
-          setSelected(r.properties[0]!)
-        } else {
-          setSelected(null)
-        }
-      })
-      .catch(() => {
-        setProperties([])
-        setSelected(null)
-        setError('Unable to load properties on the map. Please try again.')
-      })
-  }, [query])
+  }, [initialProperties])
 
   // Fetch risk profile when selected property changes
   const selectedId = selected?.id ?? null
