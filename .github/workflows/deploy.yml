@@ -104,13 +104,29 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
 
+      - name: Build connection URLs
+        if: steps.check-db-url.outputs.db_url_set == 'true'
+        id: db-urls
+        run: |
+          # URL-encode the password to handle special characters (@, #, %, etc.)
+          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
+          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          DB_USER="postgres.${SUPABASE_PROJECT_ID}"
+
+          echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
+          echo "direct_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres" >> $GITHUB_OUTPUT
+        env:
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
       - name: Run Prisma migrations
         if: steps.check-db-url.outputs.db_url_set == 'true'
         working-directory: apps/api
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
 
   # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
   deploy-web:
@@ -229,12 +245,25 @@ jobs:
       - name: Build shared package
         run: npm run build --workspace=@coverguard/shared
 
+      - name: Build DB connection URLs
+        id: api-db-urls
+        run: |
+          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
+          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          DB_USER="postgres.${SUPABASE_PROJECT_ID}"
+          echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
+          echo "direct_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres" >> $GITHUB_OUTPUT
+        env:
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
       - name: Generate Prisma client
         working-directory: apps/api
         run: npx prisma generate
         env:
-          DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-          DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-0-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+          DATABASE_URL: ${{ steps.api-db-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.api-db-urls.outputs.direct_url }}
 
       - name: Build API bundle
         run: npm run build --workspace=@coverguard/api
