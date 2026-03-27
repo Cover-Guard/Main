@@ -240,7 +240,9 @@ propertiesRouter.get('/:id/carriers', async (req, res, next) => {
 
 const quoteRequestSchema = z.object({
   carrierId: z.string().min(1),
-  coverageTypes: z.array(z.string()).min(1).max(6),
+  coverageTypes: z.array(
+    z.enum(['HOMEOWNERS', 'FLOOD', 'EARTHQUAKE', 'WIND_HURRICANE', 'UMBRELLA', 'FIRE']),
+  ).min(1).max(6),
   notes: z.string().max(1000).optional(),
 })
 

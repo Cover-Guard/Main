@@ -60,7 +60,11 @@ authRouter.post('/register', async (req, res, next) => {
     })
 
     if (authError || !authData.user) {
-      res.status(400).json({ success: false, error: { code: 'AUTH_ERROR', message: authError?.message ?? 'Registration failed' } })
+      // Supabase returns "User already registered" for duplicate emails
+      const isDuplicate = authError?.message?.toLowerCase().includes('already registered')
+      const status = isDuplicate ? 409 : 400
+      const code = isDuplicate ? 'DUPLICATE_EMAIL' : 'AUTH_ERROR'
+      res.status(status).json({ success: false, error: { code, message: authError?.message ?? 'Registration failed' } })
       return
     }
 
@@ -198,7 +202,7 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
         lastName: authUser.user_metadata?.lastName
           ?? authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ')
           ?? '',
-        role: (authUser.user_metadata?.role as never) ?? 'BUYER',
+        role: toValidRole(authUser.user_metadata?.role),
         company: authUser.user_metadata?.company ?? null,
         licenseNumber: authUser.user_metadata?.licenseNumber ?? null,
         avatarUrl: authUser.user_metadata?.avatar_url ?? null,
