@@ -107,7 +107,7 @@ describe('requireAuth', () => {
 
   describe('token cache fast path', () => {
     it('calls next() and attaches user info when token is in cache', async () => {
-      tokenCache.set(TOKEN, { userId: 'user-1', userRole: 'consumer' }, 60_000)
+      tokenCache.set(TOKEN, { userId: 'user-1', userRole: 'BUYER' }, 60_000)
       const req = makeReq()
       const { res } = makeRes()
       const next = makeNext()
@@ -117,7 +117,7 @@ describe('requireAuth', () => {
       expect(mockGetUser).not.toHaveBeenCalled()
       expect(next).toHaveBeenCalled()
       expect((req as AuthenticatedRequest).userId).toBe('user-1')
-      expect((req as AuthenticatedRequest).userRole).toBe('consumer')
+      expect((req as AuthenticatedRequest).userRole).toBe('BUYER')
     })
   })
 
@@ -166,7 +166,7 @@ describe('requireAuth', () => {
       // Use this token for this test
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'user-42' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'user-42', role: 'agent' })
+      mockFindUser.mockResolvedValue({ id: 'user-42', role: 'AGENT' })
 
       const { res } = makeRes()
       const next = makeNext()
@@ -175,7 +175,7 @@ describe('requireAuth', () => {
 
       expect(next).toHaveBeenCalled()
       expect((req as AuthenticatedRequest).userId).toBe('user-42')
-      expect((req as AuthenticatedRequest).userRole).toBe('agent')
+      expect((req as AuthenticatedRequest).userRole).toBe('AGENT')
     })
 
     it('caches the token after successful auth', async () => {
@@ -185,7 +185,7 @@ describe('requireAuth', () => {
 
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'u1', role: 'consumer' })
+      mockFindUser.mockResolvedValue({ id: 'u1', role: 'BUYER' })
 
       await requireAuth(req, makeRes().res, makeNext())
       expect(tokenCache.has(token)).toBe(true)
@@ -198,7 +198,7 @@ describe('requireAuth', () => {
 
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'u2' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'u2', role: 'consumer' })
+      mockFindUser.mockResolvedValue({ id: 'u2', role: 'BUYER' })
 
       await requireAuth(req, makeRes().res, makeNext())
       // Token should be cached (briefly)
@@ -211,7 +211,7 @@ describe('requireAuth', () => {
 
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'u3' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'u3', role: 'consumer' })
+      mockFindUser.mockResolvedValue({ id: 'u3', role: 'BUYER' })
 
       await requireAuth(req, makeRes().res, makeNext())
       expect(tokenCache.has(token)).toBe(true)
@@ -228,21 +228,21 @@ describe('requireRole', () => {
   }
 
   it('calls next() when role is in allowed list', () => {
-    const req = setupAuthReq('agent')
+    const req = setupAuthReq('AGENT')
     const { res } = makeRes()
     const next = makeNext()
 
-    requireRole('agent', 'admin')(req, res, next)
+    requireRole('AGENT', 'ADMIN')(req, res, next)
 
     expect(next).toHaveBeenCalled()
   })
 
   it('returns 403 when role is NOT in allowed list', () => {
-    const req = setupAuthReq('consumer')
+    const req = setupAuthReq('BUYER')
     const { res, status, json } = makeRes()
     const next = makeNext()
 
-    requireRole('agent', 'admin')(req, res, next)
+    requireRole('AGENT', 'ADMIN')(req, res, next)
 
     expect(status).toHaveBeenCalledWith(403)
     expect(json).toHaveBeenCalledWith(
