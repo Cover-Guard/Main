@@ -16,7 +16,7 @@ export const propertiesRouter = Router()
 // ─── Property ID param validation ────────────────────────────────────────────
 
 propertiesRouter.param('id', (req, res, next, id) => {
-  if (!id || id === 'undefined' || id === 'null') {
+  if (!id || id === 'undefined' || id === 'null' || id.length > 50) {
     res.status(400).json({
       success: false,
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
@@ -202,9 +202,13 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
 propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    await prisma.savedProperty.deleteMany({
+    const result = await prisma.savedProperty.deleteMany({
       where: { userId, propertyId: String(req.params.id) },
     })
+    if (result.count === 0) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Saved property not found' } })
+      return
+    }
     res.json({ success: true, data: null })
   } catch (err) {
     next(err)

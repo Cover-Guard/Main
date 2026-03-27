@@ -32,7 +32,7 @@ const updateSchema = z.object({
 clientsRouter.get('/', async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1)
+    const page = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
     const clients = await prisma.client.findMany({
       where: { agentId: userId },
@@ -69,17 +69,16 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
       return
     }
 
-    // updateMany scoped to agentId ensures no authorization bypass via race condition
-    const result = await prisma.client.updateMany({
-      where: { id, agentId: userId },
-      data: body,
+    // Use a transaction to atomically update and re-read, scoped to agentId
+    // to prevent authorization bypass and race conditions.
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.client.updateMany({
+        where: { id, agentId: userId },
+        data: body,
+      })
+      if (result.count === 0) return null
+      return tx.client.findFirst({ where: { id, agentId: userId } })
     })
-    if (result.count === 0) {
-      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
-      return
-    }
-
-    const updated = await prisma.client.findFirst({ where: { id, agentId: userId } })
     if (!updated) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
       return

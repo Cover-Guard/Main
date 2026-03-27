@@ -135,7 +135,7 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
 authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1)
+    const page = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
     const saved = await prisma.savedProperty.findMany({
       where: { userId },
@@ -254,7 +254,7 @@ authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
 authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const rPage = Math.max(1, parseInt(req.query.page as string, 10) || 1)
+    const rPage = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
     const rLimit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
     const reports = await prisma.propertyReport.findMany({
       where: { userId },
