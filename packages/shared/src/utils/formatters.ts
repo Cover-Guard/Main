@@ -40,6 +40,18 @@ export function riskLevelToColor(level: RiskLevel): string {
   return colors[level]
 }
 
+export function formatCoverageType(type: string): string {
+  const labels: Record<string, string> = {
+    HOMEOWNERS: 'Homeowners',
+    FLOOD: 'Flood',
+    EARTHQUAKE: 'Earthquake',
+    WIND_HURRICANE: 'Wind/Hurricane',
+    UMBRELLA: 'Umbrella',
+    FIRE: 'Fire',
+  }
+  return labels[type] ?? type
+}
+
 export function formatSquareFeet(sqft: number | null): string {
   if (!sqft) return 'Unknown'
   return new Intl.NumberFormat('en-US').format(sqft) + ' sq ft'

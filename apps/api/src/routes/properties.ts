@@ -42,7 +42,9 @@ function extractOptionalUserId(req: Request): string | undefined {
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) return undefined
   try {
-    const payload = header.split(' ')[1]!.split('.')[1]
+    const token = header.split(' ')[1]
+    if (!token) return undefined
+    const payload = token.split('.')[1]
     if (!payload) return undefined
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       sub?: string

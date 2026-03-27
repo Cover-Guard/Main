@@ -26,9 +26,6 @@ const HIDDEN_ROUTES = ['/login', '/register', '/agents/login', '/agents/register
  * Lives outside SidebarLayout so it renders on top of page content.
  * Hidden on auth/onboarding pages — only visible after login.
  */
-/** Routes where MobileNav should be hidden (public / auth pages) */
-const hiddenRoutes = ['/', '/login', '/register', '/agents/login', '/agents/register', '/onboarding', '/forgot-password', '/reset-password', '/privacy', '/terms']
-
 export function MobileNav() {
   const pathname = usePathname()
 

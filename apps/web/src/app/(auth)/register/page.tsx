@@ -82,7 +82,12 @@ export default function RegisterPage() {
 
     // 2. Sign in immediately
     const supabase = createClient()
-    await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
+    if (signInError) {
+      setError('Account created but sign-in failed. Please sign in manually.')
+      router.push('/login')
+      return
+    }
 
     // 3. Redirect to dashboard
     router.push('/dashboard')

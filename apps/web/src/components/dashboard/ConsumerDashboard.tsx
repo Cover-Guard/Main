@@ -107,7 +107,7 @@ export function ConsumerDashboard() {
               <h2 className="text-sm font-semibold text-gray-800">Recent Activity</h2>
             </div>
             <div className="space-y-2">
-              {analytics!.recentActivity.slice(0, 6).map((item, i) => (
+              {(analytics?.recentActivity ?? []).slice(0, 6).map((item, i) => (
                 <div key={i} className="flex items-start gap-2.5 py-1.5 border-b border-gray-50 last:border-0">
                   <div className="mt-0.5 shrink-0">
                     {item.type === 'search' ? (

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth'
 import { logger } from '../utils/logger'
@@ -39,17 +40,23 @@ advisorRouter.post('/chat', requireAuth, async (req, res) => {
       return
     }
 
-    const { messages } = req.body as {
-      messages: Array<{ role: 'user' | 'assistant'; content: string }>
-    }
+    const chatSchema = z.object({
+      messages: z.array(z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string().min(1).max(10000),
+      })).min(1).max(50),
+    })
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    const parsed = chatSchema.safeParse(req.body)
+    if (!parsed.success) {
       res.status(400).json({
         success: false,
-        error: { code: 'BAD_REQUEST', message: 'messages array is required' },
+        error: { code: 'BAD_REQUEST', message: parsed.error.errors[0]?.message ?? 'Invalid messages' },
       })
       return
     }
+
+    const { messages } = parsed.data
 
     // Limit conversation history to last 20 messages to control token usage
     const trimmedMessages = messages.slice(-20)

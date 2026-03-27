@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import type { Property, PropertyRiskProfile, InsuranceCostEstimate, InsurabilityStatus } from '@coverguard/shared'
 import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyInsurability } from '@/lib/api'
@@ -69,17 +69,7 @@ export function CompareView() {
   const [searchLoading, setSearchLoading] = useState(false)
   const searchDebounce = useRef<NodeJS.Timeout | null>(null)
 
-  // Read property IDs from URL (supports ?a=&b=&c= and ?ids=id1,id2,id3)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const idsParam = params.get('ids')
-    const ids = idsParam
-      ? idsParam.split(',').slice(0, 3)
-      : [params.get('a'), params.get('b'), params.get('c')]
-    ids.forEach((id, idx) => { if (id) loadProperty(id, idx) })
-  }, [])
-
-  async function loadProperty(id: string, idx: number) {
+  const loadProperty = useCallback(async function loadProperty(id: string, idx: number) {
     setLoading((prev) => { const n = [...prev]; n[idx] = true; return n })
     try {
       const [prop, risk, ins, insur] = await Promise.allSettled([
@@ -102,7 +92,17 @@ export function CompareView() {
     } finally {
       setLoading((prev) => { const n = [...prev]; n[idx] = false; return n })
     }
-  }
+  }, [])
+
+  // Read property IDs from URL (supports ?a=&b=&c= and ?ids=id1,id2,id3)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const idsParam = params.get('ids')
+    const ids = idsParam
+      ? idsParam.split(',').slice(0, 3)
+      : [params.get('a'), params.get('b'), params.get('c')]
+    ids.forEach((id, idx) => { if (id) loadProperty(id, idx) })
+  }, [loadProperty])
 
   function removeSlot(idx: number) {
     setSlots((prev) => { const n = [...prev]; n[idx] = null; return n })
@@ -117,8 +117,10 @@ export function CompareView() {
       setSearchLoading(true)
       try {
         const res = await fetch(`/api/properties/search?address=${encodeURIComponent(query)}`)
+        if (!res.ok) { setSearchResults([]); return }
         const json = await res.json()
-        setSearchResults(json.data?.properties?.slice(0, 5) ?? [])
+        const properties = json.data?.properties
+        setSearchResults(Array.isArray(properties) ? properties.slice(0, 5) : [])
       } catch { setSearchResults([]) }
       finally { setSearchLoading(false) }
     }, 400)

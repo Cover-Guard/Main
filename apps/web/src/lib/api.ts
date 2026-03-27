@@ -134,8 +134,8 @@ export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName'
   return apiFetch('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) })
 }
 
-export async function getSavedProperties() {
-  return apiFetch('/api/auth/me/saved')
+export async function getSavedProperties(): Promise<unknown[]> {
+  return apiFetch<unknown[]>('/api/auth/me/saved')
 }
 
 export async function deleteAccount(): Promise<void> {
