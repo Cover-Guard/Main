@@ -210,9 +210,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          {/* Page content — bottom padding on mobile reserves space for MobileNav */}
-          <main className="flex-1 overflow-hidden bg-[#f2f4f7] pb-[env(safe-area-inset-bottom,0px)] md:pb-0">
-            <div className="h-full overflow-auto pb-16 md:pb-0">
+          <main className="flex-1 overflow-hidden bg-[#f2f4f7]">
+            <div className="h-full overflow-auto">
               {children}
             </div>
           </main>
