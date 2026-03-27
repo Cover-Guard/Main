@@ -24,36 +24,39 @@ app.set('trust proxy', 1) // trust X-Forwarded-For from load balancer / Vercel e
 
 const allowedOrigins = (
   process.env.CORS_ALLOWED_ORIGINS ??
-  'http://localhost:3000,https://coverguard.io,https://www.coverguard.io'
+  'http://localhost:3000,https://coverguard.io,https://www.coverguard.io,https://api.coverguard.io'
 )
   .split(',')
   .map((o) => o.trim())
 
-// CORS must run before helmet so preflight OPTIONS requests get headers
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true)
-      if (allowedOrigins.includes(origin)) return callback(null, true)
-      callback(new Error(`CORS: origin '${origin}' not allowed`))
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  }),
-)
+/** Check if origin is allowed — supports exact match + *.coverguard.io subdomains. */
+function isOriginAllowed(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true
+  // Allow any *.coverguard.io subdomain (Vercel preview deploys, api subdomain, etc.)
+  if (/^https:\/\/[\w-]+\.coverguard\.io$/.test(origin)) return true
+  // Allow Vercel preview URLs for this project
+  if (/^https:\/\/[\w-]+-cover-guard\.vercel\.app$/.test(origin)) return true
+  return false
+}
 
-// Explicitly handle all OPTIONS preflight requests
-app.options('*', cors({
-  origin: (origin, callback) => {
+// CORS must run before helmet so preflight OPTIONS requests get headers
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     if (!origin) return callback(null, true)
-    if (allowedOrigins.includes(origin)) return callback(null, true)
-    callback(new Error(`CORS: origin '${origin}' not allowed`))
+    if (isOriginAllowed(origin)) return callback(null, true)
+    // Don't throw — log and reject without crashing the error handler
+    logger.warn(`CORS: blocked request from origin '${origin}'`)
+    callback(null, false)
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-}))
+}
+
+app.use(cors(corsOptions))
+
+// Explicitly handle all OPTIONS preflight requests
+app.options('*', cors(corsOptions))
 
 app.use(helmet())
 app.use(compression())

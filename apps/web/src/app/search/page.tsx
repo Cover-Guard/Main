@@ -4,6 +4,8 @@ import { SearchBar } from '@/components/search/SearchBar'
 import { SearchResults } from '@/components/search/SearchResults'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { MobileSearchToggle } from '@/components/mobile/MobileSearchToggle'
+import { searchProperties } from '@/lib/api'
+import type { Property } from '@coverguard/shared'
 
 export const metadata: Metadata = { title: 'Search Properties' }
 
@@ -11,13 +13,47 @@ interface SearchPageProps {
   searchParams: Promise<{ q?: string; page?: string }>
 }
 
+/** Parse a free-text query into search params (shared logic). */
+function parseSearchQuery(query: string) {
+  const zipMatch = query.match(/\b(\d{5})\b/)
+  if (zipMatch) return { zip: zipMatch[1], address: query }
+
+  const stateMatch = query.match(/,\s*([A-Z]{2})\s*(\d{5})?$/)
+  if (stateMatch) {
+    return {
+      address: query.split(',')[0]?.trim(),
+      state: stateMatch[1],
+      zip: stateMatch[2],
+    }
+  }
+
+  return { address: query }
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q, page } = await searchParams
 
+  // Fetch once on the server — share results with both the list and the map.
+  let properties: Property[] = []
+  let searchError = false
+  if (q) {
+    try {
+      const params = parseSearchQuery(q)
+      const result = await searchProperties({ ...params, page: parseInt(page ?? '1', 10), limit: 50 })
+      properties = result.properties
+    } catch {
+      searchError = true
+    }
+  }
+
   const resultsList = q ? (
-    <Suspense fallback={<SearchSkeleton />}>
-      <SearchResults query={q} page={parseInt(page ?? '1', 10)} />
-    </Suspense>
+    searchError ? (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
+        Unable to search properties. Please try again.
+      </div>
+    ) : (
+      <SearchResults properties={properties} query={q} />
+    )
   ) : (
     <div className="flex h-48 items-center justify-center">
       <div className="text-center text-gray-400">
@@ -29,7 +65,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   const mapPanel = (
     <Suspense fallback={<MapSkeleton />}>
-      <SearchMapPanel query={q ?? null} />
+      <SearchMapPanel query={q ?? null} properties={properties} />
     </Suspense>
   )
 
@@ -61,19 +97,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   )
 }
 
-async function SearchMapPanel({ query }: { query: string | null }) {
+async function SearchMapPanel({ query, properties }: { query: string | null; properties: Property[] }) {
   const { SearchMapClient } = await import('@/components/map/SearchMapClient')
-  return <SearchMapClient query={query} />
-}
-
-function SearchSkeleton() {
-  return (
-    <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="card h-28 animate-pulse bg-gray-100" />
-      ))}
-    </div>
-  )
+  return <SearchMapClient query={query} initialProperties={properties} />
 }
 
 function MapSkeleton() {
