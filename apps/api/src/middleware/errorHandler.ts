@@ -2,12 +2,22 @@ import type { Request, Response, NextFunction } from 'express'
 import { logger } from '../utils/logger'
 import { ZodError } from 'zod'
 
+/** Type guard for Prisma known request errors (avoids import issues with generated client). */
+function isPrismaKnownError(err: unknown): err is Error & { code: string } {
+  return err instanceof Error && err.name === 'PrismaClientKnownRequestError' && 'code' in err
+}
+
+function isPrismaValidationError(err: unknown): err is Error {
+  return err instanceof Error && err.name === 'PrismaClientValidationError'
+}
+
 export function errorHandler(
   err: unknown,
   _req: Request,
   res: Response,
   _next: NextFunction
 ): void {
+  // Zod validation errors → 400
   if (err instanceof ZodError) {
     res.status(400).json({
       success: false,
@@ -20,6 +30,50 @@ export function errorHandler(
     return
   }
 
+  // Prisma: known request errors
+  if (isPrismaKnownError(err)) {
+    // Record not found → 404
+    if (err.code === 'P2025') {
+      logger.warn('Record not found: %s', err.message)
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'The requested resource was not found' },
+      })
+      return
+    }
+
+    // Unique constraint violation → 409
+    if (err.code === 'P2002') {
+      logger.warn('Unique constraint violation: %s', err.message)
+      res.status(409).json({
+        success: false,
+        error: { code: 'CONFLICT', message: 'A record with that identifier already exists' },
+      })
+      return
+    }
+
+    // Foreign key constraint failure → 400
+    if (err.code === 'P2003') {
+      logger.warn('Foreign key constraint failed: %s', err.message)
+      res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_REFERENCE', message: 'Referenced record does not exist' },
+      })
+      return
+    }
+  }
+
+  // Prisma: validation error → 400
+  if (isPrismaValidationError(err)) {
+    logger.warn('Prisma validation error: %s', err.message)
+    res.status(400).json({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'Invalid data provided' },
+    })
+    return
+  }
+
+  // Generic Error → 500
   if (err instanceof Error) {
     logger.error(err.message, { stack: err.stack })
     res.status(500).json({

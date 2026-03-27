@@ -12,6 +12,19 @@ import type { Request, Response } from 'express'
 
 export const propertiesRouter = Router()
 
+// ─── Property ID param validation ────────────────────────────────────────────
+
+propertiesRouter.param('id', (req, res, next, id) => {
+  if (!id || id === 'undefined' || id === 'null') {
+    res.status(400).json({
+      success: false,
+      error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
+    })
+    return
+  }
+  next()
+})
+
 // ─── Cache-Control helper ─────────────────────────────────────────────────────
 
 /** CDN-cacheable data — `s-maxage` is honoured by CDNs (Vercel Edge, CloudFront, etc.)

@@ -21,7 +21,11 @@ export function SavePropertyButton({ propertyId, className = '' }: SavePropertyB
         const arr = list as Array<{ propertyId: string }>
         setSaved(arr.some((s) => s.propertyId === propertyId))
       })
-      .catch(() => {})
+      .catch(() => {
+        // Unable to check saved status — default to unsaved.
+        // Auth-required endpoint will fail for logged-out users; that's expected.
+        setSaved(false)
+      })
       .finally(() => setLoading(false))
   }, [propertyId])
 

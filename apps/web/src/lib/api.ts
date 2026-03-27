@@ -34,20 +34,37 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers = await getAuthHeaders()
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-      ...options?.headers,
-    },
-  })
 
-  const json = await res.json()
-  if (!res.ok || !json.success) {
-    throw new Error(json.error?.message ?? `API error ${res.status}`)
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+        ...options?.headers,
+      },
+    })
+  } catch (err) {
+    throw new Error(
+      err instanceof Error && err.name === 'AbortError'
+        ? 'Request timed out. Please try again.'
+        : 'Network error. Please check your connection and try again.',
+    )
   }
-  return (json as ApiResponse<T>).data
+
+  let json: Record<string, unknown>
+  try {
+    json = await res.json()
+  } catch {
+    throw new Error(`Server returned an invalid response (${res.status})`)
+  }
+
+  if (!res.ok || !json.success) {
+    const errorObj = json.error as { message?: string } | undefined
+    throw new Error(errorObj?.message ?? `Request failed (${res.status})`)
+  }
+  return (json as unknown as ApiResponse<T>).data
 }
 
 // ─── Properties ───────────────────────────────────────────────────────────────

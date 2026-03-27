@@ -67,6 +67,7 @@ export function CompareView() {
   const [search, setSearch] = useState<{ idx: number; query: string } | null>(null)
   const [searchResults, setSearchResults] = useState<Property[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const searchDebounce = useRef<NodeJS.Timeout | null>(null)
 
   const loadProperty = useCallback(async function loadProperty(id: string, idx: number) {
@@ -111,18 +112,27 @@ export function CompareView() {
   async function handleSearchChange(query: string) {
     if (!search) return
     setSearch({ ...search, query })
+    setSearchError(null)
     if (searchDebounce.current) clearTimeout(searchDebounce.current)
     if (!query.trim()) { setSearchResults([]); return }
     searchDebounce.current = setTimeout(async () => {
       setSearchLoading(true)
       try {
         const res = await fetch(`/api/properties/search?address=${encodeURIComponent(query)}`)
-        if (!res.ok) { setSearchResults([]); return }
+        if (!res.ok) {
+          setSearchResults([])
+          setSearchError('Search failed. Please try again.')
+          return
+        }
         const json = await res.json()
         const properties = json.data?.properties
         setSearchResults(Array.isArray(properties) ? properties.slice(0, 5) : [])
-      } catch { setSearchResults([]) }
-      finally { setSearchLoading(false) }
+      } catch {
+        setSearchResults([])
+        setSearchError('Network error. Check your connection.')
+      } finally {
+        setSearchLoading(false)
+      }
     }, 400)
   }
 
@@ -200,6 +210,7 @@ export function CompareView() {
                     />
                   </div>
                   {searchLoading && <p className="text-xs text-gray-400 mt-2 px-1">Searching…</p>}
+                  {searchError && <p className="text-xs text-red-500 mt-2 px-1">{searchError}</p>}
                   {searchResults.length > 0 && (
                     <div className="mt-1.5 space-y-1">
                       {searchResults.map((p) => (

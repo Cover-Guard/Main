@@ -66,31 +66,58 @@ export default function AgentRegisterPage() {
 
   async function onSubmit(data: FormData) {
     setError(null)
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    })
-    const json = await res.json()
-    if (!json.success) { setError(json.error?.message ?? 'Registration failed'); return }
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
 
-    const supabase = createClient()
-    await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
-    router.push('/dashboard')
-    router.refresh()
+      let json: Record<string, unknown>
+      try {
+        json = await res.json()
+      } catch {
+        setError('Server returned an invalid response. Please try again.')
+        return
+      }
+
+      if (!json.success) {
+        const errorObj = json.error as { message?: string } | undefined
+        setError(errorObj?.message ?? 'Registration failed')
+        return
+      }
+
+      const supabase = createClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
+      if (signInError) {
+        setError('Account created but sign-in failed. Please sign in manually.')
+        router.push('/agents/login')
+        return
+      }
+
+      router.push('/dashboard')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    }
   }
 
   async function signUpWithGoogle() {
     setError(null)
     setOauthLoading(true)
-    const supabase = createClient()
-    const redirectTo =
-      `${window.location.origin}/api/auth/callback?next=/dashboard&role=${role}`
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo },
-    })
-    if (error) { setError(error.message); setOauthLoading(false) }
+    try {
+      const supabase = createClient()
+      const redirectTo =
+        `${window.location.origin}/api/auth/callback?next=/dashboard&role=${role}`
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      })
+      if (error) { setError(error.message); setOauthLoading(false) }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start Google sign-in.')
+      setOauthLoading(false)
+    }
   }
 
   return (
