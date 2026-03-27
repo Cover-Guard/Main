@@ -69,11 +69,11 @@ jobs:
           echo "SUPABASE_PROJECT_ID length: ${#SUPABASE_PROJECT_ID}"
           echo "SUPABASE_DB_PASSWORD length: ${#SUPABASE_DB_PASSWORD}"
           echo "SUPABASE_DB_REGION value: ${SUPABASE_DB_REGION}"
-          echo "Pooler host would be: aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          echo "Pooler host would be: aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
 
       - name: Verify database connectivity
         run: |
-          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DIRECT_HOST="db.${SUPABASE_PROJECT_ID}.supabase.co"
           MAX_RETRIES=4
           DELAY=2
@@ -115,7 +115,7 @@ jobs:
         id: db-urls
         run: |
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
-          POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
           echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
           echo "direct_url=postgresql://postgres:${ENCODED_PW}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres" >> $GITHUB_OUTPUT
