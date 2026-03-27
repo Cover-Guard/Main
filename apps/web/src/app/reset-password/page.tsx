@@ -36,7 +36,13 @@ export default function ResetPasswordPage() {
     // when getSession is called. We just need to confirm a session exists.
     const supabase = createClient()
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setSessionReady(true)
+      if (data.session) {
+        setSessionReady(true)
+      } else {
+        setError('Invalid or expired reset link. Please request a new one.')
+      }
+    }).catch(() => {
+      setError('Could not verify your reset link. Please try again.')
     })
   }, [])
 
@@ -60,7 +66,16 @@ export default function ResetPasswordPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-md text-center">
-          <p className="text-sm text-gray-500">Verifying your reset link…</p>
+          {error ? (
+            <div className="card p-8">
+              <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+              <Link href="/forgot-password" className="text-sm text-brand-600 hover:underline">
+                Request a new reset link
+              </Link>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Verifying your reset link…</p>
+          )}
         </div>
       </div>
     )

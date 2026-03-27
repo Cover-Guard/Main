@@ -143,11 +143,13 @@ export function CompareView() {
     setSearchResults([])
   }
 
-  // Determine winners
-  const scores = slots.map((s) => s?.risk?.overallRiskScore)
-  const costs = slots.map((s) => s?.insurance?.estimatedAnnualTotal)
-  const minScore = scores.filter(Boolean).length > 1 ? Math.min(...(scores.filter(Boolean) as number[])) : null
-  const minCost = costs.filter(Boolean).length > 1 ? Math.min(...(costs.filter(Boolean) as number[])) : null
+  // Determine winners (use != null to keep valid 0 scores/costs)
+  const scores = slots.map((s) => s?.risk?.overallRiskScore ?? null)
+  const costs = slots.map((s) => s?.insurance?.estimatedAnnualTotal ?? null)
+  const validScores = scores.filter((v): v is number => v != null)
+  const validCosts = costs.filter((v): v is number => v != null)
+  const minScore = validScores.length > 1 ? Math.min(...validScores) : null
+  const minCost = validCosts.length > 1 ? Math.min(...validCosts) : null
 
   const PERIL_ROWS = [
     { key: 'flood', label: 'Flood', icon: Droplets },
