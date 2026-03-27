@@ -1,6 +1,8 @@
 // Prisma schema for CoverGuard
 // Database: Supabase (PostgreSQL)
-// Connection via DATABASE_URL environment variable
+// Connection URL is configured via prisma.config.ts (Prisma 7+).
+// See apps/api/prisma.config.ts — uses DIRECT_URL (non-pooled) for CLI operations
+// and falls back to DATABASE_URL (pgBouncer-pooled) at runtime.
 
 generator client {
   provider = "prisma-client"

@@ -83,7 +83,7 @@ CREATE TABLE "risk_profiles" (
     "floodAnnualChance" DOUBLE PRECISION,
     "fireRiskLevel" "RiskLevel" NOT NULL DEFAULT 'LOW',
     "fireRiskScore" INTEGER NOT NULL,
-    "fireHazardZone" TEXT,
+    "firHazardZone" TEXT,
     "wildlandUrbanInterface" BOOLEAN NOT NULL DEFAULT false,
     "nearestFireStation" DOUBLE PRECISION,
     "windRiskLevel" "RiskLevel" NOT NULL DEFAULT 'LOW',
