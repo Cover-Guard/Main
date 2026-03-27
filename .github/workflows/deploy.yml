@@ -246,14 +246,20 @@ jobs:
       - name: Verify deployment health
         if: steps.deploy.outputs.url != ''
         run: |
-          echo "Checking health endpoint..."
-          HEALTH_URL="${{ steps.deploy.outputs.url }}/health"
+          echo "Checking health endpoint on production URL..."
+          # Use production API URL instead of Vercel deployment URL to avoid
+          # Vercel Deployment Protection returning 401 on preview/deploy URLs.
+          HEALTH_URL="${{ env.API_URL }}/health"
+          echo "Health URL: $HEALTH_URL"
+          # Brief wait for edge propagation after production deploy
+          sleep 5
           for i in 1 2 3; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Health check passed"
               break
             fi
+            echo "Attempt $i: got $STATUS, retrying..."
             [ "$i" -lt 3 ] && sleep 5
           done
           if [ "$STATUS" != "200" ]; then
