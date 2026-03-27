@@ -101,9 +101,9 @@ authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
-    // Omit internal fields that shouldn't be exposed to the client
+    // Omit internal Stripe customer ID — return null to match the User type contract
     const { stripeCustomerId: _stripe, ...profile } = user
-    res.json({ success: true, data: profile })
+    res.json({ success: true, data: { ...profile, stripeCustomerId: null } })
   } catch (err) {
     next(err)
   }
@@ -124,7 +124,7 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
     const body = updateProfileSchema.parse(req.body)
     const user = await prisma.user.update({ where: { id: userId }, data: body })
     const { stripeCustomerId: _stripe, ...profile } = user
-    res.json({ success: true, data: profile })
+    res.json({ success: true, data: { ...profile, stripeCustomerId: null } })
   } catch (err) {
     next(err)
   }
@@ -137,7 +137,32 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const saved = await prisma.savedProperty.findMany({
       where: { userId },
-      include: { property: true },
+      include: {
+        property: {
+          select: {
+            id: true,
+            address: true,
+            city: true,
+            state: true,
+            zip: true,
+            county: true,
+            lat: true,
+            lng: true,
+            propertyType: true,
+            yearBuilt: true,
+            squareFeet: true,
+            bedrooms: true,
+            bathrooms: true,
+            lotSize: true,
+            estimatedValue: true,
+            lastSalePrice: true,
+            lastSaleDate: true,
+            parcelId: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
       orderBy: { savedAt: 'desc' },
     })
     res.json({ success: true, data: saved })
@@ -252,7 +277,32 @@ authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const reports = await prisma.propertyReport.findMany({
       where: { userId },
-      include: { property: true },
+      include: {
+        property: {
+          select: {
+            id: true,
+            address: true,
+            city: true,
+            state: true,
+            zip: true,
+            county: true,
+            lat: true,
+            lng: true,
+            propertyType: true,
+            yearBuilt: true,
+            squareFeet: true,
+            bedrooms: true,
+            bathrooms: true,
+            lotSize: true,
+            estimatedValue: true,
+            lastSalePrice: true,
+            lastSaleDate: true,
+            parcelId: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
       orderBy: { generatedAt: 'desc' },
     })
     res.json({ success: true, data: reports })

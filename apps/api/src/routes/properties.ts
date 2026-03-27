@@ -188,12 +188,31 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
     const body = saveSchema.parse(req.body)
     const propertyId = String(req.params.id)
 
+    // Verify property exists before creating the saved-property record
+    const propertyExists = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true },
+    })
+    if (!propertyExists) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+
+    // Check if already saved to determine correct status code
+    const existing = await prisma.savedProperty.findUnique({
+      where: { userId_propertyId: { userId, propertyId } },
+      select: { id: true },
+    })
+
     const saved = await prisma.savedProperty.upsert({
       where: { userId_propertyId: { userId, propertyId } },
       update: { notes: body.notes, tags: body.tags },
       create: { userId, propertyId, notes: body.notes, tags: body.tags },
     })
-    res.json({ success: true, data: saved })
+    res.status(existing ? 200 : 201).json({ success: true, data: saved })
   } catch (err) {
     next(err)
   }
@@ -251,11 +270,25 @@ propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, as
   try {
     const { userId } = req as AuthenticatedRequest
     const body = quoteRequestSchema.parse(req.body)
+    const propertyId = String(req.params.id)
+
+    // Verify property exists before creating the quote request
+    const propertyExists = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true },
+    })
+    if (!propertyExists) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
 
     const quoteRequest = await prisma.quoteRequest.create({
       data: {
         userId,
-        propertyId: String(req.params.id),
+        propertyId,
         carrierId: body.carrierId,
         coverageTypes: body.coverageTypes,
         notes: body.notes ?? null,
