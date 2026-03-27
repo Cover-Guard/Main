@@ -68,20 +68,25 @@ authRouter.post('/register', async (req, res, next) => {
       return
     }
 
-    // Create user profile in our DB
-    const user = await prisma.user.create({
-      data: {
-        id: authData.user.id,
-        email: body.email,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        role: body.role,
-        company: body.company ?? null,
-        licenseNumber: body.licenseNumber ?? null,
-        ndaAcceptedAt: agreedAt,
-        privacyAcceptedAt: agreedAt,
-        termsAcceptedAt: agreedAt,
-      },
+    // Upsert user profile in our DB.  The Supabase handle_new_user trigger may
+    // have already inserted a skeleton row (without agreement timestamps) by the
+    // time this code runs, so we use upsert to fill in / overwrite the record
+    // rather than failing with a P2002 unique constraint violation.
+    const profileData = {
+      email: body.email,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      role: body.role,
+      company: body.company ?? null,
+      licenseNumber: body.licenseNumber ?? null,
+      ndaAcceptedAt: agreedAt,
+      privacyAcceptedAt: agreedAt,
+      termsAcceptedAt: agreedAt,
+    }
+    const user = await prisma.user.upsert({
+      where: { id: authData.user.id },
+      update: profileData,
+      create: { id: authData.user.id, ...profileData },
     })
 
     res.status(201).json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
