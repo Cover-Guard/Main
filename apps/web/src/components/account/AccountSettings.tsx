@@ -125,7 +125,7 @@ function Avatar({ user }: { user: User | null }) {
       ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
       : user?.email?.[0]?.toUpperCase() ?? '?'
 
-  if (user?.avatarUrl) {
+  if (user?.avatarUrl && (user.avatarUrl.startsWith('https://') || user.avatarUrl.startsWith('http://'))) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={user.avatarUrl} alt="Avatar" className="h-14 w-14 rounded-full object-cover ring-2 ring-gray-100" />

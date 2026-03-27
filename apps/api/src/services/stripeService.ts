@@ -49,9 +49,10 @@ export async function getOrCreateStripeCustomer(userId: string): Promise<string>
 
   if (user.stripeCustomerId) return user.stripeCustomerId
 
+  const customerName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
   const customer = await stripe.customers.create({
     email: user.email,
-    name: `${user.firstName} ${user.lastName}`.trim(),
+    name: customerName,
     metadata: { userId: user.id },
   })
 
@@ -73,7 +74,10 @@ export async function getOrCreateStripeCustomer(userId: string): Promise<string>
     await stripe.customers.del(customer.id).catch((err) =>
       logger.warn(`Failed to clean up duplicate Stripe customer ${customer.id}: ${(err as Error).message}`),
     )
-    return existing.stripeCustomerId!
+    if (!existing.stripeCustomerId) {
+      throw new Error(`Stripe customer ID unexpectedly null for user ${userId} after concurrent update`)
+    }
+    return existing.stripeCustomerId
   }
 
   return customer.id
@@ -99,7 +103,10 @@ export async function createCheckoutSession(
     subscription_data: { metadata: { userId } },
   })
 
-  return session.url!
+  if (!session.url) {
+    throw new Error('Stripe checkout session did not return a URL')
+  }
+  return session.url
 }
 
 // ─── Customer Portal ─────────────────────────────────────────────────────────

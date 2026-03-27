@@ -59,7 +59,7 @@ function isSafeRedirectUrl(url: string): boolean {
     // Allow exact matches and *.coverguard.io subdomains (Vercel previews)
     if (allowedHosts.includes(parsed.hostname)) return true
     if (parsed.hostname.endsWith('.coverguard.io')) return true
-    if (parsed.hostname.endsWith('.vercel.app')) return true
+    if (/^[\w-]+-cover-guard\.vercel\.app$/.test(parsed.hostname)) return true
     return false
   } catch {
     return false
