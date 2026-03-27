@@ -13,22 +13,6 @@ import {
 } from 'lucide-react'
 import { SearchMapClient } from '@/components/map/SearchMapClient'
 
-const STATE_RISKS = [
-  { label: 'Severe Risk',   color: 'bg-purple-500', states: 2 },
-  { label: 'High Risk',     color: 'bg-red-500',    states: 9 },
-  { label: 'Elevated Risk', color: 'bg-orange-400', states: 15 },
-  { label: 'Moderate Risk', color: 'bg-yellow-400', states: 17 },
-  { label: 'Low Risk',      color: 'bg-green-500',  states: 7 },
-]
-
-const RISK_LEGEND = [
-  { label: 'Low',      color: '#22c55e' },
-  { label: 'Moderate', color: '#f97316' },
-  { label: 'Elevated', color: '#fb923c' },
-  { label: 'High',     color: '#ef4444' },
-  { label: 'Severe',   color: '#a855f7' },
-]
-
 export function NewCheckPage() {
   const router = useRouter()
   const [address, setAddress] = useState('')
@@ -62,15 +46,14 @@ export function NewCheckPage() {
       {/* Split: search panel + map */}
       <div className="flex flex-1 overflow-hidden" style={{ minHeight: 380 }}>
         {/* Left — Search panel */}
-        <div className="w-[420px] shrink-0 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
-          <div className="p-6 flex flex-col gap-4 flex-1">
+        <div className="w-[380px] shrink-0 bg-white border-r border-gray-200 flex flex-col">
+          <div className="p-5 flex flex-col gap-3">
             <div>
               <p className="font-semibold text-gray-800 text-sm">
                 Search by address or click the map
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Enter a full address, ZIP, city, state, or APN — or click
-                anywhere on the map to drop a pin.
+                Enter a full address, ZIP, city, state, or APN.
               </p>
             </div>
 
@@ -81,7 +64,7 @@ export function NewCheckPage() {
                 <input
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Address, ZIP, city, state, or APN (e.g. …)"
+                  placeholder="Address, ZIP, or APN…"
                   className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
                 />
               </div>
@@ -99,18 +82,18 @@ export function NewCheckPage() {
               <button
                 type="button"
                 onClick={() => setDetailsOpen(!detailsOpen)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
               >
-                <span>Property Details (Optional — Improves Analysis)</span>
+                <span>Property Details (Optional)</span>
                 {detailsOpen ? (
-                  <ChevronUp className="h-4 w-4 text-gray-500" />
+                  <ChevronUp className="h-3.5 w-3.5 text-gray-500" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
                 )}
               </button>
               {detailsOpen && (
-                <div className="p-4 space-y-3">
-                  <div>
+                <div className="px-3 py-2.5 flex gap-2">
+                  <div className="flex-1">
                     <label className="text-xs font-medium text-gray-600 block mb-1">
                       Year Built
                     </label>
@@ -120,21 +103,21 @@ export function NewCheckPage() {
                       max={new Date().getFullYear()}
                       value={yearBuilt}
                       onChange={(e) => setYearBuilt(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                      placeholder="e.g. 1995"
+                      className="w-full text-sm border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                      placeholder="1995"
                     />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <label className="text-xs font-medium text-gray-600 block mb-1">
-                      Square Footage
+                      Sq Ft
                     </label>
                     <input
                       type="number"
                       min="100"
                       value={sqft}
                       onChange={(e) => setSqft(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                      placeholder="e.g. 1800"
+                      className="w-full text-sm border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                      placeholder="1800"
                     />
                   </div>
                 </div>
@@ -142,68 +125,14 @@ export function NewCheckPage() {
             </div>
 
             {/* Accuracy note */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
-              <p className="text-xs text-emerald-700">
-                Full address or APN (e.g. 123-456-789) gives parcel-level
-                accuracy. City/ZIP returns area estimates.
-              </p>
-            </div>
-
-            {/* State Risk Reference */}
-            <div>
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                State Risk Reference
-              </p>
-              <div className="space-y-1.5">
-                {STATE_RISKS.map(({ label, color, states }) => (
-                  <div key={label} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${color} shrink-0`}
-                      />
-                      <span className="text-xs text-gray-700">{label}</span>
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      {states} states
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <p className="text-xs text-gray-400">
+              Full address or APN gives parcel-level accuracy. City/ZIP returns area estimates.
+            </p>
           </div>
         </div>
 
         {/* Right — Map */}
         <div className="flex-1 relative bg-[#e8ecf0] overflow-hidden">
-          {/* Risk filter bar */}
-          <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-1 bg-white/95 backdrop-blur rounded-lg shadow px-2 py-1.5 text-xs font-medium">
-            <span className="text-gray-500 mr-1">FILTER BY RISK</span>
-            <span className="text-gray-400 text-xs ml-auto">1/1 shown</span>
-            {['All', 'Low', 'Moderate', 'Elevated', 'High', 'Severe'].map(
-              (level, i) => (
-                <button
-                  key={level}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
-                    i === 0
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  {i > 0 && (
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{
-                        background: RISK_LEGEND[i - 1]?.color ?? '#999',
-                      }}
-                    />
-                  )}
-                  {level} {i > 0 && <span className="text-gray-400">(0)</span>}
-                </button>
-              )
-            )}
-          </div>
-
-          {/* Interactive map */}
           <div className="absolute inset-0">
             <SearchMapClient query={null} />
           </div>
