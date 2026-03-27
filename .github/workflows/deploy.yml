@@ -119,49 +119,56 @@ jobs:
 
       - name: Build connection URLs
         if: steps.check-db-url.outputs.db_url_set == 'true'
-        id: db-urls
         run: |
           # URL-encode the password to handle special characters (@, #, %, etc.)
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
-          DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
-          DIRECT_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
-
-          # Use heredoc format to safely handle special characters in URLs
+          # Write directly to $GITHUB_ENV so subsequent steps get them as env vars.
+          # This avoids $GITHUB_OUTPUT step-output passing which can corrupt special chars.
           {
-            echo "database_url<<GHEOF"
-            printf '%s\n' "$DATABASE_URL"
+            echo "DATABASE_URL<<GHEOF"
+            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
             echo "GHEOF"
-            echo "direct_url<<GHEOF"
-            printf '%s\n' "$DIRECT_URL"
+            echo "DIRECT_URL<<GHEOF"
+            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
             echo "GHEOF"
-          } >> "$GITHUB_OUTPUT"
+          } >> "$GITHUB_ENV"
 
-          echo "Connection URLs built — pooler host: ${POOLER_HOST}, user: ${DB_USER}"
+          # Log non-sensitive connection details for debugging
+          echo "Connection URLs built — host: ${POOLER_HOST}, user: ${DB_USER}, pw_length: ${#ENCODED_PW}"
 
-      - name: Verify database credentials
+      - name: Debug connection URL (no secrets)
+        if: steps.check-db-url.outputs.db_url_set == 'true'
+        run: |
+          # Parse and display non-sensitive parts of the connection URLs
+          node -e "
+            for (const name of ['DATABASE_URL', 'DIRECT_URL']) {
+              const url = new URL(process.env[name]);
+              console.log(name + ':');
+              console.log('  host:', url.hostname);
+              console.log('  port:', url.port);
+              console.log('  user:', url.username);
+              console.log('  db:  ', url.pathname.slice(1));
+              console.log('  pw_length:', decodeURIComponent(url.password).length);
+            }
+          "
+
+      - name: Verify Prisma can connect
         if: steps.check-db-url.outputs.db_url_set == 'true'
         working-directory: apps/api
         run: |
-          # Quick connectivity + auth check before running migrations
           if ! npx prisma migrate status 2>&1; then
             echo ""
-            echo "::error::Database authentication failed. Verify that the SUPABASE_DB_PASSWORD secret in the 'production' GitHub environment matches the password in your Supabase project (Settings → Database → Connection string)."
+            echo "::error::Database connection/auth failed. Verify SUPABASE_DB_PASSWORD in GitHub environment 'production' matches Supabase Dashboard → Settings → Database."
             exit 1
           fi
-        env:
-          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
 
       - name: Run Prisma migrations
         if: steps.check-db-url.outputs.db_url_set == 'true'
         working-directory: apps/api
         run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
 
   # ── Deploy Web to Vercel ──────────────────────────────────────────────────────
   deploy-web:
@@ -303,32 +310,25 @@ jobs:
           RAW_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
 
       - name: Build DB connection URLs
-        id: api-db-urls
         run: |
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
-          DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
-          DIRECT_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
-
           {
-            echo "database_url<<GHEOF"
-            printf '%s\n' "$DATABASE_URL"
+            echo "DATABASE_URL<<GHEOF"
+            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
             echo "GHEOF"
-            echo "direct_url<<GHEOF"
-            printf '%s\n' "$DIRECT_URL"
+            echo "DIRECT_URL<<GHEOF"
+            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
             echo "GHEOF"
-          } >> "$GITHUB_OUTPUT"
+          } >> "$GITHUB_ENV"
 
-          echo "Connection URLs built — pooler host: ${POOLER_HOST}, user: ${DB_USER}"
+          echo "Connection URLs built — host: ${POOLER_HOST}, user: ${DB_USER}"
 
       - name: Generate Prisma client
         working-directory: apps/api
         run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ steps.api-db-urls.outputs.database_url }}
-          DIRECT_URL: ${{ steps.api-db-urls.outputs.direct_url }}
 
       - name: Build API bundle
         run: npm run build --workspace=@coverguard/api
