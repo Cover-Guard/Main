@@ -126,8 +126,34 @@ jobs:
           POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
-          echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
-          echo "direct_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres" >> $GITHUB_OUTPUT
+          DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
+          DIRECT_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
+
+          # Use heredoc format to safely handle special characters in URLs
+          {
+            echo "database_url<<GHEOF"
+            printf '%s\n' "$DATABASE_URL"
+            echo "GHEOF"
+            echo "direct_url<<GHEOF"
+            printf '%s\n' "$DIRECT_URL"
+            echo "GHEOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Connection URLs built — pooler host: ${POOLER_HOST}, user: ${DB_USER}"
+
+      - name: Verify database credentials
+        if: steps.check-db-url.outputs.db_url_set == 'true'
+        working-directory: apps/api
+        run: |
+          # Quick connectivity + auth check before running migrations
+          if ! npx prisma migrate status 2>&1; then
+            echo ""
+            echo "::error::Database authentication failed. Verify that the SUPABASE_DB_PASSWORD secret in the 'production' GitHub environment matches the password in your Supabase project (Settings → Database → Connection string)."
+            exit 1
+          fi
+        env:
+          DATABASE_URL: ${{ steps.db-urls.outputs.database_url }}
+          DIRECT_URL: ${{ steps.db-urls.outputs.direct_url }}
 
       - name: Run Prisma migrations
         if: steps.check-db-url.outputs.db_url_set == 'true'
@@ -282,8 +308,20 @@ jobs:
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
-          echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
-          echo "direct_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres" >> $GITHUB_OUTPUT
+
+          DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
+          DIRECT_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
+
+          {
+            echo "database_url<<GHEOF"
+            printf '%s\n' "$DATABASE_URL"
+            echo "GHEOF"
+            echo "direct_url<<GHEOF"
+            printf '%s\n' "$DIRECT_URL"
+            echo "GHEOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Connection URLs built — pooler host: ${POOLER_HOST}, user: ${DB_USER}"
 
       - name: Generate Prisma client
         working-directory: apps/api

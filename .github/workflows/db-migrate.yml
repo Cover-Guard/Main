@@ -117,8 +117,19 @@ jobs:
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
-          echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
-          echo "direct_url=postgresql://postgres:${ENCODED_PW}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres" >> $GITHUB_OUTPUT
+          DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
+          DIRECT_URL="postgresql://postgres:${ENCODED_PW}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres"
+
+          {
+            echo "database_url<<GHEOF"
+            printf '%s\n' "$DATABASE_URL"
+            echo "GHEOF"
+            echo "direct_url<<GHEOF"
+            printf '%s\n' "$DIRECT_URL"
+            echo "GHEOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Connection URLs built — pooler host: ${POOLER_HOST}, user: ${DB_USER}"
 
       - name: Show migration status
         working-directory: apps/api
