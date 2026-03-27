@@ -85,6 +85,7 @@ export default function PricingPage() {
 
     const priceId = PRICE_IDS[plan.priceEnvKey]
     if (!priceId) {
+      console.error(`Stripe price env var not configured: ${plan.priceEnvKey}`)
       setError('This plan is not yet available. Please contact sales@coverguard.io.')
       return
     }

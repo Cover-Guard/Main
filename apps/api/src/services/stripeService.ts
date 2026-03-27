@@ -17,7 +17,11 @@ const PRICE_TO_PLAN: Record<string, 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'> = {
 }
 
 function planFromPriceId(priceId: string): 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' {
-  return PRICE_TO_PLAN[priceId] ?? 'INDIVIDUAL'
+  const plan = PRICE_TO_PLAN[priceId]
+  if (!plan) {
+    logger.warn(`Unknown Stripe price ID "${priceId}" — defaulting to INDIVIDUAL`)
+  }
+  return plan ?? 'INDIVIDUAL'
 }
 
 function toDbStatus(
@@ -52,10 +56,26 @@ export async function getOrCreateStripeCustomer(userId: string): Promise<string>
     metadata: { userId: user.id },
   })
 
-  await prisma.user.update({
-    where: { id: userId },
+  // Use a conditional update to avoid a race condition where two concurrent
+  // requests both see stripeCustomerId as null. Only the first one wins;
+  // the second re-reads the now-populated value.
+  const updated = await prisma.user.updateMany({
+    where: { id: userId, stripeCustomerId: null },
     data: { stripeCustomerId: customer.id },
   })
+
+  if (updated.count === 0) {
+    // Another request already set the customer ID — re-read and use that one.
+    // Clean up the duplicate Stripe customer we just created.
+    const existing = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { stripeCustomerId: true },
+    })
+    await stripe.customers.del(customer.id).catch((err) =>
+      logger.warn(`Failed to clean up duplicate Stripe customer ${customer.id}: ${(err as Error).message}`),
+    )
+    return existing.stripeCustomerId!
+  }
 
   return customer.id
 }

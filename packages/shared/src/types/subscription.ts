@@ -1,14 +1,14 @@
 export type SubscriptionStatus =
-  | 'active'
-  | 'trialing'
-  | 'past_due'
-  | 'canceled'
-  | 'unpaid'
-  | 'incomplete'
-  | 'incomplete_expired'
-  | 'paused'
+  | 'ACTIVE'
+  | 'TRIALING'
+  | 'PAST_DUE'
+  | 'CANCELED'
+  | 'UNPAID'
+  | 'INCOMPLETE'
+  | 'INCOMPLETE_EXPIRED'
+  | 'PAUSED'
 
-export type SubscriptionPlan = 'individual' | 'professional' | 'team'
+export type SubscriptionPlan = 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'
 
 export interface Subscription {
   id: string

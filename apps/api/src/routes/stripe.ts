@@ -99,9 +99,16 @@ stripeWebhookRouter.post(
       return
     }
 
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+    if (!webhookSecret) {
+      logger.error('STRIPE_WEBHOOK_SECRET is not configured — rejecting webhook')
+      res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Webhook secret not configured' } })
+      return
+    }
+
     let event: Stripe.Event
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET ?? '')
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret)
     } catch (err) {
       logger.warn(`Stripe webhook signature verification failed: ${(err as Error).message}`)
       res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Invalid signature' } })
@@ -122,9 +129,11 @@ stripeWebhookRouter.post(
       }
     } catch (err) {
       logger.error(`Error handling Stripe event ${event.type}: ${(err as Error).message}`)
+      // Return 500 so Stripe retries the webhook
+      res.status(500).json({ success: false, error: { code: 'WEBHOOK_HANDLER_ERROR', message: 'Failed to process event' } })
+      return
     }
 
-    // Always return 200 to Stripe to acknowledge receipt
     res.json({ received: true })
   },
 )
