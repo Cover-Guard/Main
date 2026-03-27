@@ -26,20 +26,36 @@ jobs:
           cache: 'npm'
       - run: npm ci --workspace=@coverguard/api
 
-      - name: Verify database connectivity
-        id: check-db-url
+      - name: Sanitize Supabase secrets
         run: |
-          # Trim leading/trailing whitespace from secrets (common copy-paste issue)
-          SUPABASE_PROJECT_ID="$(echo "$SUPABASE_PROJECT_ID" | xargs)"
-          SUPABASE_DB_PASSWORD="$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')"
-          SUPABASE_DB_REGION="$(echo "$SUPABASE_DB_REGION" | xargs)"
+          # Trim leading/trailing whitespace from secrets (common copy-paste issue).
+          # Write cleaned values to $GITHUB_ENV so every subsequent step gets them.
+          CLEAN_ID="$(printf '%s' "$RAW_PROJECT_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          CLEAN_PW="$(printf '%s' "$RAW_DB_PASSWORD" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          CLEAN_REGION="$(printf '%s' "$RAW_DB_REGION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
-          # All Supabase DB secrets must be present
-          if [ -z "$SUPABASE_PROJECT_ID" ] || [ -z "$SUPABASE_DB_PASSWORD" ] || [ -z "$SUPABASE_DB_REGION" ]; then
+          if [ -z "$CLEAN_ID" ] || [ -z "$CLEAN_PW" ] || [ -z "$CLEAN_REGION" ]; then
             echo "::error::SUPABASE_PROJECT_ID, SUPABASE_DB_PASSWORD, and/or SUPABASE_DB_REGION secrets are not configured in the 'production' environment. Add these secrets in GitHub Settings → Environments → production → Environment secrets."
             exit 1
           fi
 
+          # Warn if trimming actually changed anything
+          [ "$CLEAN_ID" != "$RAW_PROJECT_ID" ] && echo "::warning::SUPABASE_PROJECT_ID had leading/trailing whitespace — auto-trimmed"
+          [ "$CLEAN_PW" != "$RAW_DB_PASSWORD" ] && echo "::warning::SUPABASE_DB_PASSWORD had leading/trailing whitespace — auto-trimmed"
+          [ "$CLEAN_REGION" != "$RAW_DB_REGION" ] && echo "::warning::SUPABASE_DB_REGION had leading/trailing whitespace — auto-trimmed"
+
+          echo "SUPABASE_PROJECT_ID=${CLEAN_ID}" >> $GITHUB_ENV
+          echo "SUPABASE_DB_PASSWORD=${CLEAN_PW}" >> $GITHUB_ENV
+          echo "SUPABASE_DB_REGION=${CLEAN_REGION}" >> $GITHUB_ENV
+          echo "Project ID length: ${#CLEAN_ID}, Password length: ${#CLEAN_PW}, Region: ${CLEAN_REGION}"
+        env:
+          RAW_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          RAW_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          RAW_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
+      - name: Verify database connectivity
+        id: check-db-url
+        run: |
           # Use the Supabase connection pooler instead of the direct connection
           # (db.*.supabase.co:5432) which is IPv6-only and unreachable from
           # GitHub Actions runners.
@@ -82,53 +98,18 @@ jobs:
             echo "::error::Cannot reach ${POOLER_HOST}:5432 after $MAX_RETRIES attempts from GitHub Actions. Verify that SUPABASE_DB_REGION is correct and the Supabase project is active."
             exit 1
           fi
-        env:
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
-
-      - name: Debug connection string (no secrets)
-        if: steps.check-db-url.outputs.db_url_set == 'true'
-        run: |
-          echo "DATABASE_URL username: postgres.${SUPABASE_PROJECT_ID}"
-          echo "DATABASE_URL host: aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
-          echo "Project ID length: ${#SUPABASE_PROJECT_ID}"
-          echo "Password length: ${#SUPABASE_DB_PASSWORD}"
-          echo "Region: ${SUPABASE_DB_REGION}"
-          # Check for leading/trailing whitespace in secrets
-          TRIMMED_ID=$(echo "$SUPABASE_PROJECT_ID" | tr -d '[:space:]')
-          if [ "$TRIMMED_ID" != "$SUPABASE_PROJECT_ID" ]; then
-            echo "::warning::SUPABASE_PROJECT_ID contains whitespace — remove it from the secret"
-          fi
-          TRIMMED_PW=$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')
-          if [ "$TRIMMED_PW" != "$SUPABASE_DB_PASSWORD" ]; then
-            echo "::warning::SUPABASE_DB_PASSWORD contains whitespace — remove it from the secret"
-          fi
-        env:
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
 
       - name: Build connection URLs
         if: steps.check-db-url.outputs.db_url_set == 'true'
         id: db-urls
         run: |
-          # Trim whitespace from secrets before building URLs
-          SUPABASE_PROJECT_ID="$(echo "$SUPABASE_PROJECT_ID" | xargs)"
-          SUPABASE_DB_PASSWORD="$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')"
-          SUPABASE_DB_REGION="$(echo "$SUPABASE_DB_REGION" | xargs)"
-
           # URL-encode the password to handle special characters (@, #, %, etc.)
-          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD.trim()))")
+          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
           echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
           echo "direct_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres" >> $GITHUB_OUTPUT
-        env:
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
 
       - name: Run Prisma migrations
         if: steps.check-db-url.outputs.db_url_set == 'true'
@@ -255,23 +236,27 @@ jobs:
       - name: Build shared package
         run: npm run build --workspace=@coverguard/shared
 
+      - name: Sanitize Supabase secrets
+        run: |
+          CLEAN_ID="$(printf '%s' "$RAW_PROJECT_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          CLEAN_PW="$(printf '%s' "$RAW_DB_PASSWORD" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          CLEAN_REGION="$(printf '%s' "$RAW_DB_REGION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          echo "SUPABASE_PROJECT_ID=${CLEAN_ID}" >> $GITHUB_ENV
+          echo "SUPABASE_DB_PASSWORD=${CLEAN_PW}" >> $GITHUB_ENV
+          echo "SUPABASE_DB_REGION=${CLEAN_REGION}" >> $GITHUB_ENV
+        env:
+          RAW_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          RAW_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          RAW_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+
       - name: Build DB connection URLs
         id: api-db-urls
         run: |
-          # Trim whitespace from secrets before building URLs
-          SUPABASE_PROJECT_ID="$(echo "$SUPABASE_PROJECT_ID" | xargs)"
-          SUPABASE_DB_PASSWORD="$(echo "$SUPABASE_DB_PASSWORD" | tr -d '[:space:]')"
-          SUPABASE_DB_REGION="$(echo "$SUPABASE_DB_REGION" | xargs)"
-
-          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD.trim()))")
+          ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-0-${SUPABASE_DB_REGION}.pooler.supabase.com"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
           echo "database_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true" >> $GITHUB_OUTPUT
           echo "direct_url=postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres" >> $GITHUB_OUTPUT
-        env:
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
 
       - name: Generate Prisma client
         working-directory: apps/api
