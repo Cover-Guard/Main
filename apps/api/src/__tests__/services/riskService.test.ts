@@ -87,7 +87,7 @@ const mockRiskProfile = (overrides: Partial<Record<string, unknown>> = {}) => ({
   floodAnnualChance: null,
   fireRiskLevel: 'LOW',
   fireRiskScore: 15,
-  firHazardZone: null,
+  fireHazardZone: null,
   wildlandUrbanInterface: false,
   nearestFireStation: null,
   windRiskLevel: 'LOW',
@@ -148,7 +148,7 @@ describe('getOrComputeRiskProfile', () => {
     } as any)
 
     mockFetchFlood.mockResolvedValue({ floodZone: 'X', inSpecialFloodHazardArea: false })
-    mockFetchFire.mockResolvedValue({ firHazardSeverityZone: null, wildlandUrbanInterface: false })
+    mockFetchFire.mockResolvedValue({ fireHazardSeverityZone: null, wildlandUrbanInterface: false })
     mockFetchEq.mockResolvedValue({ seismicZone: 'A' })
     mockFetchWind.mockResolvedValue({ hurricaneRisk: false, tornadoRisk: false, hailRisk: false })
     mockFetchCrime.mockResolvedValue({ violentCrimeIndex: 380, propertyCrimeIndex: 2110 })
@@ -177,7 +177,7 @@ describe('getOrComputeRiskProfile', () => {
 
     // V flood zone → floodScore=95
     mockFetchFlood.mockResolvedValue({ floodZone: 'VE', inSpecialFloodHazardArea: true })
-    mockFetchFire.mockResolvedValue({ firHazardSeverityZone: null, wildlandUrbanInterface: false })
+    mockFetchFire.mockResolvedValue({ fireHazardSeverityZone: null, wildlandUrbanInterface: false })
     mockFetchEq.mockResolvedValue({ seismicZone: 'A' })
     mockFetchWind.mockResolvedValue({ hurricaneRisk: false, tornadoRisk: false, hailRisk: false })
     mockFetchCrime.mockResolvedValue({ violentCrimeIndex: 100, propertyCrimeIndex: 500 })

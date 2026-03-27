@@ -23,7 +23,7 @@ export function RiskBreakdown({ profile }: RiskBreakdownProps) {
       title: 'Fire Risk',
       factor: profile.fire,
       extras: [
-        { label: 'Hazard Zone', value: profile.fire.firHazardSeverityZone },
+        { label: 'Hazard Zone', value: profile.fire.fireHazardSeverityZone },
         { label: 'Wildland-Urban Interface', value: profile.fire.wildlandUrbanInterface ? 'Yes' : 'No' },
         { label: 'Nearest Fire Station', value: profile.fire.nearestFireStation != null ? `${profile.fire.nearestFireStation} mi` : null },
       ],
