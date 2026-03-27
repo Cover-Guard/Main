@@ -45,20 +45,30 @@ export async function GET(request: Request) {
 
   let redirectPath = next
 
-  if (code) {
-    const {
-      data: { user },
-      error: exchangeError,
-    } = await supabase.auth.exchangeCodeForSession(code)
+  console.log('[auth/callback] code present:', !!code, '| origin:', origin, '| next:', next)
 
-    if (exchangeError) {
-      console.error('OAuth code exchange failed:', exchangeError.message)
-      const errorUrl = new URL('/login', origin)
-      errorUrl.searchParams.set('error', 'OAuth sign-in failed. Please try again.')
-      return NextResponse.redirect(errorUrl.toString())
-    }
+  if (!code) {
+    console.error('[auth/callback] No code parameter — Supabase did not forward the auth code. Check Redirect URLs in Supabase Auth settings.')
+    const errorUrl = new URL('/login', origin)
+    errorUrl.searchParams.set('error', 'Sign-in failed: no authorization code received.')
+    return NextResponse.redirect(errorUrl.toString())
+  }
 
-    if (user) {
+  const {
+    data: { user },
+    error: exchangeError,
+  } = await supabase.auth.exchangeCodeForSession(code)
+
+  console.log('[auth/callback] exchange result — user:', user?.id ?? 'null', '| error:', exchangeError?.message ?? 'none', '| cookies to forward:', cookiesToForward.length)
+
+  if (exchangeError) {
+    console.error('[auth/callback] OAuth code exchange failed:', exchangeError.message)
+    const errorUrl = new URL('/login', origin)
+    errorUrl.searchParams.set('error', 'OAuth sign-in failed. Please try again.')
+    return NextResponse.redirect(errorUrl.toString())
+  }
+
+  if (user) {
       // If a role was forwarded from the agent registration page, write it
       // into the user's auth metadata.  The handle_user_updated trigger will
       // then propagate it to public.users automatically.
@@ -103,6 +113,7 @@ export async function GET(request: Request) {
 
   // Build the redirect response and attach all session cookies so the
   // browser stores them before following the redirect.
+  console.log('[auth/callback] redirecting to:', `${origin}${redirectPath}`, '| forwarding', cookiesToForward.length, 'cookies')
   const redirectResponse = NextResponse.redirect(`${origin}${redirectPath}`)
   for (const { name, value, options } of cookiesToForward) {
     redirectResponse.cookies.set(name, value, options as Record<string, string>)
