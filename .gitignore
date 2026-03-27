@@ -45,5 +45,8 @@ prisma/dev.db-journal
 # Vercel
 .vercel/
 
+# Supabase local state
+.supabase/
+
 # Misc
 .eslintcache
