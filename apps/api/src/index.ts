@@ -40,7 +40,7 @@ function isOriginAllowed(origin: string): boolean {
 
 // CORS must run before helmet so preflight OPTIONS requests get headers
 const corsOptions = {
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     if (!origin) return callback(null, true)
     if (isOriginAllowed(origin)) return callback(null, true)
     // Don't throw — log and reject without crashing the error handler
