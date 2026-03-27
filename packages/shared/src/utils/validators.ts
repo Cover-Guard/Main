@@ -1,3 +1,7 @@
+import { US_STATES } from '../constants'
+
+const US_STATE_CODES: Set<string> = new Set(US_STATES.map((s) => s.code))
+
 export function isValidZip(zip: string): boolean {
   return /^\d{5}(-\d{4})?$/.test(zip)
 }
@@ -7,13 +11,7 @@ export function isValidEmail(email: string): boolean {
 }
 
 export function isValidState(state: string): boolean {
-  const states = [
-    'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
-    'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-    'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
-    'VA','WA','WV','WI','WY','DC',
-  ]
-  return states.includes(state.toUpperCase())
+  return US_STATE_CODES.has(state.toUpperCase())
 }
 
 export function isValidLatLng(lat: number, lng: number): boolean {

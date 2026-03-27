@@ -102,10 +102,11 @@ export async function getOrComputeRiskProfile(propertyId: string): Promise<Prope
       windData.hailRisk ?? false,
     )
     const earthquakeScore = computeEarthquakeScore(earthquakeData.seismicZone ?? undefined)
-    const crimeScore = computeCrimeScore(
-      crimeData.violentCrimeIndex ?? 380,
-      crimeData.propertyCrimeIndex ?? 2110,
-    )
+    // Use 0 (unknown) when crime data is unavailable, rather than defaulting
+    // to national averages which would mask missing data as moderate risk.
+    const crimeScore = (crimeData.violentCrimeIndex != null && crimeData.propertyCrimeIndex != null)
+      ? computeCrimeScore(crimeData.violentCrimeIndex, crimeData.propertyCrimeIndex)
+      : 0
 
     const overallScore = Math.min(
       100,
@@ -145,8 +146,8 @@ export async function getOrComputeRiskProfile(propertyId: string): Promise<Prope
       seismicZone: earthquakeData.seismicZone ?? null,
       crimeRiskLevel: scoreToLevel(crimeScore),
       crimeRiskScore: crimeScore,
-      violentCrimeIndex: crimeData.violentCrimeIndex ?? 380,
-      propertyCrimeIndex: crimeData.propertyCrimeIndex ?? 2110,
+      violentCrimeIndex: crimeData.violentCrimeIndex ?? 0,
+      propertyCrimeIndex: crimeData.propertyCrimeIndex ?? 0,
       nationalAvgDiff: crimeData.nationalAverageDiff ?? 0,
       expiresAt,
     }
@@ -204,7 +205,7 @@ function prismaProfileToDto(
       lastUpdated: now,
       fireHazardSeverityZone: p.fireHazardZone,
       // Deprecated alias for backward compatibility with older clients
-      firHazardSeverityZone: p.fireHazardZone,
+      fireHazardSeverityZone_deprecated: p.fireHazardZone,
       wildlandUrbanInterface: p.wildlandUrbanInterface,
       nearestFireStation: p.nearestFireStation,
       vegetationDensity: null,

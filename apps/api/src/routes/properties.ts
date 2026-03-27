@@ -43,9 +43,9 @@ function setCacheHeaders(res: Response, sMaxAge: number, staleWhileRevalidate = 
 const searchSchema = z.object({
   address: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().length(2).optional(),
+  state: z.string().length(2).regex(/^[A-Z]{2}$/, 'Invalid state code').optional(),
   zip: z.string().regex(/^\d{5}$/).optional(),
-  parcelId: z.string().optional(),
+  parcelId: z.string().min(1).max(50).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
@@ -178,7 +178,7 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
 // ─── Save property (authenticated) ───────────────────────────────────────────
 
 const saveSchema = z.object({
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(500).transform((s) => s.trim()).optional(),
   tags: z.array(z.string()).max(10).default([]),
 })
 

@@ -47,12 +47,12 @@ export function QuoteRequestModal({ carrier, propertyId, propertyAddress, onClos
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true" aria-labelledby="quote-modal-title">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
-            <h2 className="font-bold text-gray-900">Request Binding Quote</h2>
+            <h2 id="quote-modal-title" className="font-bold text-gray-900">Request Binding Quote</h2>
             <p className="text-xs text-gray-500">{carrier.name} · {propertyAddress}</p>
           </div>
           <button onClick={onClose} className="btn-ghost p-2 text-gray-400">
