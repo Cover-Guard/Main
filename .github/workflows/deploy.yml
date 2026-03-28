@@ -215,25 +215,6 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
 
-      - name: Ensure shell and npm accessible to child processes
-        run: |
-          # Vercel CLI uses Node child_process.spawn('sh', ...) to run
-          # install/build commands. Symlink core binaries into /usr/local/bin
-          # (always on PATH) so they resolve regardless of how the Vercel CLI
-          # constructs child process environments.
-          sudo ln -sf /bin/sh /usr/local/bin/sh
-          sudo ln -sf /usr/bin/env /usr/local/bin/env
-          NPM_BIN="$(which npm)"
-          NODE_BIN="$(which node)"
-          sudo ln -sf "$NPM_BIN" /usr/local/bin/npm
-          sudo ln -sf "$NODE_BIN" /usr/local/bin/node
-          # Also add /bin and /usr/bin to GITHUB_PATH as a safety net
-          echo "/bin" >> $GITHUB_PATH
-          echo "/usr/bin" >> $GITHUB_PATH
-          echo "$(dirname "$NPM_BIN")" >> $GITHUB_PATH
-          # Verify all binaries resolve
-          which sh node npm env
-
       - name: Build Vercel output
         working-directory: apps/api
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
