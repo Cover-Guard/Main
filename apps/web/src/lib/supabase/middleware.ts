@@ -40,7 +40,7 @@ export async function updateSession(request: NextRequest) {
   // Routes that are always publicly accessible (no login required).
   // Note: /api/* routes are excluded from the middleware matcher entirely,
   // so /api/auth/callback does not need to be listed here.
-  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/pricing', '/search', '/onboarding']
+  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/pricing', '/search', '/onboarding', '/get-started']
   const isPublic = pathname === '/' || publicPrefixes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   const SUB_COOKIE = 'cg_sub_active'
