@@ -31,8 +31,15 @@ if (!hasDbUrl) {
   missingEnv.unshift('DATABASE_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL)')
 }
 if (missingEnv.length > 0) {
-  console.error(`FATAL: Missing required environment variables: ${missingEnv.join(', ')}`)
-  process.exit(1)
+  const msg = `FATAL: Missing required environment variables: ${missingEnv.join(', ')}`
+  if (process.env.VERCEL === '1') {
+    // In serverless mode, let Express boot so routes return proper JSON errors
+    // instead of crashing the function and serving an HTML 500 page.
+    console.error(msg)
+  } else {
+    console.error(msg)
+    process.exit(1)
+  }
 }
 
 const app = express()
