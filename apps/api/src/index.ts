@@ -16,6 +16,33 @@ import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
 import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
+// ─── Runtime env var normalization ───────────────────────────────────────────
+// The Supabase Vercel Integration names env vars with a project-specific prefix
+// (e.g. COVERGUARD_2_SUPABASE_URL instead of SUPABASE_URL).
+// scripts/normalize-env.sh handles this at build time, but serverless functions
+// get the raw env vars at runtime. Mirror the same logic here.
+{
+  const label = process.env.SUPABASE_ENV_LABEL ?? 'COVERGUARD_2'
+  const vars = [
+    'DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLED',
+    'DIRECT_URL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+  ]
+  for (const name of vars) {
+    if (process.env[name]) continue
+    // Check prefix convention: LABEL_VARNAME
+    const prefixed = `${label}_${name}`
+    if (process.env[prefixed]) {
+      process.env[name] = process.env[prefixed]
+      continue
+    }
+    // Check suffix convention: VARNAME_LABEL
+    const suffixed = `${name}_${label}`
+    if (process.env[suffixed]) {
+      process.env[name] = process.env[suffixed]
+    }
+  }
+}
+
 // ─── Startup environment validation ──────────────────────────────────────────
 
 // The Supabase Vercel Integration provides POSTGRES_PRISMA_URL / POSTGRES_URL
