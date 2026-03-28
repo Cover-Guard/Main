@@ -37,7 +37,8 @@ clientsRouter.get('/', async (req: Request, res, next) => {
     const clients = await prisma.client.findMany({
       where: { agentId: userId },
       orderBy: { createdAt: 'desc' },
-      take: 200, // safety cap — prevents unbounded result sets
+      take: limit,
+      skip: (page - 1) * limit,
       include: { _count: { select: { savedProperties: true } } },
     })
     // Flatten _count into savedPropertyCount to match the Client DTO
@@ -82,17 +83,16 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
         data: body,
       })
       if (result.count === 0) return null
-      return tx.client.findFirst({ where: { id, agentId: userId } })
+      return tx.client.findFirst({
+        where: { id, agentId: userId },
+        include: { _count: { select: { savedProperties: true } } },
+      })
     })
     if (!updated) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
       return
     }
 
-    const updated = await prisma.client.findFirstOrThrow({
-      where: { id, agentId: userId },
-      include: { _count: { select: { savedProperties: true } } },
-    })
     const { _count, ...client } = updated
     res.json({ success: true, data: { ...client, savedPropertyCount: _count.savedProperties } })
   } catch (err) { next(err) }
