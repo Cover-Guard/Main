@@ -39,6 +39,13 @@ jest.mock('../../integrations/riskData', () => ({
   fetchEarthquakeRisk: jest.fn(),
   fetchWindRisk: jest.fn(),
   fetchCrimeRisk: jest.fn(),
+  fetchElevation: jest.fn().mockResolvedValue(null),
+  fetchHistoricalEarthquakes: jest.fn().mockResolvedValue({ count: 0, maxMagnitude: null, nearestDistanceKm: null }),
+  fetchLandfireFuelModel: jest.fn().mockResolvedValue({ fuelModel: null, vegetationDensity: null }),
+  fetchFemaNri: jest.fn().mockResolvedValue(null),
+  fetchSinkholeRisk: jest.fn().mockResolvedValue({ susceptibility: null, karstTerrain: false }),
+  fetchDamHazard: jest.fn().mockResolvedValue({ nearbyHighHazardDams: 0, nearestDamCondition: null, nearestDamDistanceKm: null }),
+  fetchSuperfundProximity: jest.fn().mockResolvedValue({ nearbySites: 0, nearestSiteDistanceKm: null, nearestSiteName: null }),
 }))
 
 import { prisma } from '../../utils/prisma'
