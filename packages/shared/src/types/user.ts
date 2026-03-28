@@ -38,6 +38,27 @@ export interface PropertyReport {
 
 export type ReportType = 'FULL' | 'RISK_SUMMARY' | 'INSURANCE_ESTIMATE'
 
+// ─── Property Report Checklists ──────────────────────────────────────────────
+
+export type ChecklistType = 'INSPECTION' | 'NEW_BUYER' | 'AGENT'
+
+export interface ChecklistItem {
+  id: string
+  label: string
+  checked: boolean
+}
+
+export interface PropertyChecklist {
+  id: string
+  userId: string
+  propertyId: string
+  checklistType: ChecklistType
+  title: string
+  items: ChecklistItem[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Client {
   id: string
   agentId: string

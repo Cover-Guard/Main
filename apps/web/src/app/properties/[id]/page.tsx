@@ -10,6 +10,7 @@ import { PropertyDetails } from '@/components/property/PropertyDetails'
 import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
+import { PropertyChecklists } from '@/components/property/PropertyChecklists'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
@@ -83,8 +84,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   )
 
   const detailsPanel = (
-    <div className="p-4">
+    <div className="p-4 space-y-4">
       <PropertyDetails property={prop} />
+      <PropertyChecklists propertyId={prop.id} />
     </div>
   )
 
@@ -168,6 +170,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                 </>
               )}
               <PropertyDetails property={prop} />
+              <PropertyChecklists propertyId={prop.id} />
             </div>
 
             {/* Right sidebar */}
