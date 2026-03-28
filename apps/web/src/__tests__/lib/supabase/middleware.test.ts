@@ -139,7 +139,7 @@ function mockUnauthenticated() {
   mockGetUser.mockResolvedValue({ data: { user: null } })
 }
 
-function mockAuthenticated(user: Record<string, unknown> = { id: 'user-1', email: 'test@test.com' }) {
+function mockAuthenticated(user: Record<string, unknown> = { id: 'user-1', email: 'test@test.com', user_metadata: { termsAcceptedAt: '2025-01-01' } }) {
   mockGetUser.mockResolvedValue({ data: { user } })
 }
 
@@ -245,7 +245,6 @@ describe('updateSession', () => {
       '/privacy',
       '/pricing',
       '/search',
-      '/onboarding',
       '/get-started',
     ]
 
@@ -286,9 +285,6 @@ describe('updateSession', () => {
       '/search/results',
       '/search/map',
       '/search/advanced',
-      '/onboarding/step1',
-      '/onboarding/step2',
-      '/onboarding/terms',
       '/get-started/agent',
       '/get-started/individual',
       '/get-started/choose',
@@ -478,6 +474,8 @@ describe('updateSession', () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe('authenticated users on non-auth public routes', () => {
+    // /onboarding is excluded — authenticated users with termsAcceptedAt are
+    // redirected to /dashboard by the already-onboarded gate.
     const nonAuthPublicRoutes = [
       '/',
       '/search',
@@ -488,7 +486,6 @@ describe('updateSession', () => {
       '/privacy',
       '/forgot-password',
       '/reset-password',
-      '/onboarding',
       '/get-started',
     ]
 
@@ -697,8 +694,10 @@ describe('updateSession', () => {
       }
     })
 
-    // Subscription-exempt protected routes
-    const subscriptionExemptProtected = ['/pricing', '/account', '/onboarding']
+    // Subscription-exempt protected routes. /onboarding is excluded because
+    // already-onboarded users (with termsAcceptedAt) get redirected to /dashboard
+    // before the subscription gate runs.
+    const subscriptionExemptProtected = ['/pricing', '/account']
 
     it.each(subscriptionExemptProtected)('%s is exempt from subscription check (exempted)', async (route) => {
       mockAuthenticated()
@@ -849,15 +848,17 @@ describe('updateSession', () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe('various authenticated user shapes', () => {
+    // All user shapes must include user_metadata.termsAcceptedAt to pass
+    // the onboarding gate, otherwise they'd be redirected to /onboarding.
     const userShapes: Array<[string, Record<string, unknown>]> = [
-      ['minimal user', { id: 'u1' }],
-      ['agent user', { id: 'u2', role: 'AGENT' }],
-      ['consumer user', { id: 'u3', role: 'CONSUMER' }],
-      ['admin user', { id: 'u4', role: 'ADMIN' }],
-      ['user with email', { id: 'u5', email: 'test@test.com' }],
-      ['user with metadata', { id: 'u6', user_metadata: { name: 'Test' } }],
-      ['user with terms', { id: 'u7', termsAcceptedAt: '2025-01-01' }],
-      ['user with provider', { id: 'u8', app_metadata: { provider: 'google' } }],
+      ['minimal user', { id: 'u1', user_metadata: { termsAcceptedAt: '2025-01-01' } }],
+      ['agent user', { id: 'u2', role: 'AGENT', user_metadata: { termsAcceptedAt: '2025-01-01' } }],
+      ['consumer user', { id: 'u3', role: 'CONSUMER', user_metadata: { termsAcceptedAt: '2025-01-01' } }],
+      ['admin user', { id: 'u4', role: 'ADMIN', user_metadata: { termsAcceptedAt: '2025-01-01' } }],
+      ['user with email', { id: 'u5', email: 'test@test.com', user_metadata: { termsAcceptedAt: '2025-01-01' } }],
+      ['user with metadata', { id: 'u6', user_metadata: { name: 'Test', termsAcceptedAt: '2025-01-01' } }],
+      ['user with terms', { id: 'u7', user_metadata: { termsAcceptedAt: '2025-01-01' } }],
+      ['user with provider', { id: 'u8', app_metadata: { provider: 'google' }, user_metadata: { termsAcceptedAt: '2025-01-01' } }],
     ]
 
     // All these users should be redirected from /login to /dashboard
@@ -893,7 +894,6 @@ describe('updateSession', () => {
       '/get-started/a/b/c',
       '/login/a/b',
       '/register/a/b',
-      '/onboarding/a/b/c',
       '/pricing/a/b',
       '/terms/a/b/c',
       '/privacy/a/b',
@@ -997,7 +997,7 @@ describe('updateSession', () => {
       { path: '/pricing', isPublic: true, isAuthRoute: false },
       { path: '/terms', isPublic: true, isAuthRoute: false },
       { path: '/privacy', isPublic: true, isAuthRoute: false },
-      { path: '/onboarding', isPublic: true, isAuthRoute: false },
+      { path: '/onboarding', isPublic: false, isAuthRoute: false },
       { path: '/forgot-password', isPublic: true, isAuthRoute: false },
       { path: '/reset-password', isPublic: true, isAuthRoute: false },
       { path: '/dashboard', isPublic: false, isAuthRoute: false },
@@ -1034,16 +1034,25 @@ describe('updateSession', () => {
       expect(getRedirectPathname()).toBe('/dashboard')
     })
 
-    // Authenticated + non-authRoute public → next
-    const authNonAuthPublic = routes.filter(r => r.isPublic && !r.isAuthRoute)
+    // Authenticated + non-authRoute public → next (except /onboarding which
+    // redirects already-onboarded users to /dashboard)
+    const authNonAuthPublic = routes.filter(r => r.isPublic && !r.isAuthRoute && r.path !== '/onboarding')
     it.each(authNonAuthPublic.map(r => [r.path]))('authenticated + nonAuth public %s → next', async (path) => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('next')
     })
 
-    // Authenticated + protected → next
-    const authProtected = routes.filter(r => !r.isPublic)
+    it('authenticated + onboarded user on /onboarding → redirect to /dashboard', async () => {
+      mockAuthenticated()
+      const res = await callUpdateSession(createMockRequest('/onboarding'))
+      expect(res._type).toBe('redirect')
+      expect(getRedirectPathname()).toBe('/dashboard')
+    })
+
+    // Authenticated + protected → next (except /onboarding which redirects
+    // already-onboarded users to /dashboard)
+    const authProtected = routes.filter(r => !r.isPublic && r.path !== '/onboarding')
     it.each(authProtected.map(r => [r.path]))('authenticated + protected %s → next', async (path) => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest(path as string))

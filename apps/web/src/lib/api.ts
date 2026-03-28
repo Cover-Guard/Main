@@ -173,7 +173,7 @@ export async function getMe(): Promise<User> {
   return apiFetch('/api/auth/me')
 }
 
-export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName' | 'company' | 'licenseNumber'>>): Promise<User> {
+export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName' | 'company' | 'licenseNumber' | 'avatarUrl'>>): Promise<User> {
   return apiFetch('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) })
 }
 

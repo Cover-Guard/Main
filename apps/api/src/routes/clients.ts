@@ -39,7 +39,12 @@ clientsRouter.get('/', async (req: Request, res, next) => {
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: (page - 1) * limit,
-      include: { _count: { select: { savedProperties: true } } },
+      select: {
+        id: true, agentId: true, firstName: true, lastName: true,
+        email: true, phone: true, notes: true, status: true,
+        createdAt: true, updatedAt: true,
+        _count: { select: { savedProperties: true } },
+      },
     })
     // Flatten _count into savedPropertyCount to match the Client DTO
     const data = clients.map(({ _count, ...client }) => ({
@@ -58,6 +63,11 @@ clientsRouter.post('/', async (req: Request, res, next) => {
     const body = clientSchema.parse(req.body)
     const client = await prisma.client.create({
       data: { agentId: userId, ...body },
+      select: {
+        id: true, agentId: true, firstName: true, lastName: true,
+        email: true, phone: true, notes: true, status: true,
+        createdAt: true, updatedAt: true,
+      },
     })
     res.status(201).json({ success: true, data: { ...client, savedPropertyCount: 0 } })
   } catch (err) { next(err) }
@@ -85,7 +95,12 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
       if (result.count === 0) return null
       return tx.client.findFirst({
         where: { id, agentId: userId },
-        include: { _count: { select: { savedProperties: true } } },
+        select: {
+          id: true, agentId: true, firstName: true, lastName: true,
+          email: true, phone: true, notes: true, status: true,
+          createdAt: true, updatedAt: true,
+          _count: { select: { savedProperties: true } },
+        },
       })
     })
     if (!updated) {

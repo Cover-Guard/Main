@@ -57,12 +57,9 @@ const validBody = {
   firstName: 'John',
   lastName: 'Doe',
   role: 'BUYER',
-  agreeNDA: true,
-  agreeTerms: true,
-  agreePrivacy: true,
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const mockPrisma = prisma as any
 const mockSupabase = supabaseAdmin as unknown as {
   auth: {
@@ -109,29 +106,8 @@ describe('POST /api/auth/register', () => {
       expect(res.status).toBe(400)
     })
 
-    it('returns 400 when NDA agreement is missing', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ ...validBody, agreeNDA: false })
-
-      expect(res.status).toBe(400)
-    })
-
-    it('returns 400 when terms agreement is missing', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ ...validBody, agreeTerms: false })
-
-      expect(res.status).toBe(400)
-    })
-
-    it('returns 400 when privacy agreement is missing', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ ...validBody, agreePrivacy: false })
-
-      expect(res.status).toBe(400)
-    })
+    // NDA, terms, and privacy agreements are now handled during onboarding
+    // (POST /me/terms), not at registration time.
 
     it('returns 400 for invalid role', async () => {
       const res = await request(app)
@@ -314,22 +290,22 @@ describe('POST /api/auth/register', () => {
       })
     })
 
-    it('passes agreement timestamps to Supabase metadata', async () => {
+    it('does NOT set agreement timestamps in Supabase metadata (deferred to onboarding)', async () => {
       await request(app).post('/api/auth/register').send(validBody)
 
       const createCall = mockSupabase.auth.admin.createUser.mock.calls[0][0]
-      expect(createCall.user_metadata.termsAcceptedAt).toBeDefined()
-      expect(createCall.user_metadata.ndaAcceptedAt).toBeDefined()
-      expect(createCall.user_metadata.privacyAcceptedAt).toBeDefined()
+      expect(createCall.user_metadata.termsAcceptedAt).toBeUndefined()
+      expect(createCall.user_metadata.ndaAcceptedAt).toBeUndefined()
+      expect(createCall.user_metadata.privacyAcceptedAt).toBeUndefined()
     })
 
-    it('passes agreement timestamps to Prisma profile', async () => {
+    it('does NOT set agreement timestamps in Prisma profile (deferred to onboarding)', async () => {
       await request(app).post('/api/auth/register').send(validBody)
 
       const upsertCall = mockPrisma.user.upsert.mock.calls[0][0]
-      expect(upsertCall.create.termsAcceptedAt).toBeInstanceOf(Date)
-      expect(upsertCall.create.ndaAcceptedAt).toBeInstanceOf(Date)
-      expect(upsertCall.create.privacyAcceptedAt).toBeInstanceOf(Date)
+      expect(upsertCall.create.termsAcceptedAt).toBeUndefined()
+      expect(upsertCall.create.ndaAcceptedAt).toBeUndefined()
+      expect(upsertCall.create.privacyAcceptedAt).toBeUndefined()
     })
 
     it('uses upsert to handle trigger race condition', async () => {

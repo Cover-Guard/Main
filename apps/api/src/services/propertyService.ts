@@ -7,6 +7,21 @@ import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
 import { randomUUID } from 'crypto'
 
+/** Fire-and-forget: record search history without blocking the response. */
+function recordSearchHistory(params: PropertySearchParams, userId: string | undefined, resultCount: number): void {
+  prisma.searchHistory
+    .create({
+      data: {
+        userId: userId ?? null,
+        query: [params.address, params.city, params.state, params.zip, params.parcelId]
+          .filter(Boolean)
+          .join(', '),
+        resultCount,
+      },
+    })
+    .catch((err) => logger.error('Failed to record search history', { error: err instanceof Error ? err.message : err }))
+}
+
 export async function searchProperties(
   params: PropertySearchParams,
   userId?: string,
@@ -15,19 +30,43 @@ export async function searchProperties(
   const limit = params.limit ?? 20
   const skip = (page - 1) * limit
 
-  // If a Google Place ID is provided, resolve it to structured address data first
+  // When a placeId is provided alongside existing filter params (city/state/zip
+  // from the frontend's parseSearchQuery), run the DB lookup and geocode in
+  // parallel. If the DB has results, skip geocoding entirely.
   if (params.placeId) {
-    const geocoded = await geocodeByPlaceId(params.placeId)
-    if (geocoded) {
-      // Use the geocoded address components for the search
-      params = {
-        ...params,
-        address: geocoded.address,
-        city: geocoded.city,
-        state: geocoded.state,
-        zip: geocoded.zip,
-        lat: geocoded.lat,
-        lng: geocoded.lng,
+    const hasExistingFilter = !!(params.zip || params.state || params.city)
+
+    if (hasExistingFilter) {
+      // Optimistic parallel: attempt DB lookup with existing params while geocode runs
+      const where: Record<string, unknown> = {}
+      if (params.zip) where.zip = params.zip
+      if (params.state) where.state = params.state
+      if (params.city) where.city = { contains: params.city, mode: 'insensitive' }
+
+      const [dbResults, geocoded] = await Promise.all([
+        Promise.all([
+          prisma.property.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: PROPERTY_PUBLIC_SELECT }),
+          prisma.property.count({ where }),
+        ]),
+        geocodeByPlaceId(params.placeId),
+      ])
+
+      const [properties, total] = dbResults
+      if (total > 0) {
+        const result = { properties: properties.map(prismaPropertyToDto), total, page, limit }
+        recordSearchHistory(params, userId, total)
+        return result
+      }
+
+      // DB miss — use geocoded data for fallback search
+      if (geocoded) {
+        params = { ...params, address: geocoded.address, city: geocoded.city, state: geocoded.state, zip: geocoded.zip, lat: geocoded.lat, lng: geocoded.lng }
+      }
+    } else {
+      // No existing filter — geocode first to get structured address
+      const geocoded = await geocodeByPlaceId(params.placeId)
+      if (geocoded) {
+        params = { ...params, address: geocoded.address, city: geocoded.city, state: geocoded.state, zip: geocoded.zip, lat: geocoded.lat, lng: geocoded.lng }
       }
     }
   }
@@ -56,18 +95,7 @@ export async function searchProperties(
 
     if (total > 0) {
       const dbResult = { properties: properties.map(prismaPropertyToDto), total, page, limit }
-      // Fire-and-forget: record search history without blocking the response
-      prisma.searchHistory
-        .create({
-          data: {
-            userId: userId ?? null,
-            query: [params.address, params.city, params.state, params.zip, params.parcelId]
-              .filter(Boolean)
-              .join(', '),
-            resultCount: total,
-          },
-        })
-        .catch((err) => logger.error('Failed to record search history', { error: err instanceof Error ? err.message : err }))
+      recordSearchHistory(params, userId, total)
       return dbResult
     }
   }
@@ -75,25 +103,20 @@ export async function searchProperties(
   // Fall back to external API
   const result = await searchPropertiesByAddress(params)
 
-  // Record search history (fire-and-forget)
-  prisma.searchHistory
-    .create({
-      data: {
-        userId: userId ?? null,
-        query: [params.address, params.city, params.state, params.zip, params.parcelId]
-          .filter(Boolean)
-          .join(', '),
-        resultCount: result.total,
-      },
-    })
-    .catch((err) => logger.error('Failed to record search history', { error: err instanceof Error ? err.message : err }))
+  recordSearchHistory(params, userId, result.total)
 
-  // Batch-upsert results into DB cache — avoids N sequential round trips
+  // Warm the L1 cache immediately (synchronous, <1ms)
+  for (const prop of result.properties) {
+    propertyCache.set(prop.id, prop)
+  }
+
+  // Batch-upsert results into DB as fire-and-forget — the response already
+  // contains the data, so the user doesn't need to wait for DB writes.
+  // This saves ~10-100ms (N upserts through pgBouncer) from the response time.
   if (result.properties.length > 0) {
-    // Only upsert properties that have a parcelId (required for unique lookup)
     const upsertable = result.properties.filter((p) => p.parcelId)
     if (upsertable.length > 0) {
-      await prisma.$transaction(
+      prisma.$transaction(
         upsertable.map((p) => {
           const data = dtoToPrismaData(p)
           return prisma.property.upsert({
@@ -102,12 +125,9 @@ export async function searchProperties(
             create: { id: p.id, ...data },
           })
         }),
-      )
-    }
-
-    // Warm the L1 cache for the properties we just fetched
-    for (const prop of result.properties) {
-      propertyCache.set(prop.id, prop)
+      ).catch((err) => logger.error('Failed to cache search results in DB', {
+        error: err instanceof Error ? err.message : err,
+      }))
     }
   }
 
@@ -209,11 +229,16 @@ export async function geocodeAndCreateProperty(
   const geocoded = await geocodeByPlaceId(placeId)
   if (!geocoded || !geocoded.address || !geocoded.state) return null
 
-  // Check if we already have this property in DB (match on address + zip)
+  // Check if we already have this property in DB. Use lat/lng proximity
+  // (indexed via @@index([lat, lng])) for the primary match, then verify
+  // address/state. This is faster than case-insensitive string matching
+  // on address which can't use any index.
+  const LAT_TOLERANCE = 0.0005 // ~55 meters
+  const LNG_TOLERANCE = 0.0005
   const existing = await prisma.property.findFirst({
     where: {
-      address: { equals: geocoded.address, mode: 'insensitive' },
-      zip: geocoded.zip || undefined,
+      lat: { gte: geocoded.lat - LAT_TOLERANCE, lte: geocoded.lat + LAT_TOLERANCE },
+      lng: { gte: geocoded.lng - LNG_TOLERANCE, lte: geocoded.lng + LNG_TOLERANCE },
       state: geocoded.state,
     },
     select: PROPERTY_PUBLIC_SELECT,
@@ -227,6 +252,7 @@ export async function geocodeAndCreateProperty(
       await prisma.property.update({
         where: { id: existing.id },
         data: { lat: geocoded.lat, lng: geocoded.lng },
+        select: { id: true },
       })
     }
     const dto = prismaPropertyToDto({ ...existing, lat: geocoded.lat, lng: geocoded.lng })

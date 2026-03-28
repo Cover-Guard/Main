@@ -247,10 +247,22 @@ export async function getOrComputeInsuranceEstimate(
   // Deduplicate concurrent requests
   const dedupeKey = forceRefresh ? `${propertyId}:refresh` : propertyId
   return insuranceDeduplicator.dedupe(dedupeKey, async () => {
-    // Single query: fetch property + riskProfile + existing estimate together
+    // Single query: fetch only the fields needed for premium computation
     const property = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
-      include: { riskProfile: true, insuranceEstimate: true },
+      select: {
+        estimatedValue: true, state: true, yearBuilt: true, squareFeet: true,
+        riskProfile: {
+          select: {
+            floodRiskScore: true, fireRiskScore: true, windRiskScore: true,
+            earthquakeRiskScore: true, crimeRiskScore: true, overallRiskScore: true,
+            hurricaneRisk: true, tornadoRisk: true, hailRisk: true,
+            inSFHA: true, wildlandUrbanInterface: true,
+            floodZone: true, seismicZone: true, designWindSpeed: true,
+          },
+        },
+        insuranceEstimate: true,
+      },
     })
 
     // Return DB-cached estimate if still valid

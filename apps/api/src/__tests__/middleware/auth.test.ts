@@ -107,7 +107,7 @@ describe('requireAuth', () => {
 
   describe('token cache fast path', () => {
     it('calls next() and attaches user info when token is in cache', async () => {
-      tokenCache.set(TOKEN, { userId: 'user-1', userRole: 'BUYER' }, 60_000)
+      tokenCache.set(TOKEN, { userId: 'user-1', userRole: 'BUYER', hasActiveSub: false }, 60_000)
       const req = makeReq()
       const { res } = makeRes()
       const next = makeNext()
@@ -166,7 +166,7 @@ describe('requireAuth', () => {
       // Use this token for this test
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'user-42' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'user-42', role: 'AGENT' })
+      mockFindUser.mockResolvedValue({ id: 'user-42', role: 'AGENT', subscriptions: [] })
 
       const { res } = makeRes()
       const next = makeNext()
@@ -185,7 +185,7 @@ describe('requireAuth', () => {
 
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'u1', role: 'BUYER' })
+      mockFindUser.mockResolvedValue({ id: 'u1', role: 'BUYER', subscriptions: [] })
 
       await requireAuth(req, makeRes().res, makeNext())
       expect(tokenCache.has(token)).toBe(true)
@@ -198,7 +198,7 @@ describe('requireAuth', () => {
 
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'u2' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'u2', role: 'BUYER' })
+      mockFindUser.mockResolvedValue({ id: 'u2', role: 'BUYER', subscriptions: [] })
 
       await requireAuth(req, makeRes().res, makeNext())
       // Token should be cached (briefly)
@@ -211,7 +211,7 @@ describe('requireAuth', () => {
 
       const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
       mockGetUser.mockResolvedValue({ data: { user: { id: 'u3' } }, error: null })
-      mockFindUser.mockResolvedValue({ id: 'u3', role: 'BUYER' })
+      mockFindUser.mockResolvedValue({ id: 'u3', role: 'BUYER', subscriptions: [] })
 
       await requireAuth(req, makeRes().res, makeNext())
       expect(tokenCache.has(token)).toBe(true)

@@ -40,7 +40,9 @@ export async function updateSession(request: NextRequest) {
   // Routes that are always publicly accessible (no login required).
   // Note: /api/* routes are excluded from the middleware matcher entirely,
   // so /api/auth/callback does not need to be listed here.
-  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/pricing', '/search', '/onboarding', '/get-started']
+  // /onboarding is NOT public — it requires authentication. The onboarding gate
+  // (below) redirects authenticated users without termsAcceptedAt to /onboarding.
+  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/pricing', '/search', '/get-started']
   const isPublic = pathname === '/' || publicPrefixes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   const SUB_COOKIE = 'cg_sub_active'
@@ -71,11 +73,29 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     if (pathname !== '/') {
-      // Preserve the full path + query so the user lands back on the same
-      // page (e.g. /search?q=123+Main) after signing in.
       const search = request.nextUrl.search
       url.searchParams.set('redirectTo', pathname + search)
     }
+    return NextResponse.redirect(url)
+  }
+
+  // ─── Onboarding gate ──────────────────────────────────────────────────────
+  // Both email-registered and OAuth users must complete onboarding (NDA + terms
+  // + privacy) before accessing protected routes. Check user_metadata for the
+  // termsAcceptedAt flag set by POST /me/terms during onboarding.
+  const termsAccepted = user?.user_metadata?.termsAcceptedAt
+
+  // Redirect users who haven't accepted terms to onboarding
+  if (user && !isPublic && pathname !== '/onboarding' && !termsAccepted) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/onboarding'
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect already-onboarded users away from /onboarding to prevent confusion
+  if (user && pathname === '/onboarding' && termsAccepted) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 

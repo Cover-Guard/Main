@@ -168,35 +168,37 @@ export async function handleSubscriptionCreatedOrUpdated(
 
   const priceId = subscription.items.data[0]?.price.id ?? ''
 
-  await prisma.subscription.upsert({
-    where: { stripeSubscriptionId: subscription.id },
-    update: {
-      stripePriceId: priceId,
-      plan: planFromPriceId(priceId),
-      status: toDbStatus(subscription.status),
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    },
-    create: {
-      userId,
-      stripeSubscriptionId: subscription.id,
-      stripePriceId: priceId,
-      plan: planFromPriceId(priceId),
-      status: toDbStatus(subscription.status),
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    },
-  })
-
-  // Ensure the user has the Stripe customer ID stored
+  // Run subscription upsert + user customer ID update in parallel (independent writes)
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id
-  await prisma.user.update({
-    where: { id: userId },
-    data: { stripeCustomerId: customerId },
-  })
+
+  await Promise.all([
+    prisma.subscription.upsert({
+      where: { stripeSubscriptionId: subscription.id },
+      update: {
+        stripePriceId: priceId,
+        plan: planFromPriceId(priceId),
+        status: toDbStatus(subscription.status),
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      },
+      create: {
+        userId,
+        stripeSubscriptionId: subscription.id,
+        stripePriceId: priceId,
+        plan: planFromPriceId(priceId),
+        status: toDbStatus(subscription.status),
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      },
+    }),
+    prisma.user.update({
+      where: { id: userId },
+      data: { stripeCustomerId: customerId },
+    }),
+  ])
 
   logger.info(`Subscription ${subscription.id} synced for user ${userId} — status: ${subscription.status}`)
 }

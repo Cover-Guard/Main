@@ -22,7 +22,9 @@ function AgentLoginForm() {
   const rawRedirect = searchParams.get('redirectTo') ?? '/dashboard'
   // Validate redirect is a safe relative path to prevent open redirect attacks
   const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard'
-  const [error, setError] = useState<string | null>(null)
+  // Show OAuth callback errors (e.g. "OAuth sign-in failed. Please try again.")
+  const callbackError = searchParams.get('error')
+  const [error, setError] = useState<string | null>(callbackError)
   const [oauthLoading, setOauthLoading] = useState(false)
 
   const {

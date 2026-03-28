@@ -56,37 +56,43 @@ export async function GET(request: Request) {
     }
 
     if (user) {
-      // If a role was forwarded from the agent registration page, write it
-      // into the user's auth metadata.  The handle_user_updated trigger will
-      // then propagate it to public.users automatically.
-      if (agentRole) {
-        // Preserve any existing metadata fields and override role.
-        // The handle_user_updated trigger will sync this to public.users.
-        await supabase.auth.updateUser({
-          data: { ...user.user_metadata, role: agentRole },
-        })
-      }
-
-      // Guard: if the handle_new_user trigger failed (extremely rare), ensure
-      // the public.users profile exists so downstream API calls don't 404.
-      const { data: profile } = await supabase
+      // Run role update + profile check in parallel — they operate on
+      // independent tables (auth.users metadata vs public.users).
+      const profileCheck = supabase
         .from('users')
         .select('id')
         .eq('id', user.id)
         .maybeSingle()
+
+      const roleUpdate = agentRole
+        ? supabase.auth.updateUser({
+            data: { ...user.user_metadata, role: agentRole },
+          })
+        : Promise.resolve(null)
+
+      const [{ data: profile }] = await Promise.all([profileCheck, roleUpdate])
 
       if (!profile) {
         // Profile missing — create it via the authenticated API so the service-
         // role key is used (bypasses RLS) and all required columns are set.
         const { data: sessionData } = await supabase.auth.getSession()
         if (sessionData.session?.access_token) {
-          await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/sync-profile`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${sessionData.session.access_token}`,
-            },
-          })
+          try {
+            const syncRes = await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/sync-profile`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionData.session.access_token}`,
+              },
+            })
+            if (!syncRes.ok) {
+              console.error(`sync-profile failed: ${syncRes.status} ${syncRes.statusText}`)
+            }
+          } catch (syncErr) {
+            // Profile sync failed — user will land on onboarding where /me/terms
+            // will create the profile via its fallback path. Log but don't block.
+            console.error('sync-profile fetch failed:', syncErr)
+          }
         }
       }
 

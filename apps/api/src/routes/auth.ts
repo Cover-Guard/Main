@@ -20,6 +20,20 @@ function toValidRole(value: unknown): ValidRole {
   return 'BUYER'
 }
 
+/** Decode JWT payload to extract user metadata without a network call.
+ *  Safe to use after requireAuth has already verified the token. */
+function decodeJwtPayload(req: Request): Record<string, unknown> | null {
+  try {
+    const token = req.headers.authorization?.split(' ')[1]
+    if (!token) return null
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -28,9 +42,8 @@ const registerSchema = z.object({
   role: z.enum(['BUYER', 'AGENT', 'LENDER']).default('BUYER'),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
-  agreeNDA: z.literal(true, { errorMap: () => ({ message: 'NDA agreement is required' }) }),
-  agreeTerms: z.literal(true, { errorMap: () => ({ message: 'Terms of Use agreement is required' }) }),
-  agreePrivacy: z.literal(true, { errorMap: () => ({ message: 'Privacy Policy agreement is required' }) }),
+  // NDA, terms, and privacy agreements are handled during onboarding (POST /me/terms)
+  // to ensure the same workflow for email and OAuth users.
 })
 
 // ─── Register ─────────────────────────────────────────────────────────────────
@@ -38,8 +51,6 @@ const registerSchema = z.object({
 authRouter.post('/register', async (req, res, next) => {
   try {
     const body = registerSchema.parse(req.body)
-
-    const agreedAt = new Date()
 
     // Validate database connectivity BEFORE creating the Supabase auth user.
     // If the DB is unreachable (e.g. missing connection string env var), we
@@ -74,9 +85,9 @@ authRouter.post('/register', async (req, res, next) => {
         role: body.role,
         company: body.company ?? null,
         licenseNumber: body.licenseNumber ?? null,
-        termsAcceptedAt: agreedAt.toISOString(),
-        ndaAcceptedAt: agreedAt.toISOString(),
-        privacyAcceptedAt: agreedAt.toISOString(),
+        // Agreement timestamps are NOT set here — they are set during the
+        // unified onboarding step (POST /me/terms) so email and OAuth users
+        // go through the same NDA/terms/privacy acceptance workflow.
       },
     })
 
@@ -100,9 +111,7 @@ authRouter.post('/register', async (req, res, next) => {
       role: body.role,
       company: body.company ?? null,
       licenseNumber: body.licenseNumber ?? null,
-      ndaAcceptedAt: agreedAt,
-      privacyAcceptedAt: agreedAt,
-      termsAcceptedAt: agreedAt,
+      // Agreement timestamps left null — set during onboarding (POST /me/terms)
     }
 
     try {
@@ -110,9 +119,10 @@ authRouter.post('/register', async (req, res, next) => {
         where: { id: authData.user.id },
         update: profileData,
         create: { id: authData.user.id, ...profileData },
+        select: { id: true, email: true, role: true },
       })
 
-      res.status(201).json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
+      res.status(201).json({ success: true, data: user })
     } catch (profileErr) {
       // Profile creation failed after auth user was created — roll back the
       // Supabase auth user so the email isn't permanently "taken".
@@ -138,10 +148,16 @@ authRouter.post('/register', async (req, res, next) => {
 authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
-    // Omit internal fields that shouldn't be exposed to the client
-    const { stripeCustomerId: _stripe, ...profile } = user
-    res.json({ success: true, data: profile })
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        id: true, email: true, firstName: true, lastName: true, role: true,
+        company: true, licenseNumber: true, avatarUrl: true,
+        termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
+        createdAt: true, updatedAt: true,
+      },
+    })
+    res.json({ success: true, data: user })
   } catch (err) {
     next(err)
   }
@@ -154,15 +170,24 @@ const updateProfileSchema = z.object({
   lastName: z.string().min(1).max(50).optional(),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
+  avatarUrl: z.string().url().max(2048).nullish(),
 })
 
 authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const body = updateProfileSchema.parse(req.body)
-    const user = await prisma.user.update({ where: { id: userId }, data: body })
-    const { stripeCustomerId: _stripe, ...profile } = user
-    res.json({ success: true, data: profile })
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: body,
+      select: {
+        id: true, email: true, firstName: true, lastName: true, role: true,
+        company: true, licenseNumber: true, avatarUrl: true,
+        termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
+        createdAt: true, updatedAt: true,
+      },
+    })
+    res.json({ success: true, data: user })
   } catch (err) {
     next(err)
   }
@@ -191,37 +216,59 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Accept terms ─────────────────────────────────────────────────────────────
-// Uses upsert so that OAuth users whose handle_new_user trigger fired correctly
-// get an update, while any edge-case where the profile is missing gets a create.
+// ─── Accept terms / NDA / privacy (unified onboarding endpoint) ─────────────
+// Used by both email-registered and OAuth-registered users. Sets all three
+// agreement timestamps in a single call. Optimistic update first (profile
+// already exists from register or sync-profile), create fallback if missing.
 
 authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
+    const now = new Date()
 
-    // Look up the Supabase auth user so we have email + metadata for the upsert
-    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
-    const authUser = authData.user
+    const agreements = {
+      termsAcceptedAt: now,
+      ndaAcceptedAt: now,
+      privacyAcceptedAt: now,
+    }
 
-    const user = await prisma.user.upsert({
+    // Fast path: profile already exists (99% of cases after register or OAuth sync)
+    const updated = await prisma.user.updateMany({
       where: { id: userId },
-      update: { termsAcceptedAt: new Date() },
+      data: agreements,
+    })
+
+    if (updated.count > 0) {
+      res.json({ success: true, data: agreements })
+      return
+    }
+
+    // Slow path: profile missing — extract metadata from JWT (already verified by
+    // requireAuth) to avoid a redundant Supabase Admin API round trip.
+    const jwt = decodeJwtPayload(req)
+    const meta = (jwt?.user_metadata ?? {}) as Record<string, string | undefined>
+    const email = (jwt?.email as string) ?? ''
+    const fullName = meta.full_name ?? ''
+
+    // Use upsert to handle concurrent requests — if two requests both see
+    // updateMany.count=0 and race to create, the second would fail with P2002.
+    // Upsert handles this atomically.
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: agreements,
       create: {
         id: userId,
-        email: authUser?.email ?? '',
-        firstName: authUser?.user_metadata?.firstName
-          ?? authUser?.user_metadata?.full_name?.split(' ')[0]
-          ?? '',
-        lastName: authUser?.user_metadata?.lastName
-          ?? authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ')
-          ?? '',
-        role: toValidRole(authUser?.user_metadata?.role),
-        company: authUser?.user_metadata?.company ?? null,
-        licenseNumber: authUser?.user_metadata?.licenseNumber ?? null,
-        termsAcceptedAt: new Date(),
+        email,
+        firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
+        lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
+        role: toValidRole(meta.role),
+        company: meta.company ?? null,
+        licenseNumber: meta.licenseNumber ?? null,
+        ...agreements,
       },
+      select: { id: true },
     })
-    res.json({ success: true, data: { termsAcceptedAt: user.termsAcceptedAt } })
+    res.json({ success: true, data: agreements })
   } catch (err) {
     next(err)
   }
@@ -231,38 +278,34 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
 // Called by the OAuth callback route when the handle_new_user trigger did not
 // create a public.users row (e.g. trigger misconfigured or first-deploy race).
 // Safe to call multiple times — upsert is idempotent.
+// Uses JWT claims (already verified by requireAuth) instead of a second Supabase
+// Admin API call, saving ~50-200ms on the critical onboarding path.
 
 authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
-    const authUser = authData.user
-
-    if (!authUser) {
-      res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'Auth user not found' } })
-      return
-    }
+    const jwt = decodeJwtPayload(req)
+    const meta = (jwt?.user_metadata ?? {}) as Record<string, string | undefined>
+    const email = (jwt?.email as string) ?? ''
+    const fullName = meta.full_name ?? meta.name ?? ''
 
     const user = await prisma.user.upsert({
       where: { id: userId },
       update: {}, // profile already exists — leave it untouched
       create: {
         id: userId,
-        email: authUser.email ?? '',
-        firstName: authUser.user_metadata?.firstName
-          ?? authUser.user_metadata?.full_name?.split(' ')[0]
-          ?? '',
-        lastName: authUser.user_metadata?.lastName
-          ?? authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ')
-          ?? '',
-        role: toValidRole(authUser.user_metadata?.role),
-        company: authUser.user_metadata?.company ?? null,
-        licenseNumber: authUser.user_metadata?.licenseNumber ?? null,
-        avatarUrl: authUser.user_metadata?.avatar_url ?? null,
+        email,
+        firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
+        lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
+        role: toValidRole(meta.role),
+        company: meta.company ?? null,
+        licenseNumber: meta.licenseNumber ?? null,
+        avatarUrl: meta.avatar_url ?? meta.picture ?? null,
       },
+      select: { id: true, email: true, role: true },
     })
 
-    res.json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
+    res.json({ success: true, data: user })
   } catch (err) {
     next(err)
   }

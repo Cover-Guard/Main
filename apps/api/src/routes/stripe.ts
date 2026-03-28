@@ -30,6 +30,11 @@ stripeRouter.get('/subscription', requireAuth, async (req: Request, res, next) =
         status: { in: ['ACTIVE', 'TRIALING', 'PAST_DUE'] },
       },
       orderBy: { createdAt: 'desc' },
+      select: {
+        id: true, plan: true, status: true, stripePriceId: true,
+        currentPeriodStart: true, currentPeriodEnd: true,
+        cancelAtPeriodEnd: true, createdAt: true,
+      },
     })
 
     res.json({

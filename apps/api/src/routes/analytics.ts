@@ -17,7 +17,8 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
     const twelveMonthsAgo = new Date()
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
 
-    // Batch 1: Simple counts + Prisma queries (lightweight, fast)
+    // Run ALL queries in a single Promise.all — Prisma queries + raw SQL UNION ALL
+    // all execute concurrently instead of in two sequential batches.
     const [
       savedCount,
       clientCount,
@@ -28,6 +29,7 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
       recentReports,
       quoteRequestStats,
       clientPipelineRaw,
+      combinedResults,
     ] = await Promise.all([
       prisma.savedProperty.count({ where: { userId } }),
       prisma.client.count({ where: { agentId: userId } }),
@@ -45,7 +47,7 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
         where: { userId },
         orderBy: { savedAt: 'desc' },
         take: 5,
-        include: { property: { select: { address: true, city: true } } },
+        select: { savedAt: true, property: { select: { address: true, city: true } } },
       }),
 
       prisma.propertyReport.findMany({
@@ -66,11 +68,8 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
         where: { agentId: userId },
         _count: { _all: true },
       }),
-    ])
 
-    // Batch 2: Combine all raw SQL into a single multi-statement query
-    // This sends one round trip to the DB instead of six separate queries
-    const [combinedResults] = await Promise.all([
+      // Raw SQL UNION ALL combining 6 analytical queries into 1 statement
       prisma.$queryRaw<Array<Record<string, unknown>>>`
         -- searches_by_day
         SELECT 'searches_by_day' AS _query,

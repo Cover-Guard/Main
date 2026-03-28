@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "",
-  "buildCommand": "",
+  "installCommand": "cd ../.. && npm install",
+  "buildCommand": "cd ../.. && . scripts/normalize-env.sh && npx prisma generate --schema apps/api/prisma/schema.prisma && npm run build --workspace=@coverguard/api",
   "outputDirectory": "public",
   "functions": {
     "api/index.js": {

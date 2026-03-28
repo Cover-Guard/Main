@@ -7,6 +7,7 @@ import { logger } from '../utils/logger'
 export interface AuthenticatedRequest extends Request {
   userId: string
   userRole: string
+  hasActiveSubscription?: boolean
 }
 
 const MAX_TOKEN_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -68,6 +69,7 @@ export async function requireAuth(
     const authReq = req as AuthenticatedRequest
     authReq.userId = cached.userId
     authReq.userRole = cached.userRole
+    authReq.hasActiveSubscription = cached.hasActiveSub
     next()
     return
   }
@@ -83,9 +85,19 @@ export async function requireAuth(
     return
   }
 
+  // Fetch user profile + subscription status in a single query to avoid
+  // a separate DB round trip in the requireSubscription middleware.
   const user = await prisma.user.findUnique({
     where: { id: data.user.id },
-    select: { id: true, role: true },
+    select: {
+      id: true,
+      role: true,
+      subscriptions: {
+        where: { status: { in: ['ACTIVE', 'TRIALING'] } },
+        select: { id: true },
+        take: 1,
+      },
+    },
   })
   if (!user) {
     logger.warn(`Authenticated user ${data.user.id} not found in database — possible sync issue`)
@@ -95,6 +107,7 @@ export async function requireAuth(
     })
     return
   }
+  const hasActiveSub = user.subscriptions.length > 0
 
   // Cache with TTL = min(5 min, time until JWT expiry) to avoid serving
   // cached entries for tokens that have already expired.
@@ -112,11 +125,12 @@ export async function requireAuth(
     // Token appears expired (clock skew) — cache very briefly
     ttlMs = 30_000
   }
-  tokenCache.set(token, { userId: user.id, userRole: user.role }, ttlMs)
+  tokenCache.set(token, { userId: user.id, userRole: user.role, hasActiveSub }, ttlMs)
 
   const authReq = req as AuthenticatedRequest
   authReq.userId = user.id
   authReq.userRole = user.role
+  authReq.hasActiveSubscription = hasActiveSub
   next()
 }
 

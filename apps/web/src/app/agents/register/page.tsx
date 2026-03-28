@@ -9,32 +9,6 @@ import { z } from 'zod'
 import { Shield, Users, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-const NDA_TEXT = `NON-DISCLOSURE AGREEMENT
-
-This Non-Disclosure Agreement ("Agreement") is entered into as of the date of account creation between CoverGuard, Inc. ("Company") and the individual registering for access to the CoverGuard platform ("User").
-
-1. CONFIDENTIAL INFORMATION. "Confidential Information" means any non-public information disclosed by the Company through the CoverGuard platform, including but not limited to: proprietary risk scoring methodologies and algorithms, carrier availability data, underwriting intelligence, property insurability assessments, pricing models, system architecture and technical documentation, security protocols, business processes, and any data, analyses, compilations, or derivative works therefrom — whether disclosed in written, oral, electronic, or visual form.
-
-2. OBLIGATIONS. User agrees to: (a) hold all Confidential Information in strict confidence using at least the same degree of care User uses to protect their own confidential information, but no less than reasonable care; (b) not disclose Confidential Information to any third party without the Company's prior written consent; (c) use Confidential Information solely for User's professional real estate and insurance due diligence purposes as permitted by the Platform; (d) not reproduce, distribute, reverse-engineer, decompile, or commercialize any Confidential Information; (e) promptly notify the Company in writing upon becoming aware of any unauthorized disclosure, access, or use of Confidential Information; (f) cooperate with the Company to mitigate any harm resulting from unauthorized disclosure; and (g) limit access to Confidential Information to those employees, agents, or contractors of User who have a need to know and who are bound by confidentiality obligations at least as protective as those set forth herein.
-
-3. PERMITTED USE. User may access and use the Platform's data outputs solely for lawful professional real estate and insurance due diligence on behalf of clients. Any systematic extraction, scraping, automated collection, resale, redistribution, sublicensing, or commercial exploitation of the data is strictly prohibited. User may share specific property risk summaries with their direct clients solely in connection with an active transaction, provided that such summaries are attributed to CoverGuard and accompanied by the applicable disclaimers.
-
-4. PROFESSIONAL RESPONSIBILITY. Agent/Lender Users acknowledge that they are licensed professionals and accept sole responsibility for any advice given to clients based on CoverGuard data. CoverGuard data does not constitute professional insurance, financial, or legal advice. User shall not represent CoverGuard data as their own proprietary analysis or as a substitute for professional underwriting.
-
-5. DATA HANDLING. User shall not store Confidential Information on unsecured devices or systems, transmit Confidential Information over unencrypted channels, or commingle Confidential Information with data from other sources in a manner that could compromise its confidentiality. Upon termination of this Agreement or at the Company's written request, User shall promptly return or securely destroy all Confidential Information in their possession and certify such destruction in writing if requested.
-
-6. NO WARRANTY. The Company makes no representation or warranty that any information provided is complete, accurate, or current. All risk assessments and insurance estimates are informational only and do not constitute professional insurance, financial, or legal advice.
-
-7. TERM. This Agreement remains in effect for the duration of User's access to the Platform and for a period of five (5) years following termination of access, regardless of the reason for termination.
-
-8. REMEDIES. User acknowledges that unauthorized disclosure of Confidential Information may cause irreparable harm to the Company that cannot be adequately compensated by monetary damages alone. The Company shall be entitled to seek injunctive relief and other equitable remedies in addition to all other remedies available at law or in equity, without the requirement of posting a bond.
-
-9. LEGAL COMPLIANCE. Nothing in this Agreement prohibits User from making disclosures required by applicable law, regulation, or court order, provided that User: (a) provides the Company with prompt written notice of such requirement (to the extent legally permitted); and (b) cooperates with the Company in seeking a protective order or other appropriate remedy to limit the scope of disclosure.
-
-10. GOVERNING LAW. This Agreement is governed by the laws of the State of Delaware, without regard to conflict of law principles. Any dispute arising under this Agreement shall be resolved in the state or federal courts located in Wilmington, Delaware.
-
-By creating an account, User agrees to be bound by the terms of this Agreement.`
-
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
@@ -43,9 +17,6 @@ const schema = z.object({
   role: z.enum(['AGENT', 'LENDER']),
   company: z.string().min(1, 'Company name required for agents'),
   licenseNumber: z.string().optional(),
-  agreeNDA: z.literal(true, { errorMap: () => ({ message: 'You must agree to the NDA' }) }),
-  agreeTerms: z.literal(true, { errorMap: () => ({ message: 'You must agree to the Terms of Use' }) }),
-  agreePrivacy: z.literal(true, { errorMap: () => ({ message: 'You must agree to the Privacy Policy' }) }),
 })
 
 type FormData = z.infer<typeof schema>
@@ -104,7 +75,8 @@ export default function AgentRegisterPage() {
         return
       }
 
-      router.push('/dashboard')
+      // Redirect to onboarding — same workflow as OAuth users
+      router.push('/onboarding')
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -234,57 +206,12 @@ export default function AgentRegisterPage() {
               </div>
             )}
 
-            {/* NDA */}
-            <div>
-              <label className="label mb-1">Non-Disclosure Agreement</label>
-              <div className="h-40 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-600 whitespace-pre-wrap">
-                {NDA_TEXT}
-              </div>
-              <label className="mt-2 flex cursor-pointer items-start gap-2">
-                <input
-                  type="checkbox"
-                  {...register('agreeNDA')}
-                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                />
-                <span className="text-xs text-gray-700">
-                  I have read and agree to the Non-Disclosure Agreement
-                </span>
-              </label>
-              {errors.agreeNDA && <p className="mt-1 text-xs text-red-600">{errors.agreeNDA.message}</p>}
-            </div>
-
-            {/* Terms & Privacy checkboxes */}
-            <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <label className="flex cursor-pointer items-start gap-2">
-                <input
-                  type="checkbox"
-                  {...register('agreeTerms')}
-                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                />
-                <span className="text-xs text-gray-700">
-                  I agree to the{' '}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">
-                    Terms of Use
-                  </a>
-                </span>
-              </label>
-              {errors.agreeTerms && <p className="mt-0.5 ml-6 text-xs text-red-600">{errors.agreeTerms.message}</p>}
-
-              <label className="flex cursor-pointer items-start gap-2">
-                <input
-                  type="checkbox"
-                  {...register('agreePrivacy')}
-                  className="mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                />
-                <span className="text-xs text-gray-700">
-                  I agree to the{' '}
-                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">
-                    Privacy Policy
-                  </a>
-                </span>
-              </label>
-              {errors.agreePrivacy && <p className="mt-0.5 ml-6 text-xs text-red-600">{errors.agreePrivacy.message}</p>}
-            </div>
+            <p className="text-xs text-gray-500">
+              On the next step you will review and accept the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>,{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>,
+              and Non-Disclosure Agreement before accessing the platform.
+            </p>
 
             <button type="submit" disabled={isSubmitting || oauthLoading} className="btn-primary w-full py-2.5">
               {isSubmitting ? 'Creating account…' : 'Create Agent Account'}
