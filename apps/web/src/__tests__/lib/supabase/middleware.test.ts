@@ -634,9 +634,9 @@ describe('updateSession', () => {
 
     it('does not call createServerClient when env vars missing', async () => {
       clearEnvVars()
-      const { createServerClient } = require('@supabase/ssr')
+      const ssr = await import('@supabase/ssr')
       await updateSession(createMockRequest('/get-started'))
-      expect(createServerClient).not.toHaveBeenCalled()
+      expect(ssr.createServerClient).not.toHaveBeenCalled()
     })
 
     it('does not call getUser when env vars missing', async () => {
