@@ -51,50 +51,51 @@ function createPrismaClient(): PrismaClient {
 }
 
 /**
- * Lazy-initializing Prisma client proxy.
+ * Lazy-initialized Prisma client singleton.
  *
- * In serverless environments (Vercel), modules are evaluated at cold-start.
- * If DATABASE_URL is missing at that point, eagerly creating PrismaClient
- * throws an unhandled error that crashes the entire function before Express
- * can boot — resulting in an HTML 500 page instead of a JSON error.
- *
- * This proxy defers client creation until the first actual usage, allowing
- * Express to start and return proper JSON error responses.
+ * The client is created on first access rather than at module-load time so that
+ * the Express app can boot even when DATABASE_URL is missing (e.g. a Vercel
+ * misconfiguration).  This lets the error handler return a proper JSON 500
+ * instead of crashing the entire serverless function with an unhandled import
+ * error.
  */
-function getLazyPrisma(): PrismaClient {
-  let instance: PrismaClient | undefined = global.__prisma
+function getPrismaClient(): PrismaClient {
+  if (global.__prisma) return global.__prisma
 
-  return new Proxy({} as PrismaClient, {
-    get(_target, prop) {
-      if (!instance) {
-        instance = createPrismaClient()
-        if (!isProduction) {
-          global.__prisma = instance
-          instance.$on('query' as never, (e: { query: string; duration: number }) => {
-            if (process.env.LOG_LEVEL === 'debug') {
-              logger.debug(`Query: ${e.query} (${e.duration}ms)`)
-            }
-          })
-        }
+  const client = createPrismaClient()
+
+  if (!isProduction) {
+    global.__prisma = client
+
+    client.$on('query' as never, (e: { query: string; duration: number }) => {
+      if (process.env.LOG_LEVEL === 'debug') {
+        logger.debug(`Query: ${e.query} (${e.duration}ms)`)
       }
-      const value = (instance as unknown as Record<string | symbol, unknown>)[prop]
-      if (typeof value === 'function') {
-        return value.bind(instance)
-      }
-      return value
-    },
-  })
+    })
+  } else {
+    global.__prisma = client
+  }
+
+  return client
 }
 
-export const prisma: PrismaClient = getLazyPrisma()
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getPrismaClient()
+    const value = Reflect.get(client, prop, receiver)
+    return typeof value === 'function' ? value.bind(client) : value
+  },
+})
 
-// Graceful shutdown — close pool on process signals
-if (!global.__prismaShutdownRegistered) {
-  global.__prismaShutdownRegistered = true
+// Graceful shutdown — close pool on process signals.
+// Guard with a flag so re-evaluation (e.g. in tests using jest.resetModules)
+// does not keep adding duplicate listeners.
+if (!(global as Record<string, unknown>).__prismaShutdownRegistered) {
+  ;(global as Record<string, unknown>).__prismaShutdownRegistered = true
   process.once('SIGTERM', async () => {
-    if (global.__prisma) await global.__prisma.$disconnect()
+    await prisma.$disconnect()
   })
   process.once('SIGINT', async () => {
-    if (global.__prisma) await global.__prisma.$disconnect()
+    await prisma.$disconnect()
   })
 }
