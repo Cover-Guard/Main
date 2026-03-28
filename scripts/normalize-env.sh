@@ -1,8 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 # Supabase Vercel Integration prefixes env var names with the project label
 # (e.g. COVERGUARD_2_POSTGRES_URL instead of POSTGRES_URL).
 # This script copies prefixed/suffixed vars to their standard names so the
 # app code works without hardcoding the label everywhere.
+#
+# POSIX sh compatible — Vercel build uses /bin/sh, not bash.
 LABEL="${SUPABASE_ENV_LABEL:-COVERGUARD_2}"
 
 for VAR in DATABASE_URL POSTGRES_URL POSTGRES_PRISMA_URL POSTGRES_URL_NON_POOLED \
