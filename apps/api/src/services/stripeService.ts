@@ -2,28 +2,28 @@ import Stripe from 'stripe'
 import { prisma } from '../utils/prisma'
 import { logger } from '../utils/logger'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  logger.warn('STRIPE_SECRET_KEY is not set — Stripe features will be unavailable')
+let _stripeInstance: Stripe | null = null
+
+function getStripe(): Stripe {
+  if (_stripeInstance) return _stripeInstance
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY is not set — Stripe features are unavailable')
+  }
+  _stripeInstance = new Stripe(key, {
+    apiVersion: '2025-02-24.acacia',
+    maxNetworkRetries: 0,
+  })
+  return _stripeInstance
 }
 
-// Lazy-initialize Stripe to avoid crashing the entire app when the key is missing.
-// The Stripe constructor throws if given an empty string, so we guard with a null.
-let _stripe: Stripe | null = null
-
-export const stripe: Stripe = new Proxy({} as Stripe, {
-  get(_target, prop, receiver) {
-    if (!_stripe) {
-      const key = process.env.STRIPE_SECRET_KEY
-      if (!key) {
-        throw new Error('STRIPE_SECRET_KEY is not configured')
-      }
-      _stripe = new Stripe(key, {
-        apiVersion: '2025-02-24.acacia',
-        maxNetworkRetries: 0,
-      })
-    }
-    const value = Reflect.get(_stripe, prop, receiver)
-    return typeof value === 'function' ? value.bind(_stripe) : value
+/** Lazily initialized Stripe client. Throws if STRIPE_SECRET_KEY is missing. */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    const instance = getStripe()
+    const value = (instance as unknown as Record<string | symbol, unknown>)[prop]
+    if (typeof value === 'function') return value.bind(instance)
+    return value
   },
 })
 

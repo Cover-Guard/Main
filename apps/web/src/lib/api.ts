@@ -59,8 +59,18 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
   let json: Record<string, unknown>
   try {
+    const contentType = res.headers.get('content-type') ?? ''
+    if (!contentType.includes('application/json')) {
+      throw new Error(
+        res.status >= 500
+          ? 'Service temporarily unavailable. Please try again in a moment.'
+          : `Server returned an unexpected response (${res.status})`,
+      )
+    }
     json = await res.json()
-  } catch {
+  } catch (parseErr) {
+    if (parseErr instanceof Error && parseErr.message.includes('Service temporarily')) throw parseErr
+    if (parseErr instanceof Error && parseErr.message.includes('unexpected response')) throw parseErr
     throw new Error(`Server returned an invalid response (${res.status})`)
   }
 

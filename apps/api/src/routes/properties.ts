@@ -9,6 +9,7 @@ import { insuranceCache, carriersCache, insurabilityCache } from '../utils/cache
 import { requireAuth } from '../middleware/auth'
 import { requireSubscription } from '../middleware/subscription'
 import { prisma } from '../utils/prisma'
+import type { Prisma } from '../generated/prisma/client'
 import type { AuthenticatedRequest } from '../middleware/auth'
 import type { Request, Response } from 'express'
 
@@ -463,11 +464,11 @@ propertiesRouter.post('/:id/checklists', requireAuth, async (req: Request, res, 
         propertyId,
         checklistType: body.checklistType,
         title: body.title,
-        items: JSON.parse(JSON.stringify(body.items)),
+        items: body.items as unknown as Prisma.InputJsonValue,
       },
       update: {
         title: body.title,
-        items: JSON.parse(JSON.stringify(body.items)),
+        items: body.items as unknown as Prisma.InputJsonValue,
       },
     })
 
@@ -499,7 +500,7 @@ propertiesRouter.patch('/:id/checklists/:checklistId', requireAuth, async (req: 
       where: { id: checklistId },
       data: {
         ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.items !== undefined ? { items: JSON.parse(JSON.stringify(body.items)) } : {}),
+        ...(body.items !== undefined ? { items: body.items as unknown as Prisma.InputJsonValue } : {}),
       },
     })
 
