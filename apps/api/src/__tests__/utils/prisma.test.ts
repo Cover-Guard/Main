@@ -54,7 +54,7 @@ jest.mock('../../utils/logger', () => ({
 
 /** Save and restore individual env vars instead of replacing process.env
  *  (replacing the whole object can behave differently across Node versions). */
-const ENV_KEYS = ['DATABASE_URL', 'NODE_ENV', 'LOG_LEVEL'] as const
+const ENV_KEYS = ['DATABASE_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL', 'NODE_ENV', 'LOG_LEVEL'] as const
 let savedEnv: Record<string, string | undefined>
 
 function saveEnv() {
@@ -98,8 +98,10 @@ describe('prisma.ts — lazy Proxy initialization', () => {
   // ── Module import safety ────────────────────────────────────────────────
 
   describe('module import', () => {
-    it('does not throw when DATABASE_URL is missing', () => {
+    it('does not throw when all connection string env vars are missing', () => {
       delete process.env.DATABASE_URL
+      delete process.env.POSTGRES_PRISMA_URL
+      delete process.env.POSTGRES_URL
       expect(() => loadPrismaModule()).not.toThrow()
     })
 
@@ -150,16 +152,21 @@ describe('prisma.ts — lazy Proxy initialization', () => {
       expect(PrismaClient).toHaveBeenCalledTimes(1)
     })
 
-    it('throws on first access when DATABASE_URL is missing', () => {
+    it('throws on first access when no connection string env var is set', () => {
       delete process.env.DATABASE_URL
+      delete process.env.POSTGRES_PRISMA_URL
+      delete process.env.POSTGRES_URL
       const mod = loadPrismaModule()
-      expect(() => mod.prisma.user).toThrow('DATABASE_URL environment variable is not set')
+      expect(() => mod.prisma.user).toThrow('Database connection string is not configured')
     })
 
-    it('throws descriptive error message', () => {
+    it('throws descriptive error message listing all accepted env vars', () => {
       delete process.env.DATABASE_URL
+      delete process.env.POSTGRES_PRISMA_URL
+      delete process.env.POSTGRES_URL
       const mod = loadPrismaModule()
       expect(() => mod.prisma.$connect).toThrow(/DATABASE_URL/)
+      expect(() => mod.prisma.$connect).toThrow(/POSTGRES_PRISMA_URL/)
     })
   })
 

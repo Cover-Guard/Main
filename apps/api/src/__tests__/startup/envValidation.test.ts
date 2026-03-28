@@ -6,24 +6,31 @@
  *  - process.exit(1) is NOT called in Vercel serverless mode (VERCEL=1)
  *  - console.error logs the missing variables in both modes
  *  - Express app still exports successfully when VERCEL=1 with missing env
- *  - All three required variables are checked
+ *  - DATABASE_URL, POSTGRES_PRISMA_URL, and POSTGRES_URL are all accepted
  */
 
 // We test the startup logic by extracting and testing the env validation
 // pattern directly, since requiring index.ts has many side effects.
 
 describe('startup environment validation', () => {
-  const REQUIRED_ENV = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
-  const originalEnv = { ...process.env }
-
-  // Extracted validation logic that mirrors index.ts
+  // Mirrors the validation logic in index.ts which accepts any of three
+  // database connection string env vars.
   function runValidation(env: Record<string, string | undefined>): {
     missingEnv: string[]
     wouldExit: boolean
     wouldLog: boolean
     logMessage: string | null
   } {
+    const hasDbUrl = !!(
+      env.DATABASE_URL ??
+      env.POSTGRES_PRISMA_URL ??
+      env.POSTGRES_URL
+    )
+    const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
     const missingEnv = REQUIRED_ENV.filter((k) => !env[k])
+    if (!hasDbUrl) {
+      missingEnv.unshift('DATABASE_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL)')
+    }
     if (missingEnv.length > 0) {
       const msg = `FATAL: Missing required environment variables: ${missingEnv.join(', ')}`
       if (env.VERCEL === '1') {
@@ -35,24 +42,20 @@ describe('startup environment validation', () => {
     return { missingEnv: [], wouldExit: false, wouldLog: false, logMessage: null }
   }
 
-  afterEach(() => {
-    process.env = { ...originalEnv }
-  })
-
   // ── Missing env detection ──────────────────────────────────────────────
 
   describe('missing env var detection', () => {
-    it('detects all three missing when none are set', () => {
+    it('detects all missing when none are set', () => {
       const result = runValidation({})
-      expect(result.missingEnv).toEqual(REQUIRED_ENV)
+      expect(result.missingEnv).toHaveLength(3)
     })
 
-    it('detects DATABASE_URL missing when only it is absent', () => {
+    it('detects DB URL missing when only it is absent', () => {
       const result = runValidation({
         SUPABASE_URL: 'https://test.supabase.co',
         SUPABASE_SERVICE_ROLE_KEY: 'key123',
       })
-      expect(result.missingEnv).toEqual(['DATABASE_URL'])
+      expect(result.missingEnv).toEqual(['DATABASE_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL)'])
     })
 
     it('detects SUPABASE_URL missing when only it is absent', () => {
@@ -87,13 +90,13 @@ describe('startup environment validation', () => {
       expect(result.missingEnv).toEqual([])
     })
 
-    it('treats empty string as missing', () => {
+    it('treats empty string as missing for DB URL', () => {
       const result = runValidation({
         DATABASE_URL: '',
         SUPABASE_URL: 'https://test.supabase.co',
         SUPABASE_SERVICE_ROLE_KEY: 'key123',
       })
-      expect(result.missingEnv).toEqual(['DATABASE_URL'])
+      expect(result.missingEnv).toEqual(['DATABASE_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL)'])
     })
 
     it('treats undefined as missing', () => {
@@ -102,7 +105,58 @@ describe('startup environment validation', () => {
         SUPABASE_URL: 'https://test.supabase.co',
         SUPABASE_SERVICE_ROLE_KEY: 'key123',
       })
-      expect(result.missingEnv).toEqual(['DATABASE_URL'])
+      expect(result.missingEnv).toEqual(['DATABASE_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL)'])
+    })
+  })
+
+  // ── POSTGRES_* fallback env vars ───────────────────────────────────────
+
+  describe('database URL fallbacks', () => {
+    it('accepts POSTGRES_PRISMA_URL as fallback for DATABASE_URL', () => {
+      const result = runValidation({
+        POSTGRES_PRISMA_URL: 'postgresql://localhost/test',
+        SUPABASE_URL: 'https://test.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'key123',
+      })
+      expect(result.missingEnv).toEqual([])
+    })
+
+    it('accepts POSTGRES_URL as fallback for DATABASE_URL', () => {
+      const result = runValidation({
+        POSTGRES_URL: 'postgresql://localhost/test',
+        SUPABASE_URL: 'https://test.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'key123',
+      })
+      expect(result.missingEnv).toEqual([])
+    })
+
+    it('prefers DATABASE_URL over POSTGRES_PRISMA_URL', () => {
+      const result = runValidation({
+        DATABASE_URL: 'pg://primary',
+        POSTGRES_PRISMA_URL: 'pg://fallback',
+        SUPABASE_URL: 'https://x',
+        SUPABASE_SERVICE_ROLE_KEY: 'key',
+      })
+      expect(result.missingEnv).toEqual([])
+    })
+
+    it('does not require all three DB URL vars — one suffices', () => {
+      const result = runValidation({
+        POSTGRES_URL: 'pg://only-this',
+        SUPABASE_URL: 'https://x',
+        SUPABASE_SERVICE_ROLE_KEY: 'key',
+      })
+      expect(result.missingEnv).toEqual([])
+      expect(result.wouldExit).toBe(false)
+    })
+
+    it('reports missing when all three DB URL vars are absent', () => {
+      const result = runValidation({
+        SUPABASE_URL: 'https://x',
+        SUPABASE_SERVICE_ROLE_KEY: 'key',
+      })
+      expect(result.missingEnv).toHaveLength(1)
+      expect(result.missingEnv[0]).toContain('DATABASE_URL')
     })
   })
 
@@ -121,9 +175,8 @@ describe('startup environment validation', () => {
 
     it('logs FATAL message with missing var names', () => {
       const result = runValidation({ SUPABASE_URL: 'x', SUPABASE_SERVICE_ROLE_KEY: 'x' })
-      expect(result.logMessage).toBe(
-        'FATAL: Missing required environment variables: DATABASE_URL',
-      )
+      expect(result.logMessage).toContain('FATAL:')
+      expect(result.logMessage).toContain('DATABASE_URL')
     })
 
     it('logs all missing var names separated by commas', () => {
@@ -176,7 +229,7 @@ describe('startup environment validation', () => {
       expect(result.wouldLog).toBe(true)
     })
 
-    it('log message includes all missing var names', () => {
+    it('log message includes missing var names', () => {
       const result = runValidation({ VERCEL: '1' })
       expect(result.logMessage).toContain('DATABASE_URL')
       expect(result.logMessage).toContain('SUPABASE_URL')
@@ -212,7 +265,7 @@ describe('startup environment validation', () => {
   // ── Log message format ─────────────────────────────────────────────────
 
   describe('log message formatting', () => {
-    it('single missing var has no commas', () => {
+    it('single missing var (SUPABASE_SERVICE_ROLE_KEY) has no commas', () => {
       const result = runValidation({
         DATABASE_URL: 'x',
         SUPABASE_URL: 'x',
@@ -229,11 +282,9 @@ describe('startup environment validation', () => {
       )
     })
 
-    it('three missing vars are comma-separated', () => {
-      const result = runValidation({})
-      expect(result.logMessage).toBe(
-        'FATAL: Missing required environment variables: DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY',
-      )
+    it('DB URL missing is listed first with fallback names', () => {
+      const result = runValidation({ SUPABASE_URL: 'x', SUPABASE_SERVICE_ROLE_KEY: 'x' })
+      expect(result.logMessage).toMatch(/^FATAL: Missing required environment variables: DATABASE_URL/)
     })
   })
 })
