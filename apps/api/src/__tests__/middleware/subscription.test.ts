@@ -1,31 +1,29 @@
 /**
  * requireSubscription middleware tests
  *
+ * The middleware is now synchronous — it reads `req.hasActiveSubscription`
+ * (populated by requireAuth) instead of making its own DB query.
+ *
  * Covers:
  *  - Feature flag off → middleware is no-op
  *  - Feature flag on + no userId → 401
- *  - Feature flag on + active subscription → calls next()
- *  - Feature flag on + no active subscription → 403
+ *  - Feature flag on + hasActiveSubscription=true → calls next()
+ *  - Feature flag on + hasActiveSubscription=false → 403
  */
 
 jest.mock('../../utils/featureFlags', () => ({
   featureFlags: { stripeSubscriptionRequired: false },
 }))
-jest.mock('../../services/stripeService', () => ({
-  hasActiveSubscription: jest.fn(),
-}))
 
 import type { Request, Response } from 'express'
 import { featureFlags } from '../../utils/featureFlags'
-import { hasActiveSubscription } from '../../services/stripeService'
 import { requireSubscription } from '../../middleware/subscription'
 import type { AuthenticatedRequest } from '../../middleware/auth'
 
-const mockHasActive = hasActiveSubscription as jest.Mock
-
-function makeReq(userId?: string): Request {
+function makeReq(userId?: string, hasActiveSub?: boolean): Request {
   const req = {} as AuthenticatedRequest
   if (userId) req.userId = userId
+  if (hasActiveSub !== undefined) req.hasActiveSubscription = hasActiveSub
   return req as Request
 }
 
@@ -42,20 +40,18 @@ function makeNext(): jest.Mock {
 describe('requireSubscription', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    // Default: flag OFF
     ;(featureFlags as { stripeSubscriptionRequired: boolean }).stripeSubscriptionRequired = false
   })
 
   describe('feature flag OFF', () => {
-    it('calls next() without checking subscription', async () => {
-      const req = makeReq('user-1')
+    it('calls next() without checking subscription', () => {
+      const req = makeReq('user-1', false)
       const { res } = makeRes()
       const next = makeNext()
 
-      await requireSubscription(req, res, next)
+      requireSubscription(req, res, next)
 
       expect(next).toHaveBeenCalled()
-      expect(mockHasActive).not.toHaveBeenCalled()
     })
   })
 
@@ -64,12 +60,12 @@ describe('requireSubscription', () => {
       ;(featureFlags as { stripeSubscriptionRequired: boolean }).stripeSubscriptionRequired = true
     })
 
-    it('returns 401 when userId is not set', async () => {
+    it('returns 401 when userId is not set', () => {
       const req = makeReq() // no userId
       const { res, status, json } = makeRes()
       const next = makeNext()
 
-      await requireSubscription(req, res, next)
+      requireSubscription(req, res, next)
 
       expect(status).toHaveBeenCalledWith(401)
       expect(json).toHaveBeenCalledWith(
@@ -81,25 +77,22 @@ describe('requireSubscription', () => {
       expect(next).not.toHaveBeenCalled()
     })
 
-    it('calls next() when user has active subscription', async () => {
-      mockHasActive.mockResolvedValue(true)
-      const req = makeReq('user-1')
+    it('calls next() when hasActiveSubscription is true', () => {
+      const req = makeReq('user-1', true)
       const { res } = makeRes()
       const next = makeNext()
 
-      await requireSubscription(req, res, next)
+      requireSubscription(req, res, next)
 
-      expect(mockHasActive).toHaveBeenCalledWith('user-1')
       expect(next).toHaveBeenCalled()
     })
 
-    it('returns 403 when user has no active subscription', async () => {
-      mockHasActive.mockResolvedValue(false)
-      const req = makeReq('user-2')
+    it('returns 403 when hasActiveSubscription is false', () => {
+      const req = makeReq('user-2', false)
       const { res, status, json } = makeRes()
       const next = makeNext()
 
-      await requireSubscription(req, res, next)
+      requireSubscription(req, res, next)
 
       expect(status).toHaveBeenCalledWith(403)
       expect(json).toHaveBeenCalledWith(
@@ -107,6 +100,17 @@ describe('requireSubscription', () => {
           error: expect.objectContaining({ code: 'SUBSCRIPTION_REQUIRED' }),
         }),
       )
+      expect(next).not.toHaveBeenCalled()
+    })
+
+    it('returns 403 when hasActiveSubscription is undefined (not set by auth)', () => {
+      const req = makeReq('user-3') // userId set but no hasActiveSubscription
+      const { res, status, json } = makeRes()
+      const next = makeNext()
+
+      requireSubscription(req, res, next)
+
+      expect(status).toHaveBeenCalledWith(403)
       expect(next).not.toHaveBeenCalled()
     })
   })
