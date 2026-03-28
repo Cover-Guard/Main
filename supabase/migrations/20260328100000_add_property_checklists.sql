@@ -5,8 +5,8 @@ CREATE TYPE checklist_type AS ENUM ('INSPECTION', 'NEW_BUYER', 'AGENT');
 
 CREATE TABLE property_checklists (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  property_id TEXT NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   checklist_type checklist_type NOT NULL DEFAULT 'INSPECTION',
   title       TEXT NOT NULL,
   items       JSONB NOT NULL DEFAULT '[]'::jsonb,
