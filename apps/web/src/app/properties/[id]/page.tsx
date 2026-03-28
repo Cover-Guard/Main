@@ -84,8 +84,13 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   )
 
   const detailsPanel = (
-    <div className="p-4 space-y-4">
+    <div className="p-4">
       <PropertyDetails property={prop} />
+    </div>
+  )
+
+  const checklistsPanel = (
+    <div className="p-4">
       <PropertyChecklists propertyId={prop.id} />
     </div>
   )
@@ -143,16 +148,18 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
         {/* ── Mobile: tabbed layout ────────────────────────────────── */}
         <MobilePropertyTabs
           tabs={[
-            { id: 'overview',  label: 'Overview' },
-            { id: 'risk',      label: 'Risk' },
-            { id: 'carriers',  label: 'Carriers' },
-            { id: 'details',   label: 'Details' },
+            { id: 'overview',    label: 'Overview' },
+            { id: 'risk',        label: 'Risk' },
+            { id: 'carriers',    label: 'Carriers' },
+            { id: 'details',     label: 'Details' },
+            { id: 'checklists',  label: 'Checklists' },
           ]}
           panels={{
-            overview: overviewPanel,
-            risk:     riskPanel,
-            carriers: carriersPanel,
-            details:  detailsPanel,
+            overview:   overviewPanel,
+            risk:       riskPanel,
+            carriers:   carriersPanel,
+            details:    detailsPanel,
+            checklists: checklistsPanel,
           }}
         />
 
