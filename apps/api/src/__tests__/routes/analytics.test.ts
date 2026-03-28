@@ -51,7 +51,7 @@ const app = express()
 app.use(express.json())
 app.use('/api/analytics', analyticsRouter)
 // Express error handlers require all 4 params to be recognized as error middleware
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   res.status(500).json({ success: false, error: { message: err.message } })
 })

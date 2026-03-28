@@ -77,7 +77,7 @@ function resetModuleAndGlobals() {
 }
 
 function loadPrismaModule() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   return require('../../utils/prisma') as { prisma: Record<string, unknown> }
 }
 

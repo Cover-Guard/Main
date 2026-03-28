@@ -45,7 +45,7 @@ import { errorHandler } from '../../middleware/errorHandler'
 import { prisma } from '../../utils/prisma'
 import { supabaseAdmin } from '../../utils/supabaseAdmin'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const mockPrisma = prisma as any
 const mockSupabase = supabaseAdmin as unknown as {
   auth: { admin: { createUser: jest.Mock; deleteUser: jest.Mock } }

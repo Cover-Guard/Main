@@ -59,7 +59,7 @@ const validBody = {
   role: 'BUYER',
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const mockPrisma = prisma as any
 const mockSupabase = supabaseAdmin as unknown as {
   auth: {

@@ -105,7 +105,7 @@ describe('requireSubscription', () => {
 
     it('returns 403 when hasActiveSubscription is undefined (not set by auth)', () => {
       const req = makeReq('user-3') // userId set but no hasActiveSubscription
-      const { res, status, json } = makeRes()
+      const { res, status } = makeRes()
       const next = makeNext()
 
       requireSubscription(req, res, next)
