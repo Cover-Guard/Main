@@ -25,6 +25,7 @@ export default function OnboardingPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
         // Session expired — send user to login
+        setLoading(false)
         router.push('/login')
         return
       }

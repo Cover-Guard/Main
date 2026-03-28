@@ -250,8 +250,13 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
     const email = (jwt?.email as string) ?? ''
     const fullName = meta.full_name ?? ''
 
-    await prisma.user.create({
-      data: {
+    // Use upsert to handle concurrent requests — if two requests both see
+    // updateMany.count=0 and race to create, the second would fail with P2002.
+    // Upsert handles this atomically.
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: agreements,
+      create: {
         id: userId,
         email,
         firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
