@@ -185,6 +185,7 @@ function NewCheckPageInner({
                     autoComplete="off"
                     role="combobox"
                     aria-expanded={showDropdown}
+                    aria-controls="newcheck-suggestions"
                     aria-haspopup="listbox"
                     aria-autocomplete="list"
                     className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
@@ -196,6 +197,7 @@ function NewCheckPageInner({
                 {showDropdown && predictions.length > 0 && (
                   <div
                     ref={dropdownRef}
+                    id="newcheck-suggestions"
                     role="listbox"
                     className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
                   >

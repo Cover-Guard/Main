@@ -15,7 +15,6 @@ export function useGooglePlacesAutocomplete(debounceMs = 250) {
 
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
   const [loading, setLoading] = useState(false)
-  const [isReady, setIsReady] = useState(false)
 
   const serviceRef = useRef<google.maps.places.AutocompleteService | null>(null)
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
@@ -25,7 +24,6 @@ export function useGooglePlacesAutocomplete(debounceMs = 250) {
     if (!placesLib) return
     serviceRef.current = new placesLib.AutocompleteService()
     sessionTokenRef.current = new placesLib.AutocompleteSessionToken()
-    setIsReady(true)
   }, [placesLib])
 
   const fetchPredictions = useCallback(
@@ -91,7 +89,6 @@ export function useGooglePlacesAutocomplete(debounceMs = 250) {
   return {
     predictions,
     loading,
-    isReady,
     fetchPredictions,
     clearPredictions,
     resetSessionToken,
