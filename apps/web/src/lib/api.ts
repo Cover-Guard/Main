@@ -120,7 +120,11 @@ export async function getPropertyReport(id: string): Promise<{
 export async function saveProperty(id: string, notes?: string, tags?: string[], clientId?: string | null): Promise<void> {
   await apiFetch(`/api/properties/${id}/save`, {
     method: 'POST',
-    body: JSON.stringify({ notes, tags: tags ?? [], ...(clientId !== undefined && { clientId }) }),
+    body: JSON.stringify({
+      notes,
+      tags: tags ?? [],
+      ...(clientId !== undefined ? { clientId } : {}),
+    }),
   })
 }
 
