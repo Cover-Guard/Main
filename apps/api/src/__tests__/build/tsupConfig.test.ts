@@ -25,7 +25,7 @@ describe('tsup.config.ts', () => {
   it('inlines all non-native packages via noExternal regex', () => {
     // noExternal uses a regex to inline everything except @prisma, pg, prisma, fsevents
     expect(configContent).toMatch(/noExternal/)
-    expect(configContent).toMatch(/\@prisma|pg|prisma|fsevents/)
+    expect(configContent).toMatch(/@prisma|pg|prisma|fsevents/)
   })
 
   it('keeps @prisma/client as external', () => {
