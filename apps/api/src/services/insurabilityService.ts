@@ -11,13 +11,16 @@ import { INSURABILITY_CACHE_TTL_SECONDS } from '@coverguard/shared'
 import { prisma } from '../utils/prisma'
 import { insurabilityCache, insurabilityDeduplicator } from '../utils/cache'
 
-export async function getInsurabilityStatus(propertyId: string): Promise<InsurabilityStatus> {
+export async function getInsurabilityStatus(propertyId: string, forceRefresh = false): Promise<InsurabilityStatus> {
   // L1 cache hit — no DB call needed
-  const l1 = insurabilityCache.get(propertyId)
-  if (l1) return l1
+  if (!forceRefresh) {
+    const l1 = insurabilityCache.get(propertyId)
+    if (l1) return l1
+  }
 
   // Deduplicate concurrent requests for the same property
-  return insurabilityDeduplicator.dedupe(propertyId, async () => {
+  const dedupeKey = forceRefresh ? `${propertyId}:refresh` : propertyId
+  return insurabilityDeduplicator.dedupe(dedupeKey, async () => {
     const property = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
       include: { riskProfile: true },

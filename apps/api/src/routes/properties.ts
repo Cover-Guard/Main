@@ -5,6 +5,7 @@ import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
+import { insuranceCache, carriersCache, insurabilityCache } from '../utils/cache'
 import { requireAuth } from '../middleware/auth'
 import { requireSubscription } from '../middleware/subscription'
 import { prisma } from '../utils/prisma'
@@ -36,6 +37,11 @@ function setCacheHeaders(res: Response, sMaxAge: number, staleWhileRevalidate = 
     'Cache-Control',
     `public, s-maxage=${sMaxAge}, stale-while-revalidate=${staleWhileRevalidate}`,
   )
+}
+
+/** Prevent CDN and browser from caching a force-refreshed response */
+function setNoCacheHeaders(res: Response): void {
+  res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate')
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────
@@ -155,9 +161,19 @@ propertiesRouter.get('/:id', async (req, res, next) => {
 
 propertiesRouter.get('/:id/risk', async (req, res, next) => {
   try {
-    const profile = await getOrComputeRiskProfile(req.params.id)
-    // Risk profiles change infrequently — 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    const profile = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    // When risk is refreshed, invalidate dependent caches so they recompute with new scores
+    if (forceRefresh) {
+      setNoCacheHeaders(res)
+      try {
+        insuranceCache.delete(req.params.id)
+        carriersCache.delete(req.params.id)
+        insurabilityCache.delete(req.params.id)
+      } catch { /* cache invalidation is best-effort */ }
+    } else {
+      setCacheHeaders(res, 7200, 600)
+    }
     res.json({ success: true, data: profile })
   } catch (err) {
     next(err)
@@ -168,9 +184,12 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
 
 propertiesRouter.get('/:id/insurance', async (req, res, next) => {
   try {
-    const estimate = await getOrComputeInsuranceEstimate(req.params.id)
-    // Insurance estimates: 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    // Ensure risk profile exists and is fresh (insurance depends on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const estimate = await getOrComputeInsuranceEstimate(req.params.id, forceRefresh)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: estimate })
   } catch (err) {
     next(err)
@@ -181,11 +200,8 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
 
 propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
-    const [property, risk, insurance] = await Promise.all([
-      getPropertyById(req.params.id),
-      getOrComputeRiskProfile(req.params.id),
-      getOrComputeInsuranceEstimate(req.params.id),
-    ])
+    const forceRefresh = req.query.refresh === 'true'
+    const property = await getPropertyById(req.params.id)
     if (!property) {
       res.status(404).json({
         success: false,
@@ -193,8 +209,16 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       })
       return
     }
-    setCacheHeaders(res, 3600, 300)
-    res.json({ success: true, data: { property, risk, insurance } })
+    // Risk must be computed first since insurance depends on it
+    const risk = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const [insurance, insurability, carriers] = await Promise.all([
+      getOrComputeInsuranceEstimate(req.params.id, forceRefresh),
+      getInsurabilityStatus(req.params.id, forceRefresh),
+      getCarriersForProperty(req.params.id, forceRefresh),
+    ])
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 3600, 300)
+    res.json({ success: true, data: { property, risk, insurance, insurability, carriers } })
   } catch (err) {
     next(err)
   }
@@ -205,6 +229,7 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
 const saveSchema = z.object({
   notes: z.string().max(500).transform((s) => s.trim()).optional(),
   tags: z.array(z.string()).max(10).default([]),
+  clientId: z.string().uuid().nullish(),
 })
 
 propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
@@ -213,12 +238,52 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
     const body = saveSchema.parse(req.body)
     const propertyId = String(req.params.id)
 
+    // Verify property exists before creating the saved-property record
+    const propertyExists = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true },
+    })
+    if (!propertyExists) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+
+    // Verify the client belongs to the requesting user (prevents cross-agent association)
+    if (body.clientId) {
+      const clientOwned = await prisma.client.findFirst({
+        where: { id: body.clientId, agentId: userId },
+        select: { id: true },
+      })
+      if (!clientOwned) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Client not found' },
+        })
+        return
+      }
+    }
+
+    // Check if already saved to determine correct status code
+    const existing = await prisma.savedProperty.findUnique({
+      where: { userId_propertyId: { userId, propertyId } },
+      select: { id: true },
+    })
+
+    // body.clientId is string | null | undefined:
+    //   string    → set the association
+    //   null      → explicitly remove the association
+    //   undefined → leave unchanged on update, null on create
+    const clientIdUpdate = body.clientId === undefined ? undefined : body.clientId
+
     const saved = await prisma.savedProperty.upsert({
       where: { userId_propertyId: { userId, propertyId } },
-      update: { notes: body.notes, tags: body.tags },
-      create: { userId, propertyId, notes: body.notes, tags: body.tags },
+      update: { notes: body.notes, tags: body.tags, clientId: clientIdUpdate },
+      create: { userId, propertyId, notes: body.notes, tags: body.tags, clientId: body.clientId ?? null },
     })
-    res.json({ success: true, data: saved })
+    res.status(existing ? 200 : 201).json({ success: true, data: saved })
   } catch (err) {
     next(err)
   }
@@ -244,9 +309,12 @@ propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (re
 
 propertiesRouter.get('/:id/insurability', async (req, res, next) => {
   try {
-    const status = await getInsurabilityStatus(req.params.id)
-    // Insurability is derived from risk — same 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    // Ensure risk profile exists and is fresh (insurability depends on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const status = await getInsurabilityStatus(req.params.id, forceRefresh)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: status })
   } catch (err) {
     next(err)
@@ -257,9 +325,12 @@ propertiesRouter.get('/:id/insurability', async (req, res, next) => {
 
 propertiesRouter.get('/:id/carriers', async (req, res, next) => {
   try {
-    const carriers = await getCarriersForProperty(req.params.id)
-    // Carrier availability: 1 hour CDN cache
-    setCacheHeaders(res, 3600, 300)
+    const forceRefresh = req.query.refresh === 'true'
+    // Ensure risk profile exists and is fresh (carrier decisions depend on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const carriers = await getCarriersForProperty(req.params.id, forceRefresh)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: carriers })
   } catch (err) {
     next(err)
@@ -280,11 +351,25 @@ propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, as
   try {
     const { userId } = req as AuthenticatedRequest
     const body = quoteRequestSchema.parse(req.body)
+    const propertyId = String(req.params.id)
+
+    // Verify property exists before creating the quote request
+    const propertyExists = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true },
+    })
+    if (!propertyExists) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
 
     const quoteRequest = await prisma.quoteRequest.create({
       data: {
         userId,
-        propertyId: String(req.params.id),
+        propertyId,
         carrierId: body.carrierId,
         coverageTypes: body.coverageTypes,
         notes: body.notes ?? null,

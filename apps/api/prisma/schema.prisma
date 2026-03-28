@@ -211,16 +211,19 @@ model SavedProperty {
   id         String   @id @default(uuid())
   userId     String
   propertyId String
+  clientId   String?  // optional: agent saves property on behalf of a client
   notes      String?
   tags       String[] @default([])
   savedAt    DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  client   Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@unique([userId, propertyId])
   @@index([userId, savedAt(sort: Desc)])
   @@index([propertyId])
+  @@index([clientId])
   @@map("saved_properties")
 }
 
@@ -262,7 +265,8 @@ model Client {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  agent User @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agent           User            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  savedProperties SavedProperty[]
 
   @@index([agentId])
   @@map("clients")

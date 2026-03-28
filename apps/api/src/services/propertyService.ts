@@ -3,6 +3,7 @@ import { propertyCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { searchPropertiesByAddress } from '../integrations/propertyData'
 import { geocodeByPlaceId } from '../integrations/googleGeocode'
+import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
 import { randomUUID } from 'crypto'
 
@@ -48,29 +49,7 @@ export async function searchProperties(
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        // Select only the columns the DTO needs — avoids over-fetching
-        select: {
-          id: true,
-          address: true,
-          city: true,
-          state: true,
-          zip: true,
-          county: true,
-          lat: true,
-          lng: true,
-          propertyType: true,
-          yearBuilt: true,
-          squareFeet: true,
-          bedrooms: true,
-          bathrooms: true,
-          lotSize: true,
-          estimatedValue: true,
-          lastSalePrice: true,
-          lastSaleDate: true,
-          parcelId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: PROPERTY_PUBLIC_SELECT,
       }),
       prisma.property.count({ where }),
     ])
@@ -331,28 +310,7 @@ export async function getPropertyById(id: string): Promise<Property | null> {
 
   const prop = await prisma.property.findUnique({
     where: { id },
-    select: {
-      id: true,
-      address: true,
-      city: true,
-      state: true,
-      zip: true,
-      county: true,
-      lat: true,
-      lng: true,
-      propertyType: true,
-      yearBuilt: true,
-      squareFeet: true,
-      bedrooms: true,
-      bathrooms: true,
-      lotSize: true,
-      estimatedValue: true,
-      lastSalePrice: true,
-      lastSaleDate: true,
-      parcelId: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: PROPERTY_PUBLIC_SELECT,
   })
   if (!prop) return null
 
