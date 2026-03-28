@@ -183,14 +183,23 @@ export function AgentDashboard() {
         { value: 3, color: '#3b82f6', label: 'Moderate 3' },
       ]
 
-  // Peril data from analytics or sensible fallback
-  const perilData = [
-    { label: 'Fire',  value: 42 },
-    { label: 'Flood', value: 35 },
-    { label: 'Wind',  value: 28 },
-    { label: 'Hail',  value: 22 },
-    { label: 'Quake', value: 45 },
-  ]
+  // Peril data from regional risk analytics (avg scores across saved properties)
+  const regional = analytics?.regionalRisk ?? []
+  const perilData = regional.length > 0
+    ? [
+        { label: 'Fire',  value: Math.round(regional.reduce((s, r) => s + r.avgFireScore, 0) / regional.length) },
+        { label: 'Flood', value: Math.round(regional.reduce((s, r) => s + r.avgFloodScore, 0) / regional.length) },
+        { label: 'Wind',  value: Math.round(regional.reduce((s, r) => s + r.avgWindScore, 0) / regional.length) },
+        { label: 'Quake', value: Math.round(regional.reduce((s, r) => s + r.avgEarthquakeScore, 0) / regional.length) },
+        { label: 'Crime', value: Math.round(regional.reduce((s, r) => s + r.avgCrimeScore, 0) / regional.length) },
+      ]
+    : [
+        { label: 'Fire',  value: 0 },
+        { label: 'Flood', value: 0 },
+        { label: 'Wind',  value: 0 },
+        { label: 'Quake', value: 0 },
+        { label: 'Crime', value: 0 },
+      ]
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -249,7 +258,7 @@ export function AgentDashboard() {
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
           label="TOTAL CHECKS"
           value={loading ? '—' : totalSearches || totalProps}
