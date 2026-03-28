@@ -67,13 +67,13 @@ import { advisorRouter } from '../../routes/advisor'
 // Extract the actual handler (3rd middleware in stack — after requireAuth + requireSubscription)
 // The router stores layers; the POST /chat handler is the last layer's route.
 function getHandler() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const stack = (advisorRouter as any).stack
+  const stack = (advisorRouter as any).stack as Array<{
+    route?: { path: string; stack: Array<{ handle: (req: Request, res: Response) => Promise<void> }> }
+  }>
   for (const layer of stack) {
     if (layer.route?.path === '/chat') {
-      // The route's stack has middleware in order; the last one is the async handler
       const routeStack = layer.route.stack
-      return routeStack[routeStack.length - 1].handle as (req: Request, res: Response) => Promise<void>
+      return routeStack[routeStack.length - 1].handle
     }
   }
   throw new Error('Could not find /chat handler')
@@ -137,8 +137,9 @@ describe('POST /api/advisor/chat', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { advisorRouter: freshRouter } = require('../../routes/advisor')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const stack = (freshRouter as any).stack
+      const stack = (freshRouter as Record<string, unknown[]>).stack as Array<{
+        route?: { path: string; stack: Array<{ handle: (req: Request, res: Response) => Promise<void> }> }
+      }>
       let freshHandler!: (req: Request, res: Response) => Promise<void>
       for (const layer of stack) {
         if (layer.route?.path === '/chat') {

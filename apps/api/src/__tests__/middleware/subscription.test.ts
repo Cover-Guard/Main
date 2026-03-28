@@ -15,7 +15,7 @@ jest.mock('../../services/stripeService', () => ({
   hasActiveSubscription: jest.fn(),
 }))
 
-import type { Request, Response, NextFunction } from 'express'
+import type { Request, Response } from 'express'
 import { featureFlags } from '../../utils/featureFlags'
 import { hasActiveSubscription } from '../../services/stripeService'
 import { requireSubscription } from '../../middleware/subscription'
