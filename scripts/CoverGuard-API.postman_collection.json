@@ -1,27 +1,56 @@
 {
   "info": {
     "name": "CoverGuard API",
-    "description": "Complete API verification suite for CoverGuard (coverguard.io).\n\n## Setup\n1. Set the `base_url` variable (default: https://api.coverguard.io)\n2. Set `access_token` from your Supabase session (DevTools → Application → Local Storage)\n3. Run the **Health** request first, then **Search** to auto-populate `property_id`\n4. Run the full collection with Collection Runner",
+    "description": "Complete API verification suite for CoverGuard (coverguard.io).\n\n## Setup\n1. Set `base_url` — try `https://api.coverguard.io` first; if you get DEPLOYMENT_NOT_FOUND, switch to `https://coverguard.io`\n2. Set `access_token` from your Supabase session (DevTools → Application → Local Storage)\n3. Run the **Health** request first, then **Search** to auto-populate `property_id`\n4. Run the full collection with Collection Runner (200ms delay)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "https://api.coverguard.io", "type": "string" },
-    { "key": "web_url", "value": "https://coverguard.io", "type": "string" },
+    { "key": "base_url", "value": "https://coverguard.io", "type": "string" },
     { "key": "access_token", "value": "", "type": "string" },
     { "key": "property_id", "value": "", "type": "string" },
     { "key": "client_id", "value": "", "type": "string" },
-    { "key": "checklist_id", "value": "", "type": "string" }
+    { "key": "checklist_id", "value": "", "type": "string" },
+    { "key": "vercel_bypass_secret", "value": "", "type": "string" }
   ],
   "auth": {
     "type": "bearer",
     "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
   },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Add Vercel Protection Bypass header if secret is configured",
+          "const bypass = pm.collectionVariables.get('vercel_bypass_secret');",
+          "if (bypass) {",
+          "  pm.request.headers.add({ key: 'x-vercel-protection-bypass', value: bypass });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "// Shared helper: detect Vercel infrastructure errors before any test runs",
+          "const body = pm.response.text();",
+          "const isVercelError = body.includes('DEPLOYMENT_NOT_FOUND') || body.includes('NOT_FOUND') && !body.startsWith('{');",
+          "if (isVercelError) {",
+          "  pm.test('Vercel deployment reachable', () => {",
+          "    pm.expect.fail('Got Vercel DEPLOYMENT_NOT_FOUND — check base_url variable or redeploy the API project on Vercel');",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
   "item": [
     {
-      "name": "1 — Health",
+      "name": "0 — Connectivity Check",
       "item": [
         {
-          "name": "Health Check",
+          "name": "API reachable?",
           "request": {
             "method": "GET",
             "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
@@ -31,11 +60,27 @@
             "listen": "test",
             "script": {
               "exec": [
+                "const body = pm.response.text();",
+                "",
+                "if (pm.response.code === 404 && !body.startsWith('{')) {",
+                "  console.error('DEPLOYMENT_NOT_FOUND — try switching base_url:');",
+                "  console.error('  Option A: https://coverguard.io');",
+                "  console.error('  Option B: https://api.coverguard.io');",
+                "  console.error('  Option C: Set vercel_bypass_secret variable');",
+                "  pm.test('API deployment exists', () => pm.expect.fail(",
+                "    'Vercel returned DEPLOYMENT_NOT_FOUND. The API is not deployed at ' + pm.collectionVariables.get('base_url') + '. See console for options.'",
+                "  ));",
+                "  return;",
+                "}",
+                "",
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('Body has status ok', () => {",
+                "",
+                "try {",
                 "  const json = pm.response.json();",
-                "  pm.expect(json.status).to.eql('ok');",
-                "});"
+                "  pm.test('Body has status ok', () => pm.expect(json.status).to.eql('ok'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON response: ' + body.substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -43,7 +88,7 @@
       ]
     },
     {
-      "name": "2 — Properties (Public)",
+      "name": "1 — Properties (Public)",
       "item": [
         {
           "name": "Suggest",
@@ -64,7 +109,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -85,14 +134,19 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "",
-                "// Auto-set property_id for downstream requests",
-                "const json = pm.response.json();",
-                "const props = json.data?.properties || json.data?.results || [];",
-                "if (props.length > 0 && props[0].id) {",
-                "  pm.collectionVariables.set('property_id', props[0].id);",
-                "  console.log('Set property_id =', props[0].id);",
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  // Auto-set property_id for downstream requests",
+                "  const props = json.data?.properties || json.data?.results || [];",
+                "  if (props.length > 0 && props[0].id) {",
+                "    pm.collectionVariables.set('property_id', props[0].id);",
+                "    console.log('Set property_id =', props[0].id);",
+                "  } else {",
+                "    console.warn('Search returned 0 properties — downstream tests will fail');",
+                "  }",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
                 "}"
               ]
             }
@@ -117,7 +171,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -134,7 +192,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 400', () => pm.response.to.have.status(400));",
-                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+                "try {",
+                "  pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -151,8 +213,13 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Has property data', () => pm.expect(pm.response.json().data).to.have.property('id'));"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Has property data', () => pm.expect(json.data).to.have.property('id'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -169,7 +236,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 404', () => pm.response.to.have.status(404));",
-                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+                "try {",
+                "  pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -177,7 +248,7 @@
       ]
     },
     {
-      "name": "3 — Risk & Insurance (Public)",
+      "name": "2 — Risk & Insurance (Public)",
       "item": [
         {
           "name": "Risk Profile",
@@ -191,11 +262,13 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Has risk data', () => {",
-                "  const d = pm.response.json().data;",
-                "  pm.expect(d).to.have.property('overallRiskScore');",
-                "});"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Has overallRiskScore', () => pm.expect(json.data).to.have.property('overallRiskScore'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -212,7 +285,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -229,7 +306,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -246,7 +327,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -263,15 +348,19 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Has all report sections', () => {",
-                "  const d = pm.response.json().data;",
-                "  pm.expect(d).to.have.property('property');",
-                "  pm.expect(d).to.have.property('risk');",
-                "  pm.expect(d).to.have.property('insurance');",
-                "  pm.expect(d).to.have.property('insurability');",
-                "  pm.expect(d).to.have.property('carriers');",
-                "});"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Has all report sections', () => {",
+                "    pm.expect(json.data).to.have.property('property');",
+                "    pm.expect(json.data).to.have.property('risk');",
+                "    pm.expect(json.data).to.have.property('insurance');",
+                "    pm.expect(json.data).to.have.property('insurability');",
+                "    pm.expect(json.data).to.have.property('carriers');",
+                "  });",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -279,7 +368,7 @@
       ]
     },
     {
-      "name": "4 — Auth",
+      "name": "3 — Auth",
       "item": [
         {
           "name": "Get Profile — no token (expect 401)",
@@ -293,7 +382,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 401', () => pm.response.to.have.status(401));",
-                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+                "try {",
+                "  pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -309,13 +402,17 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Has user data', () => {",
-                "  const d = pm.response.json().data;",
-                "  pm.expect(d).to.have.property('id');",
-                "  pm.expect(d).to.have.property('email');",
-                "  pm.expect(d).to.have.property('role');",
-                "});"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Has user data', () => {",
+                "    pm.expect(json.data).to.have.property('id');",
+                "    pm.expect(json.data).to.have.property('email');",
+                "    pm.expect(json.data).to.have.property('role');",
+                "  });",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -325,18 +422,18 @@
           "request": {
             "method": "PATCH",
             "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": { "raw": { "language": "json" } }
-            }
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }
           },
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -352,8 +449,13 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Data is array', () => pm.expect(json.data).to.be.an('array'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -369,8 +471,13 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Data is array', () => pm.expect(json.data).to.be.an('array'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -380,19 +487,20 @@
           "request": {
             "method": "POST",
             "url": { "raw": "{{base_url}}/api/auth/me/terms", "host": ["{{base_url}}"], "path": ["api", "auth", "me", "terms"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{}",
-              "options": { "raw": { "language": "json" } }
-            }
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }
           },
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Has termsAcceptedAt', () => pm.expect(pm.response.json().data).to.have.property('termsAcceptedAt'));"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Has termsAcceptedAt', () => pm.expect(json.data).to.have.property('termsAcceptedAt'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -400,7 +508,7 @@
       ]
     },
     {
-      "name": "5 — Clients (CRUD)",
+      "name": "4 — Clients (CRUD)",
       "item": [
         {
           "name": "List Clients — no token (expect 401)",
@@ -411,11 +519,7 @@
           },
           "event": [{
             "listen": "test",
-            "script": {
-              "exec": [
-                "pm.test('Status is 401', () => pm.response.to.have.status(401));"
-              ]
-            }
+            "script": { "exec": ["pm.test('Status is 401', () => pm.response.to.have.status(401));"] }
           }]
         },
         {
@@ -429,7 +533,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200 or 403', () => pm.expect([200, 403]).to.include(pm.response.code));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('Has success field', () => pm.expect(pm.response.json()).to.have.property('success'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -450,13 +558,16 @@
             "script": {
               "exec": [
                 "pm.test('Status is 201', () => pm.response.to.have.status(201));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "",
-                "// Save client_id for update/delete",
-                "const id = pm.response.json().data?.id;",
-                "if (id) {",
-                "  pm.collectionVariables.set('client_id', id);",
-                "  console.log('Set client_id =', id);",
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  const id = json.data?.id;",
+                "  if (id) {",
+                "    pm.collectionVariables.set('client_id', id);",
+                "    console.log('Set client_id =', id);",
+                "  }",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
                 "}"
               ]
             }
@@ -478,7 +589,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -494,7 +609,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -510,7 +629,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 404', () => pm.response.to.have.status(404));",
-                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+                "try {",
+                "  pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -518,25 +641,25 @@
       ]
     },
     {
-      "name": "6 — Save Property",
+      "name": "5 — Save Property",
       "item": [
         {
           "name": "Save Property",
           "request": {
             "method": "POST",
             "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/save", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "save"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"notes\": \"Postman test save\",\n  \"tags\": [\"test\", \"postman\"]\n}",
-              "options": { "raw": { "language": "json" } }
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Postman test save\",\n  \"tags\": [\"test\", \"postman\"]\n}", "options": { "raw": { "language": "json" } } }
           },
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
                 "pm.test('Status is 200 or 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -546,18 +669,18 @@
           "request": {
             "method": "POST",
             "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/save", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "save"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"notes\": \"Updated note\",\n  \"tags\": [\"test\", \"updated\"]\n}",
-              "options": { "raw": { "language": "json" } }
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Updated note\",\n  \"tags\": [\"test\", \"updated\"]\n}", "options": { "raw": { "language": "json" } } }
           },
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -573,7 +696,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -589,7 +716,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 404', () => pm.response.to.have.status(404));",
-                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+                "try {",
+                "  pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -597,26 +728,27 @@
       ]
     },
     {
-      "name": "7 — Quote Requests",
+      "name": "6 — Quote Requests",
       "item": [
         {
           "name": "Create Quote Request",
           "request": {
             "method": "POST",
             "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/quote-request", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "quote-request"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"carrierId\": \"carrier-postman-001\",\n  \"coverageTypes\": [\"HOMEOWNERS\", \"FLOOD\"],\n  \"notes\": \"Postman API verification test\"\n}",
-              "options": { "raw": { "language": "json" } }
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"carrierId\": \"carrier-postman-001\",\n  \"coverageTypes\": [\"HOMEOWNERS\", \"FLOOD\"],\n  \"notes\": \"Postman API verification test\"\n}", "options": { "raw": { "language": "json" } } }
           },
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
                 "pm.test('Status is 201', () => pm.response.to.have.status(201));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Has quoteRequestId', () => pm.expect(pm.response.json().data).to.have.property('quoteRequestId'));"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Has quoteRequestId', () => pm.expect(json.data).to.have.property('quoteRequestId'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -632,8 +764,13 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Data is array', () => pm.expect(json.data).to.be.an('array'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -641,30 +778,30 @@
       ]
     },
     {
-      "name": "8 — Checklists",
+      "name": "7 — Checklists",
       "item": [
         {
           "name": "Create Checklist",
           "request": {
             "method": "POST",
             "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/checklists", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "checklists"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"checklistType\": \"INSPECTION\",\n  \"title\": \"Postman Test Checklist\",\n  \"items\": [\n    { \"id\": \"item-1\", \"label\": \"Verify roof condition\", \"checked\": false },\n    { \"id\": \"item-2\", \"label\": \"Check foundation\", \"checked\": true }\n  ]\n}",
-              "options": { "raw": { "language": "json" } }
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"checklistType\": \"INSPECTION\",\n  \"title\": \"Postman Test Checklist\",\n  \"items\": [\n    { \"id\": \"item-1\", \"label\": \"Verify roof condition\", \"checked\": false },\n    { \"id\": \"item-2\", \"label\": \"Check foundation\", \"checked\": true }\n  ]\n}", "options": { "raw": { "language": "json" } } }
           },
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
                 "pm.test('Status is 201', () => pm.response.to.have.status(201));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "",
-                "const id = pm.response.json().data?.id;",
-                "if (id) {",
-                "  pm.collectionVariables.set('checklist_id', id);",
-                "  console.log('Set checklist_id =', id);",
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  const id = json.data?.id;",
+                "  if (id) {",
+                "    pm.collectionVariables.set('checklist_id', id);",
+                "    console.log('Set checklist_id =', id);",
+                "  }",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
                 "}"
               ]
             }
@@ -681,8 +818,13 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Data is array', () => pm.expect(json.data).to.be.an('array'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -692,18 +834,18 @@
           "request": {
             "method": "PATCH",
             "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/checklists/{{checklist_id}}", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "checklists", "{{checklist_id}}"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Updated by Postman\",\n  \"items\": [\n    { \"id\": \"item-1\", \"label\": \"Verify roof condition\", \"checked\": true },\n    { \"id\": \"item-2\", \"label\": \"Check foundation\", \"checked\": true }\n  ]\n}",
-              "options": { "raw": { "language": "json" } }
-            }
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Updated by Postman\",\n  \"items\": [\n    { \"id\": \"item-1\", \"label\": \"Verify roof condition\", \"checked\": true },\n    { \"id\": \"item-2\", \"label\": \"Check foundation\", \"checked\": true }\n  ]\n}", "options": { "raw": { "language": "json" } } }
           },
           "event": [{
             "listen": "test",
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -719,7 +861,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -727,7 +873,7 @@
       ]
     },
     {
-      "name": "9 — Analytics",
+      "name": "8 — Analytics",
       "item": [
         {
           "name": "Analytics Summary",
@@ -740,7 +886,11 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200 or 403', () => pm.expect([200, 403]).to.include(pm.response.code));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  pm.test('Has success field', () => pm.expect(pm.response.json()).to.have.property('success'));",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
@@ -748,7 +898,7 @@
       ]
     },
     {
-      "name": "10 — Stripe",
+      "name": "9 — Stripe",
       "item": [
         {
           "name": "Subscription Status",
@@ -761,62 +911,16 @@
             "script": {
               "exec": [
                 "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
-                "pm.test('Has subscription data', () => {",
-                "  const d = pm.response.json().data;",
-                "  pm.expect(d).to.have.property('required');",
-                "  pm.expect(d).to.have.property('active');",
-                "});"
-              ]
-            }
-          }]
-        }
-      ]
-    },
-    {
-      "name": "11 — Web Proxy",
-      "item": [
-        {
-          "name": "Web Proxy → Suggest",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{web_url}}/api/properties/suggest?q=dallas&limit=3",
-              "host": ["{{web_url}}"], "path": ["api", "properties", "suggest"],
-              "query": [
-                { "key": "q", "value": "dallas" },
-                { "key": "limit", "value": "3" }
-              ]
-            },
-            "auth": { "type": "noauth" }
-          },
-          "event": [{
-            "listen": "test",
-            "script": {
-              "exec": [
-                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
-              ]
-            }
-          }]
-        },
-        {
-          "name": "Web Proxy → Search",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{web_url}}/api/properties/search?address=10001",
-              "host": ["{{web_url}}"], "path": ["api", "properties", "search"],
-              "query": [{ "key": "address", "value": "10001" }]
-            },
-            "auth": { "type": "noauth" }
-          },
-          "event": [{
-            "listen": "test",
-            "script": {
-              "exec": [
-                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+                "try {",
+                "  const json = pm.response.json();",
+                "  pm.test('success is true', () => pm.expect(json.success).to.be.true);",
+                "  pm.test('Has subscription data', () => {",
+                "    pm.expect(json.data).to.have.property('required');",
+                "    pm.expect(json.data).to.have.property('active');",
+                "  });",
+                "} catch (e) {",
+                "  pm.test('Response is valid JSON', () => pm.expect.fail('Non-JSON: ' + pm.response.text().substring(0, 100)));",
+                "}"
               ]
             }
           }]
