@@ -207,8 +207,12 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
 
-      - name: Ensure npm accessible to child processes
+      - name: Ensure shell and npm accessible to child processes
         run: |
+          # Vercel CLI spawns `sh` to run install/build commands — ensure
+          # /bin and /usr/bin are on PATH so `spawn sh` resolves correctly.
+          echo "/bin" >> $GITHUB_PATH
+          echo "/usr/bin" >> $GITHUB_PATH
           NPM_BIN="$(which npm)"
           echo "$(dirname "$NPM_BIN")" >> $GITHUB_PATH
           sudo ln -sf "$NPM_BIN" /usr/local/bin/npm
