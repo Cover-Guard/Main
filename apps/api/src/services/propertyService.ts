@@ -2,7 +2,9 @@ import { prisma } from '../utils/prisma'
 import { propertyCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { searchPropertiesByAddress } from '../integrations/propertyData'
+import { geocodeByPlaceId, geocodeByAddress } from '../integrations/googleGeocode'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
+import { randomUUID } from 'crypto'
 
 export async function searchProperties(
   params: PropertySearchParams,
@@ -11,6 +13,23 @@ export async function searchProperties(
   const page = params.page ?? 1
   const limit = params.limit ?? 20
   const skip = (page - 1) * limit
+
+  // If a Google Place ID is provided, resolve it to structured address data first
+  if (params.placeId) {
+    const geocoded = await geocodeByPlaceId(params.placeId)
+    if (geocoded) {
+      // Use the geocoded address components for the search
+      params = {
+        ...params,
+        address: geocoded.address,
+        city: geocoded.city,
+        state: geocoded.state,
+        zip: geocoded.zip,
+        lat: geocoded.lat,
+        lng: geocoded.lng,
+      }
+    }
+  }
 
   // Build DB filter
   const where: Record<string, unknown> = {}
@@ -198,6 +217,109 @@ function getMockSuggestions(query: string, limit: number): PropertySuggestion[] 
       state: s.state,
       zip: s.zip,
     }))
+}
+
+/**
+ * Resolve a Google Place ID into a validated property record.
+ * Creates or finds the property in the database keyed by placeId/address.
+ */
+export async function geocodeAndCreateProperty(
+  placeId: string,
+  userId?: string,
+): Promise<Property | null> {
+  const geocoded = await geocodeByPlaceId(placeId)
+  if (!geocoded || !geocoded.address || !geocoded.state) return null
+
+  // Check if we already have this property in DB (match on address + zip)
+  const existing = await prisma.property.findFirst({
+    where: {
+      address: { equals: geocoded.address, mode: 'insensitive' },
+      zip: geocoded.zip || undefined,
+      state: geocoded.state,
+    },
+    select: {
+      id: true, address: true, city: true, state: true, zip: true, county: true,
+      lat: true, lng: true, propertyType: true, yearBuilt: true, squareFeet: true,
+      bedrooms: true, bathrooms: true, lotSize: true, estimatedValue: true,
+      lastSalePrice: true, lastSaleDate: true, parcelId: true, createdAt: true, updatedAt: true,
+    },
+  })
+
+  if (existing) {
+    // Update lat/lng from Google if they differ (Google geocoding is authoritative)
+    if (existing.lat !== geocoded.lat || existing.lng !== geocoded.lng) {
+      await prisma.property.update({
+        where: { id: existing.id },
+        data: { lat: geocoded.lat, lng: geocoded.lng },
+      })
+    }
+    const dto = prismaPropertyToDto({ ...existing, lat: geocoded.lat, lng: geocoded.lng })
+    propertyCache.set(dto.id, dto)
+
+    // Record search history
+    prisma.searchHistory
+      .create({ data: { userId: userId ?? null, query: geocoded.formattedAddress, resultCount: 1 } })
+      .catch(() => {})
+    return dto
+  }
+
+  // Create a new property from geocoded data
+  const id = randomUUID()
+  const now = new Date()
+  const newProp = await prisma.property.create({
+    data: {
+      id,
+      address: geocoded.address,
+      city: geocoded.city,
+      state: geocoded.state,
+      zip: geocoded.zip,
+      county: geocoded.county,
+      lat: geocoded.lat,
+      lng: geocoded.lng,
+      propertyType: 'SINGLE_FAMILY',
+      yearBuilt: null,
+      squareFeet: null,
+      bedrooms: null,
+      bathrooms: null,
+      lotSize: null,
+      estimatedValue: null,
+      lastSalePrice: null,
+      lastSaleDate: null,
+      parcelId: null,
+    },
+  })
+
+  const dto: Property = {
+    id: newProp.id,
+    address: geocoded.address,
+    city: geocoded.city,
+    state: geocoded.state,
+    zip: geocoded.zip,
+    county: geocoded.county,
+    lat: geocoded.lat,
+    lng: geocoded.lng,
+    propertyType: 'SINGLE_FAMILY',
+    yearBuilt: null,
+    squareFeet: null,
+    bedrooms: null,
+    bathrooms: null,
+    lotSize: null,
+    estimatedValue: null,
+    lastSalePrice: null,
+    lastSaleDate: null,
+    parcelId: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  }
+
+  propertyCache.set(id, dto)
+
+  // Record search history
+  prisma.searchHistory
+    .create({ data: { userId: userId ?? null, query: geocoded.formattedAddress, resultCount: 1 } })
+    .catch(() => {})
+
+  return dto
 }
 
 export async function getPropertyById(id: string): Promise<Property | null> {

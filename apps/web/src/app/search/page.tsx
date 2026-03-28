@@ -5,12 +5,12 @@ import { SearchResults } from '@/components/search/SearchResults'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { MobileSearchToggle } from '@/components/mobile/MobileSearchToggle'
 import { searchProperties } from '@/lib/api'
-import type { Property } from '@coverguard/shared'
+import type { Property, PropertySearchParams } from '@coverguard/shared'
 
 export const metadata: Metadata = { title: 'Search Properties' }
 
 interface SearchPageProps {
-  searchParams: Promise<{ q?: string; page?: string }>
+  searchParams: Promise<{ q?: string; page?: string; placeId?: string }>
 }
 
 /** Parse a free-text query into search params (shared logic). */
@@ -58,14 +58,19 @@ function parseSearchQuery(query: string) {
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const { q, page } = await searchParams
+  const { q, page, placeId } = await searchParams
 
   // Fetch once on the server — share results with both the list and the map.
   let properties: Property[] = []
   let searchError = false
   if (q) {
     try {
-      const params = parseSearchQuery(q)
+      const parsed = parseSearchQuery(q)
+      const params: PropertySearchParams = { ...parsed }
+      // When a Google Place ID is provided, pass it through for server-side validation
+      if (placeId) {
+        params.placeId = placeId
+      }
       const result = await searchProperties({ ...params, page: parseInt(page ?? '1', 10), limit: 50 })
       properties = result.properties
     } catch {

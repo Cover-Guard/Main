@@ -36,11 +36,33 @@ export interface PropertySearchParams {
   state?: string
   zip?: string
   parcelId?: string
+  placeId?: string
   lat?: number
   lng?: number
   radiusMiles?: number
   page?: number
   limit?: number
+}
+
+/** Prediction returned by Google Places Autocomplete, used for typeahead. */
+export interface PlacePrediction {
+  placeId: string
+  description: string
+  mainText: string
+  secondaryText: string
+}
+
+/** Result of resolving a Google Place ID to a validated property. */
+export interface GeocodedProperty {
+  address: string
+  city: string
+  state: string
+  zip: string
+  county: string
+  lat: number
+  lng: number
+  formattedAddress: string
+  placeId: string
 }
 
 export interface PropertySearchResult {
