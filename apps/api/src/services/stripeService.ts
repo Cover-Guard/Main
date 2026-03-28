@@ -2,13 +2,29 @@ import Stripe from 'stripe'
 import { prisma } from '../utils/prisma'
 import { logger } from '../utils/logger'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  logger.warn('STRIPE_SECRET_KEY is not set — Stripe features will be unavailable')
+let _stripeInstance: Stripe | null = null
+
+function getStripe(): Stripe {
+  if (_stripeInstance) return _stripeInstance
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY is not set — Stripe features are unavailable')
+  }
+  _stripeInstance = new Stripe(key, {
+    apiVersion: '2025-02-24.acacia',
+    maxNetworkRetries: 0,
+  })
+  return _stripeInstance
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2025-02-24.acacia',
-  maxNetworkRetries: 0, // No automatic retries — errors surface immediately; user must confirm retry
+/** Lazily initialized Stripe client. Throws if STRIPE_SECRET_KEY is missing. */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    const instance = getStripe()
+    const value = (instance as unknown as Record<string | symbol, unknown>)[prop]
+    if (typeof value === 'function') return value.bind(instance)
+    return value
+  },
 })
 
 const PRICE_TO_PLAN: Record<string, 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'> = {}
