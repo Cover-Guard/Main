@@ -39,6 +39,11 @@ function setCacheHeaders(res: Response, sMaxAge: number, staleWhileRevalidate = 
   )
 }
 
+/** Prevent CDN and browser from caching a force-refreshed response */
+function setNoCacheHeaders(res: Response): void {
+  res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate')
+}
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 const searchSchema = z.object({
@@ -135,6 +140,7 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
     const profile = await getOrComputeRiskProfile(req.params.id, forceRefresh)
     // When risk is refreshed, invalidate dependent caches so they recompute with new scores
     if (forceRefresh) {
+      setNoCacheHeaders(res)
       try {
         insuranceCache.delete(req.params.id)
         carriersCache.delete(req.params.id)
@@ -157,7 +163,8 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
     // Ensure risk profile exists and is fresh (insurance depends on risk scores)
     await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const estimate = await getOrComputeInsuranceEstimate(req.params.id, forceRefresh)
-    if (!forceRefresh) setCacheHeaders(res, 7200, 600)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: estimate })
   } catch (err) {
     next(err)
@@ -184,7 +191,8 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       getInsurabilityStatus(req.params.id, forceRefresh),
       getCarriersForProperty(req.params.id, forceRefresh),
     ])
-    if (!forceRefresh) setCacheHeaders(res, 3600, 300)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: { property, risk, insurance, insurability, carriers } })
   } catch (err) {
     next(err)
@@ -239,7 +247,8 @@ propertiesRouter.get('/:id/insurability', async (req, res, next) => {
     // Ensure risk profile exists and is fresh (insurability depends on risk scores)
     await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const status = await getInsurabilityStatus(req.params.id, forceRefresh)
-    if (!forceRefresh) setCacheHeaders(res, 7200, 600)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: status })
   } catch (err) {
     next(err)
@@ -254,7 +263,8 @@ propertiesRouter.get('/:id/carriers', async (req, res, next) => {
     // Ensure risk profile exists and is fresh (carrier decisions depend on risk scores)
     await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const carriers = await getCarriersForProperty(req.params.id, forceRefresh)
-    if (!forceRefresh) setCacheHeaders(res, 3600, 300)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: carriers })
   } catch (err) {
     next(err)

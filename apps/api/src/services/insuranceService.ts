@@ -99,9 +99,9 @@ function computeFloodPremium(inputs: InsuranceInputs): {
   }
 
   const scoreMult = 1 + (inputs.floodRiskScore / 100) * 1.5
-  const avg = Math.round(
-    base * scoreMult * (buildingCoverage / 250_000) * (contentCoverage / 100_000),
-  )
+  // NFIP minimum premium is ~$611/yr (Preferred Risk) or higher; apply floor
+  const raw = base * scoreMult * (buildingCoverage / 250_000) * (contentCoverage / 100_000)
+  const avg = Math.max(Math.round(raw), inputs.inSFHA ? 611 : 285)
   return { low: Math.round(avg * 0.6), high: Math.round(avg * 1.8), avg }
 }
 
