@@ -77,13 +77,22 @@ export async function GET(request: Request) {
         // role key is used (bypasses RLS) and all required columns are set.
         const { data: sessionData } = await supabase.auth.getSession()
         if (sessionData.session?.access_token) {
-          await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/sync-profile`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${sessionData.session.access_token}`,
-            },
-          })
+          try {
+            const syncRes = await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/sync-profile`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionData.session.access_token}`,
+              },
+            })
+            if (!syncRes.ok) {
+              console.error(`sync-profile failed: ${syncRes.status} ${syncRes.statusText}`)
+            }
+          } catch (syncErr) {
+            // Profile sync failed — user will land on onboarding where /me/terms
+            // will create the profile via its fallback path. Log but don't block.
+            console.error('sync-profile fetch failed:', syncErr)
+          }
         }
       }
 

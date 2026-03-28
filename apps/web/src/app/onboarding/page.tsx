@@ -23,25 +23,21 @@ export default function OnboardingPage() {
     try {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('No active session')
+      if (!session?.access_token) {
+        // Session expired — send user to login
+        router.push('/login')
+        return
+      }
 
-      // Run Supabase metadata update + API terms acceptance in parallel.
-      // These are independent operations — no need to wait for one before the other.
-      const acceptedAt = new Date().toISOString()
-      const [metaResult, apiResult] = await Promise.all([
-        supabase.auth.updateUser({
-          data: { termsAcceptedAt: acceptedAt, ndaAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt },
-        }),
-        fetch('/api/auth/me/terms', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }),
-      ])
-
-      if (metaResult.error) throw metaResult.error
+      // Step 1: Save agreements to DB first (authoritative record).
+      // If this fails, user stays on onboarding and can retry.
+      const apiResult = await fetch('/api/auth/me/terms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
       if (!apiResult.ok) {
         const contentType = apiResult.headers.get('content-type') ?? ''
         if (contentType.includes('application/json')) {
@@ -51,10 +47,20 @@ export default function OnboardingPage() {
         throw new Error('Failed to save terms acceptance. Please try again.')
       }
 
+      // Step 2: Update Supabase user metadata (used by middleware gate).
+      // If this fails, the DB record is correct but the middleware will
+      // redirect back to onboarding — user retries and the idempotent
+      // API call succeeds instantly.
+      const acceptedAt = new Date().toISOString()
+      const { error: metaError } = await supabase.auth.updateUser({
+        data: { termsAcceptedAt: acceptedAt, ndaAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt },
+      })
+      if (metaError) throw metaError
+
       router.push('/dashboard')
       router.refresh()
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setLoading(false)
     }
   }

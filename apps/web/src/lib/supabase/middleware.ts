@@ -81,13 +81,20 @@ export async function updateSession(request: NextRequest) {
   // Both email-registered and OAuth users must complete onboarding (NDA + terms
   // + privacy) before accessing protected routes. Check user_metadata for the
   // termsAcceptedAt flag set by POST /me/terms during onboarding.
-  if (user && !isPublic && pathname !== '/onboarding') {
-    const termsAccepted = user.user_metadata?.termsAcceptedAt
-    if (!termsAccepted) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/onboarding'
-      return NextResponse.redirect(url)
-    }
+  const termsAccepted = user?.user_metadata?.termsAcceptedAt
+
+  // Redirect users who haven't accepted terms to onboarding
+  if (user && !isPublic && pathname !== '/onboarding' && !termsAccepted) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/onboarding'
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect already-onboarded users away from /onboarding to prevent confusion
+  if (user && pathname === '/onboarding' && termsAccepted) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
   }
 
   // ─── Subscription gate (feature flag) ──────────────────────────────────────

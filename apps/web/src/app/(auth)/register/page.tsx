@@ -210,11 +210,10 @@ export default function RegisterPage() {
             )}
 
             <p className="text-xs text-gray-500">
-              By creating an account you agree to our{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>
-              {' '}and{' '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>.
-              You will review and accept the NDA and disclosures on the next step.
+              On the next step you will review and accept the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>,{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>,
+              and Non-Disclosure Agreement before accessing the platform.
             </p>
 
             <button type="submit" disabled={isSubmitting || oauthLoading} className="btn-primary w-full py-2.5">
