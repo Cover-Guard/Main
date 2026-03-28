@@ -18,8 +18,18 @@ import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
 // ─── Startup environment validation ──────────────────────────────────────────
 
-const REQUIRED_ENV = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
+// The Supabase Vercel Integration provides POSTGRES_PRISMA_URL / POSTGRES_URL
+// instead of DATABASE_URL — accept any of them.
+const hasDbUrl = !!(
+  process.env.DATABASE_URL ??
+  process.env.POSTGRES_PRISMA_URL ??
+  process.env.POSTGRES_URL
+)
+const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
 const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k])
+if (!hasDbUrl) {
+  missingEnv.unshift('DATABASE_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL)')
+}
 if (missingEnv.length > 0) {
   console.error(`FATAL: Missing required environment variables: ${missingEnv.join(', ')}`)
   process.exit(1)
