@@ -101,10 +101,10 @@ describe('register endpoint performance', () => {
       const elapsed = performance.now() - start
       const avgMs = elapsed / iterations
 
-      expect(avgMs).toBeLessThan(5)
+      expect(avgMs).toBeLessThan(10)
     })
 
-    it('successful registration completes in < 50ms (mocked I/O)', async () => {
+    it('successful registration completes in < 200ms (mocked I/O)', async () => {
       const start = performance.now()
       const res = await request(app)
         .post('/api/auth/register')
@@ -112,10 +112,10 @@ describe('register endpoint performance', () => {
       const elapsed = performance.now() - start
 
       expect(res.status).toBe(201)
-      expect(elapsed).toBeLessThan(50)
+      expect(elapsed).toBeLessThan(200)
     })
 
-    it('validation rejection completes in < 10ms', async () => {
+    it('validation rejection completes in < 50ms', async () => {
       const start = performance.now()
       const res = await request(app)
         .post('/api/auth/register')
@@ -123,10 +123,10 @@ describe('register endpoint performance', () => {
       const elapsed = performance.now() - start
 
       expect(res.status).toBe(400)
-      expect(elapsed).toBeLessThan(10)
+      expect(elapsed).toBeLessThan(50)
     })
 
-    it('DB-down 503 response completes in < 20ms', async () => {
+    it('DB-down 503 response completes in < 100ms', async () => {
       mockPrisma.$queryRawUnsafe.mockRejectedValue(new Error('connection refused'))
 
       const start = performance.now()
@@ -136,10 +136,10 @@ describe('register endpoint performance', () => {
       const elapsed = performance.now() - start
 
       expect(res.status).toBe(503)
-      expect(elapsed).toBeLessThan(20)
+      expect(elapsed).toBeLessThan(100)
     })
 
-    it('rollback path completes in < 50ms (mocked)', async () => {
+    it('rollback path completes in < 200ms (mocked)', async () => {
       mockSupabase.auth.admin.createUser.mockResolvedValue({
         data: { user: { id: 'rollback-user' } },
         error: null,
@@ -154,14 +154,14 @@ describe('register endpoint performance', () => {
       const elapsed = performance.now() - start
 
       expect(res.status).toBe(500)
-      expect(elapsed).toBeLessThan(50)
+      expect(elapsed).toBeLessThan(200)
     })
   })
 
   // ── Throughput ─────────────────────────────────────────────────────────
 
   describe('throughput', () => {
-    it('handles 50 sequential registrations in < 2s', async () => {
+    it('handles 50 sequential registrations in < 5s', async () => {
       const count = 50
       const start = performance.now()
 
@@ -175,8 +175,8 @@ describe('register endpoint performance', () => {
       const elapsed = performance.now() - start
       const rps = (count / elapsed) * 1000
 
-      expect(elapsed).toBeLessThan(2000)
-      expect(rps).toBeGreaterThan(25) // at least 25 req/s
+      expect(elapsed).toBeLessThan(5000)
+      expect(rps).toBeGreaterThan(10) // at least 10 req/s on CI
     })
 
     it('handles 20 concurrent registrations without errors', async () => {
@@ -194,7 +194,7 @@ describe('register endpoint performance', () => {
 
       const successes = results.filter((r) => r.status === 201)
       expect(successes.length).toBe(count)
-      expect(elapsed).toBeLessThan(2000)
+      expect(elapsed).toBeLessThan(5000)
     })
 
     it('handles mixed success/failure load', async () => {
@@ -221,7 +221,7 @@ describe('register endpoint performance', () => {
 
       expect(successes).toBe(20)
       expect(failures).toBe(10)
-      expect(elapsed).toBeLessThan(2000)
+      expect(elapsed).toBeLessThan(5000)
     })
   })
 

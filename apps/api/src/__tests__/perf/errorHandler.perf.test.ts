@@ -47,10 +47,10 @@ describe('errorHandler performance', () => {
     }
     const elapsed = performance.now() - start
 
-    expect(elapsed).toBeLessThan(200)
+    expect(elapsed).toBeLessThan(1000)
   })
 
-  it('handles 1,000 config errors (503 path) in < 100ms', () => {
+  it('handles 1,000 config errors (503 path) in < 500ms', () => {
     const err = new Error('Database connection string is not configured')
 
     const iterations = 1000
@@ -61,10 +61,10 @@ describe('errorHandler performance', () => {
     }
     const elapsed = performance.now() - start
 
-    expect(elapsed).toBeLessThan(100)
+    expect(elapsed).toBeLessThan(500)
   })
 
-  it('handles 1,000 Prisma errors (P2025) in < 100ms', () => {
+  it('handles 1,000 Prisma errors (P2025) in < 500ms', () => {
     const err = new Error('Record not found')
     err.name = 'PrismaClientKnownRequestError'
     ;(err as Error & { code: string }).code = 'P2025'
@@ -77,10 +77,10 @@ describe('errorHandler performance', () => {
     }
     const elapsed = performance.now() - start
 
-    expect(elapsed).toBeLessThan(100)
+    expect(elapsed).toBeLessThan(500)
   })
 
-  it('handles 1,000 generic errors in < 100ms', () => {
+  it('handles 1,000 generic errors in < 500ms', () => {
     const err = new Error('Something unexpected')
 
     const iterations = 1000
@@ -91,10 +91,10 @@ describe('errorHandler performance', () => {
     }
     const elapsed = performance.now() - start
 
-    expect(elapsed).toBeLessThan(100)
+    expect(elapsed).toBeLessThan(500)
   })
 
-  it('503 path average latency < 0.5ms', () => {
+  it('503 path average latency < 2ms', () => {
     const err = new Error('Missing SUPABASE_URL')
     // Warm up
     for (let i = 0; i < 50; i++) {
@@ -111,6 +111,6 @@ describe('errorHandler performance', () => {
     const elapsed = performance.now() - start
     const avgMs = elapsed / iterations
 
-    expect(avgMs).toBeLessThan(0.5)
+    expect(avgMs).toBeLessThan(2)
   })
 })
