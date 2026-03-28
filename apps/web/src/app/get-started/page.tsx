@@ -11,10 +11,17 @@ export const metadata: Metadata = {
 }
 
 export default async function GetStartedPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  let isAuthenticated = false
 
-  if (user) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    isAuthenticated = !!user
+  } catch {
+    // If Supabase is unavailable, render the page without the auth redirect
+  }
+
+  if (isAuthenticated) {
     redirect('/dashboard')
   }
 
