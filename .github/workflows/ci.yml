@@ -20,7 +20,7 @@ jobs:
     environment: production
     env:
       DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-      DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+      DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -48,7 +48,7 @@ jobs:
     environment: production
     env:
       DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-      DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+      DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -70,7 +70,7 @@ jobs:
     environment: production
     env:
       DATABASE_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:6543/postgres?pgbouncer=true
-      DIRECT_URL: postgresql://postgres.${{ secrets.SUPABASE_PROJECT_ID }}:${{ secrets.SUPABASE_DB_PASSWORD }}@aws-${{ secrets.SUPABASE_DB_REGION }}.pooler.supabase.com:5432/postgres
+      DIRECT_URL: postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.${{ secrets.SUPABASE_PROJECT_ID }}.supabase.co:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
