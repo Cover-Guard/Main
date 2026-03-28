@@ -11,6 +11,9 @@ import type {
   ApiResponse,
   User,
   SubscriptionState,
+  PropertyChecklist,
+  ChecklistType,
+  ChecklistItem,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -205,6 +208,37 @@ export async function chatWithAdvisor(
     method: 'POST',
     body: JSON.stringify({ messages }),
   })
+}
+
+// ─── Property Checklists ─────────────────────────────────────────────────────
+
+export async function getPropertyChecklists(propertyId: string): Promise<PropertyChecklist[]> {
+  return apiFetch<PropertyChecklist[]>(`/api/properties/${propertyId}/checklists`)
+}
+
+export async function createPropertyChecklist(
+  propertyId: string,
+  data: { checklistType: ChecklistType; title: string; items: ChecklistItem[] },
+): Promise<PropertyChecklist> {
+  return apiFetch(`/api/properties/${propertyId}/checklists`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updatePropertyChecklist(
+  propertyId: string,
+  checklistId: string,
+  data: { title?: string; items?: ChecklistItem[] },
+): Promise<PropertyChecklist> {
+  return apiFetch(`/api/properties/${propertyId}/checklists/${checklistId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deletePropertyChecklist(propertyId: string, checklistId: string): Promise<void> {
+  await apiFetch(`/api/properties/${propertyId}/checklists/${checklistId}`, { method: 'DELETE' })
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────

@@ -395,3 +395,139 @@ propertiesRouter.get('/:id/quote-requests', requireAuth, requireSubscription, as
     next(err)
   }
 })
+
+// ─── Property Checklists ─────────────────────────────────────────────────────
+
+const checklistItemSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1).max(500),
+  checked: z.boolean(),
+})
+
+const checklistTypeEnum = z.enum(['INSPECTION', 'NEW_BUYER', 'AGENT'])
+
+const createChecklistSchema = z.object({
+  checklistType: checklistTypeEnum,
+  title: z.string().min(1).max(200),
+  items: z.array(checklistItemSchema).max(100),
+})
+
+const updateChecklistSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  items: z.array(checklistItemSchema).max(100).optional(),
+})
+
+// Get all checklists for a property (for current user)
+propertiesRouter.get('/:id/checklists', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const checklists = await prisma.propertyChecklist.findMany({
+      where: { propertyId: String(req.params.id), userId },
+      orderBy: { updatedAt: 'desc' },
+    })
+    res.json({ success: true, data: checklists })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// Create or replace a checklist for a property
+propertiesRouter.post('/:id/checklists', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const propertyId = String(req.params.id)
+    const body = createChecklistSchema.parse(req.body)
+
+    const propertyExists = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true },
+    })
+    if (!propertyExists) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+
+    const checklist = await prisma.propertyChecklist.upsert({
+      where: {
+        userId_propertyId_checklistType: {
+          userId,
+          propertyId,
+          checklistType: body.checklistType,
+        },
+      },
+      create: {
+        userId,
+        propertyId,
+        checklistType: body.checklistType,
+        title: body.title,
+        items: JSON.parse(JSON.stringify(body.items)),
+      },
+      update: {
+        title: body.title,
+        items: JSON.parse(JSON.stringify(body.items)),
+      },
+    })
+
+    res.status(201).json({ success: true, data: checklist })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// Update a checklist (title and/or items)
+propertiesRouter.patch('/:id/checklists/:checklistId', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const checklistId = String(req.params.checklistId)
+    const body = updateChecklistSchema.parse(req.body)
+
+    const existing = await prisma.propertyChecklist.findFirst({
+      where: { id: checklistId, userId },
+    })
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Checklist not found' },
+      })
+      return
+    }
+
+    const checklist = await prisma.propertyChecklist.update({
+      where: { id: checklistId },
+      data: {
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(body.items !== undefined ? { items: JSON.parse(JSON.stringify(body.items)) } : {}),
+      },
+    })
+
+    res.json({ success: true, data: checklist })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// Delete a checklist
+propertiesRouter.delete('/:id/checklists/:checklistId', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const checklistId = String(req.params.checklistId)
+    const existing = await prisma.propertyChecklist.findFirst({
+      where: { id: checklistId, userId },
+    })
+    if (!existing) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Checklist not found' },
+      })
+      return
+    }
+
+    await prisma.propertyChecklist.delete({ where: { id: checklistId } })
+    res.json({ success: true, data: null })
+  } catch (err) {
+    next(err)
+  }
+})

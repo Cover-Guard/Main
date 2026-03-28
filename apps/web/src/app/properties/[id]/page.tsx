@@ -10,6 +10,7 @@ import { PropertyDetails } from '@/components/property/PropertyDetails'
 import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
+import { PropertyChecklists } from '@/components/property/PropertyChecklists'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
@@ -88,6 +89,12 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     </div>
   )
 
+  const checklistsPanel = (
+    <div className="p-4">
+      <PropertyChecklists propertyId={prop.id} />
+    </div>
+  )
+
   return (
     <SidebarLayout>
       <div className="min-h-screen bg-[#f2f4f7]">
@@ -141,16 +148,18 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
         {/* ── Mobile: tabbed layout ────────────────────────────────── */}
         <MobilePropertyTabs
           tabs={[
-            { id: 'overview',  label: 'Overview' },
-            { id: 'risk',      label: 'Risk' },
-            { id: 'carriers',  label: 'Carriers' },
-            { id: 'details',   label: 'Details' },
+            { id: 'overview',    label: 'Overview' },
+            { id: 'risk',        label: 'Risk' },
+            { id: 'carriers',    label: 'Carriers' },
+            { id: 'details',     label: 'Details' },
+            { id: 'checklists',  label: 'Checklists' },
           ]}
           panels={{
-            overview: overviewPanel,
-            risk:     riskPanel,
-            carriers: carriersPanel,
-            details:  detailsPanel,
+            overview:   overviewPanel,
+            risk:       riskPanel,
+            carriers:   carriersPanel,
+            details:    detailsPanel,
+            checklists: checklistsPanel,
           }}
         />
 
@@ -168,6 +177,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                 </>
               )}
               <PropertyDetails property={prop} />
+              <PropertyChecklists propertyId={prop.id} />
             </div>
 
             {/* Right sidebar */}
