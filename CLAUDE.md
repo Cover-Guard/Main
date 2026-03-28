@@ -149,6 +149,9 @@ Main-Branch/
 | `PropertyReport` | Generated PDF reports |
 | `SearchHistory` | Search audit trail |
 | `Subscription` | Stripe subscription (plan, status, period) |
+| `PropertyNote` | Timestamped notes per user per property |
+| `RiskAlert` | User subscriptions to risk-change notifications |
+| `SharedReport` | Agent-generated shareable property report links |
 
 ---
 
@@ -191,6 +194,24 @@ PATCH /api/clients/:id                      Update client [auth]
 DEL  /api/clients/:id                       Delete client [auth]
 
 GET  /api/analytics                         Analytics summary [auth]
+
+GET  /api/properties/:id/notes              List property notes [auth]
+POST /api/properties/:id/notes              Create property note [auth]
+PATCH /api/properties/:id/notes/:noteId     Update property note [auth]
+DEL  /api/properties/:id/notes/:noteId      Delete property note [auth]
+
+GET  /api/risk-alerts                        List risk alerts [auth]
+GET  /api/risk-alerts/property/:propertyId   Get alert for property [auth]
+POST /api/risk-alerts                        Create/enable risk alert [auth]
+PATCH /api/risk-alerts/:id                   Update alert settings [auth]
+DEL  /api/risk-alerts/:id                    Delete risk alert [auth]
+
+GET  /api/shared-reports                     List shared reports [auth, agent]
+POST /api/shared-reports                     Create share link [auth, agent]
+DEL  /api/shared-reports/:id                 Revoke share link [auth, agent]
+GET  /api/shared-reports/view/:token         View shared report (public)
+
+GET  /api/portfolio                          Lender portfolio summary [auth, lender/agent]
 
 GET  /api/stripe/subscription                Subscription status [auth]
 POST /api/stripe/checkout                    Create Stripe checkout session [auth]

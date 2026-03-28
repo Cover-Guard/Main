@@ -14,6 +14,13 @@ import type {
   PropertyChecklist,
   ChecklistType,
   ChecklistItem,
+  PropertyNote,
+  RiskAlert,
+  AlertFrequency,
+  RiskType,
+  SharedReport,
+  LenderPortfolioSummary,
+  PropertyPriority,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -128,13 +135,22 @@ export async function getPropertyReport(id: string): Promise<{
   return apiFetch(`/api/properties/${id}/report`)
 }
 
-export async function saveProperty(id: string, notes?: string, tags?: string[], clientId?: string | null): Promise<void> {
+export async function saveProperty(
+  id: string,
+  notes?: string,
+  tags?: string[],
+  clientId?: string | null,
+  rating?: number | null,
+  priority?: PropertyPriority | null,
+): Promise<void> {
   await apiFetch(`/api/properties/${id}/save`, {
     method: 'POST',
     body: JSON.stringify({
       notes,
       tags: tags ?? [],
       ...(clientId !== undefined ? { clientId } : {}),
+      ...(rating !== undefined ? { rating } : {}),
+      ...(priority !== undefined ? { priority } : {}),
     }),
   })
 }
@@ -269,4 +285,106 @@ export async function createPortalSession(): Promise<{ url: string }> {
     method: 'POST',
     body: JSON.stringify({ returnUrl: `${window.location.origin}/account` }),
   })
+}
+
+// ─── Property Notes Timeline ────────────────────────────────────────────────
+
+export async function getPropertyNotes(propertyId: string): Promise<PropertyNote[]> {
+  return apiFetch<PropertyNote[]>(`/api/properties/${propertyId}/notes`)
+}
+
+export async function createPropertyNote(propertyId: string, content: string): Promise<PropertyNote> {
+  return apiFetch(`/api/properties/${propertyId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+}
+
+export async function updatePropertyNote(propertyId: string, noteId: string, content: string): Promise<PropertyNote> {
+  return apiFetch(`/api/properties/${propertyId}/notes/${noteId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  })
+}
+
+export async function deletePropertyNote(propertyId: string, noteId: string): Promise<void> {
+  await apiFetch(`/api/properties/${propertyId}/notes/${noteId}`, { method: 'DELETE' })
+}
+
+// ─── Risk Alerts ────────────────────────────────────────────────────────────
+
+export async function getRiskAlerts(): Promise<RiskAlert[]> {
+  return apiFetch<RiskAlert[]>('/api/risk-alerts')
+}
+
+export async function getRiskAlertForProperty(propertyId: string): Promise<RiskAlert | null> {
+  return apiFetch<RiskAlert | null>(`/api/risk-alerts/property/${propertyId}`)
+}
+
+export async function createRiskAlert(data: {
+  propertyId: string
+  frequency?: AlertFrequency
+  riskTypes?: RiskType[]
+}): Promise<RiskAlert> {
+  return apiFetch('/api/risk-alerts', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateRiskAlert(id: string, data: {
+  enabled?: boolean
+  frequency?: AlertFrequency
+  riskTypes?: RiskType[]
+}): Promise<RiskAlert> {
+  return apiFetch(`/api/risk-alerts/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteRiskAlert(id: string): Promise<void> {
+  await apiFetch(`/api/risk-alerts/${id}`, { method: 'DELETE' })
+}
+
+// ─── Shared Reports (Agent) ─────────────────────────────────────────────────
+
+export async function getSharedReports(): Promise<SharedReport[]> {
+  return apiFetch<SharedReport[]>('/api/shared-reports')
+}
+
+export async function createSharedReport(data: {
+  propertyId: string
+  clientId?: string | null
+  recipientEmail?: string
+  recipientName?: string
+  message?: string
+  includeRisk?: boolean
+  includeInsurance?: boolean
+  includeCarriers?: boolean
+  expiresInDays?: number
+}): Promise<SharedReport> {
+  return apiFetch('/api/shared-reports', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteSharedReport(id: string): Promise<void> {
+  await apiFetch(`/api/shared-reports/${id}`, { method: 'DELETE' })
+}
+
+export async function viewSharedReport(token: string): Promise<{
+  property: Property
+  agent: { firstName: string; lastName: string; company: string | null; email: string }
+  message: string | null
+  sections: { risk: boolean; insurance: boolean; carriers: boolean }
+}> {
+  return apiFetch(`/api/shared-reports/view/${token}`)
+}
+
+// ─── Lender Portfolio ───────────────────────────────────────────────────────
+
+export async function getPortfolioSummary(): Promise<LenderPortfolioSummary> {
+  return apiFetch<LenderPortfolioSummary>('/api/portfolio')
 }

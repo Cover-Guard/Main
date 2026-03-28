@@ -230,6 +230,8 @@ const saveSchema = z.object({
   notes: z.string().max(500).transform((s) => s.trim()).optional(),
   tags: z.array(z.string()).max(10).default([]),
   clientId: z.string().uuid().nullish(),
+  rating: z.number().int().min(1).max(5).nullish(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).nullish(),
 })
 
 propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
@@ -277,11 +279,13 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
     //   null      → explicitly remove the association
     //   undefined → leave unchanged on update, null on create
     const clientIdUpdate = body.clientId === undefined ? undefined : body.clientId
+    const ratingUpdate = body.rating === undefined ? undefined : body.rating
+    const priorityUpdate = body.priority === undefined ? undefined : body.priority
 
     const saved = await prisma.savedProperty.upsert({
       where: { userId_propertyId: { userId, propertyId } },
-      update: { notes: body.notes, tags: body.tags, clientId: clientIdUpdate },
-      create: { userId, propertyId, notes: body.notes, tags: body.tags, clientId: body.clientId ?? null },
+      update: { notes: body.notes, tags: body.tags, clientId: clientIdUpdate, rating: ratingUpdate, priority: priorityUpdate },
+      create: { userId, propertyId, notes: body.notes, tags: body.tags, clientId: body.clientId ?? null, rating: body.rating ?? null, priority: body.priority ?? null },
     })
     res.status(existing ? 200 : 201).json({ success: true, data: saved })
   } catch (err) {

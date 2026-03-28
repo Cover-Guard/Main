@@ -15,6 +15,10 @@ import { clientsRouter } from './routes/clients'
 import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
 import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
+import { propertyNotesRouter } from './routes/propertyNotes'
+import { riskAlertsRouter } from './routes/riskAlerts'
+import { sharedReportsRouter } from './routes/sharedReports'
+import { portfolioRouter } from './routes/portfolio'
 
 // ─── Startup environment validation ──────────────────────────────────────────
 
@@ -205,9 +209,13 @@ app.use(
 )
 
 app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
+app.use('/api/properties', requestTimeout(15_000), propertyNotesRouter)
 app.use('/api/clients', requestTimeout(15_000), clientsRouter)
 app.use('/api/analytics', requestTimeout(20_000), analyticsRouter)
 app.use('/api/advisor', requestTimeout(30_000), advisorRouter)
+app.use('/api/risk-alerts', requestTimeout(15_000), riskAlertsRouter)
+app.use('/api/shared-reports', requestTimeout(15_000), sharedReportsRouter)
+app.use('/api/portfolio', requestTimeout(20_000), portfolioRouter)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 

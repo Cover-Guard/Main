@@ -11,6 +11,9 @@ import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
 import { PropertyChecklists } from '@/components/property/PropertyChecklists'
+import { PropertyNotesTimeline } from '@/components/property/PropertyNotesTimeline'
+import { RiskAlertToggle } from '@/components/property/RiskAlertToggle'
+import { ShareReportButton } from '@/components/property/ShareReportButton'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
@@ -95,6 +98,13 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     </div>
   )
 
+  const notesPanel = (
+    <div className="p-4 space-y-4">
+      <RiskAlertToggle propertyId={prop.id} />
+      <PropertyNotesTimeline propertyId={prop.id} />
+    </div>
+  )
+
   return (
     <SidebarLayout>
       <div className="min-h-screen bg-[#f2f4f7]">
@@ -132,6 +142,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
               </div>
               {/* Actions */}
               <div className="flex shrink-0 items-center gap-2 mt-1">
+                <ShareReportButton propertyId={prop.id} propertyAddress={fullAddress} />
                 <Link
                   href={`/compare?ids=${prop.id}`}
                   className="hidden sm:flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -153,6 +164,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
             { id: 'carriers',    label: 'Carriers' },
             { id: 'details',     label: 'Details' },
             { id: 'checklists',  label: 'Checklists' },
+            { id: 'notes',       label: 'Notes' },
           ]}
           panels={{
             overview:   overviewPanel,
@@ -160,6 +172,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
             carriers:   carriersPanel,
             details:    detailsPanel,
             checklists: checklistsPanel,
+            notes:      notesPanel,
           }}
         />
 
@@ -178,6 +191,8 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
               )}
               <PropertyDetails property={prop} />
               <PropertyChecklists propertyId={prop.id} />
+              <RiskAlertToggle propertyId={prop.id} />
+              <PropertyNotesTimeline propertyId={prop.id} />
             </div>
 
             {/* Right sidebar */}

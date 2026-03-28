@@ -39,6 +39,9 @@ model User {
   quoteRequests   QuoteRequest[]
   searchHistories SearchHistory[]
   subscriptions   Subscription[]
+  propertyNotes   PropertyNote[]
+  riskAlerts      RiskAlert[]
+  sharedReports   SharedReport[]
 
   @@index([role])
   @@map("users")
@@ -82,6 +85,9 @@ model Property {
   reports           PropertyReport[]
   checklists        PropertyChecklist[]
   quoteRequests     QuoteRequest[]
+  propertyNotes     PropertyNote[]
+  riskAlerts        RiskAlert[]
+  sharedReports     SharedReport[]
 
   @@index([zip])
   @@index([state, city])
@@ -216,6 +222,8 @@ model SavedProperty {
   clientId   String?  // optional: agent saves property on behalf of a client
   notes      String?
   tags       String[] @default([])
+  rating     Int?     // 1-5 star rating
+  priority   String?  // LOW, MEDIUM, HIGH, URGENT
   savedAt    DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -269,6 +277,7 @@ model Client {
 
   agent           User            @relation(fields: [agentId], references: [id], onDelete: Cascade)
   savedProperties SavedProperty[]
+  sharedReports   SharedReport[]
 
   @@index([agentId])
   @@map("clients")
@@ -392,4 +401,79 @@ enum ChecklistType {
   INSPECTION
   NEW_BUYER
   AGENT
+}
+
+// ─── Property Notes Timeline ─────────────────────────────────────────────────
+
+model PropertyNote {
+  id         String   @id @default(uuid())
+  userId     String
+  propertyId String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([userId, propertyId, createdAt(sort: Desc)])
+  @@index([propertyId])
+  @@map("property_notes")
+}
+
+// ─── Risk Alerts ─────────────────────────────────────────────────────────────
+
+model RiskAlert {
+  id             String         @id @default(uuid())
+  userId         String
+  propertyId     String
+  enabled        Boolean        @default(true)
+  frequency      AlertFrequency @default(WEEKLY)
+  riskTypes      String[]       @default(["FLOOD", "FIRE", "WIND", "EARTHQUAKE", "CRIME"])
+  lastNotifiedAt DateTime?
+  lastRiskScore  Int?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([propertyId])
+  @@map("risk_alerts")
+}
+
+enum AlertFrequency {
+  IMMEDIATE
+  DAILY
+  WEEKLY
+}
+
+// ─── Shared Reports (Agent → Client) ─────────────────────────────────────────
+
+model SharedReport {
+  id              String    @id @default(uuid())
+  agentId         String
+  propertyId      String
+  clientId        String?
+  shareToken      String    @unique
+  recipientEmail  String?
+  recipientName   String?
+  message         String?
+  includeRisk     Boolean   @default(true)
+  includeInsurance Boolean  @default(true)
+  includeCarriers Boolean   @default(true)
+  viewCount       Int       @default(0)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  agent    User     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  client   Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([shareToken])
+  @@index([propertyId])
+  @@map("shared_reports")
 }

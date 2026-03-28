@@ -17,6 +17,8 @@ export interface User {
   updatedAt: string
 }
 
+export type PropertyPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+
 export interface SavedProperty {
   id: string
   userId: string
@@ -24,6 +26,8 @@ export interface SavedProperty {
   clientId: string | null
   notes: string | null
   tags: string[]
+  rating: number | null    // 1-5 star rating
+  priority: PropertyPriority | null
   savedAt: string
 }
 
@@ -74,6 +78,90 @@ export interface Client {
 }
 
 export type ClientStatus = 'ACTIVE' | 'PROSPECT' | 'CLOSED' | 'INACTIVE'
+
+// ─── Property Notes Timeline ────────────────────────────────────────────────
+
+export interface PropertyNote {
+  id: string
+  userId: string
+  propertyId: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Risk Alerts ────────────────────────────────────────────────────────────
+
+export type AlertFrequency = 'IMMEDIATE' | 'DAILY' | 'WEEKLY'
+
+export type RiskType = 'FLOOD' | 'FIRE' | 'WIND' | 'EARTHQUAKE' | 'CRIME'
+
+export interface RiskAlert {
+  id: string
+  userId: string
+  propertyId: string
+  enabled: boolean
+  frequency: AlertFrequency
+  riskTypes: RiskType[]
+  lastNotifiedAt: string | null
+  lastRiskScore: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Shared Reports (Agent → Client) ────────────────────────────────────────
+
+export interface SharedReport {
+  id: string
+  agentId: string
+  propertyId: string
+  clientId: string | null
+  shareToken: string
+  recipientEmail: string | null
+  recipientName: string | null
+  message: string | null
+  includeRisk: boolean
+  includeInsurance: boolean
+  includeCarriers: boolean
+  viewCount: number
+  expiresAt: string | null
+  createdAt: string
+  shareUrl?: string  // computed by API
+}
+
+// ─── Lender Portfolio Summary ───────────────────────────────────────────────
+
+export interface LenderPortfolioSummary {
+  totalProperties: number
+  totalEstimatedValue: number
+  avgOverallRiskScore: number
+  riskDistribution: Array<{ level: string; count: number }>
+  avgInsuranceCost: number | null
+  highRiskProperties: Array<{
+    propertyId: string
+    address: string
+    city: string
+    state: string
+    estimatedValue: number | null
+    overallRiskScore: number
+    overallRiskLevel: string
+  }>
+  riskByPeril: {
+    avgFloodScore: number
+    avgFireScore: number
+    avgWindScore: number
+    avgEarthquakeScore: number
+    avgCrimeScore: number
+  }
+  stateExposure: Array<{
+    state: string
+    count: number
+    totalValue: number
+    avgRiskScore: number
+  }>
+}
+
+// ─── Analytics ──────────────────────────────────────────────────────────────
 
 export interface AnalyticsSummary {
   totalSearches: number
