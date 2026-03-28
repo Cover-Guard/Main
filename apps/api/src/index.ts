@@ -21,8 +21,15 @@ import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 const REQUIRED_ENV = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
 const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k])
 if (missingEnv.length > 0) {
-  console.error(`FATAL: Missing required environment variables: ${missingEnv.join(', ')}`)
-  process.exit(1)
+  const msg = `FATAL: Missing required environment variables: ${missingEnv.join(', ')}`
+  if (process.env.VERCEL === '1') {
+    // In serverless mode, let Express boot so routes return proper JSON errors
+    // instead of crashing the function and serving an HTML 500 page.
+    console.error(msg)
+  } else {
+    console.error(msg)
+    process.exit(1)
+  }
 }
 
 const app = express()

@@ -39,17 +39,42 @@ function createPrismaClient(): PrismaClient {
   })
 }
 
-export const prisma = global.__prisma ?? createPrismaClient()
+/**
+ * Lazy-initialized Prisma client singleton.
+ *
+ * The client is created on first access rather than at module-load time so that
+ * the Express app can boot even when DATABASE_URL is missing (e.g. a Vercel
+ * misconfiguration).  This lets the error handler return a proper JSON 500
+ * instead of crashing the entire serverless function with an unhandled import
+ * error.
+ */
+function getPrismaClient(): PrismaClient {
+  if (global.__prisma) return global.__prisma
 
-if (!isProduction) {
-  global.__prisma = prisma
+  const client = createPrismaClient()
 
-  prisma.$on('query' as never, (e: { query: string; duration: number }) => {
-    if (process.env.LOG_LEVEL === 'debug') {
-      logger.debug(`Query: ${e.query} (${e.duration}ms)`)
-    }
-  })
+  if (!isProduction) {
+    global.__prisma = client
+
+    client.$on('query' as never, (e: { query: string; duration: number }) => {
+      if (process.env.LOG_LEVEL === 'debug') {
+        logger.debug(`Query: ${e.query} (${e.duration}ms)`)
+      }
+    })
+  } else {
+    global.__prisma = client
+  }
+
+  return client
 }
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const client = getPrismaClient()
+    const value = Reflect.get(client, prop, receiver)
+    return typeof value === 'function' ? value.bind(client) : value
+  },
+})
 
 // Graceful shutdown — close pool on process signals
 process.once('SIGTERM', async () => {
