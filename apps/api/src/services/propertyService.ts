@@ -227,6 +227,7 @@ export async function geocodeAndCreateProperty(
       await prisma.property.update({
         where: { id: existing.id },
         data: { lat: geocoded.lat, lng: geocoded.lng },
+        select: { id: true },
       })
     }
     const dto = prismaPropertyToDto({ ...existing, lat: geocoded.lat, lng: geocoded.lng })

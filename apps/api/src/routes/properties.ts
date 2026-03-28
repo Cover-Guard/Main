@@ -243,13 +243,13 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
     const body = saveSchema.parse(req.body)
     const propertyId = String(req.params.id)
 
-    // Run all verification queries in parallel (3 sequential queries → 1 round trip)
-    const [propertyExists, clientOwned, existing] = await Promise.all([
+    // Verify property exists + client ownership in parallel (skip existence
+    // check for savedProperty — upsert handles create-or-update implicitly)
+    const [propertyExists, clientOwned] = await Promise.all([
       prisma.property.findUnique({ where: { id: propertyId }, select: { id: true } }),
       body.clientId
         ? prisma.client.findFirst({ where: { id: body.clientId, agentId: userId }, select: { id: true } })
         : Promise.resolve(true),
-      prisma.savedProperty.findUnique({ where: { userId_propertyId: { userId, propertyId } }, select: { id: true } }),
     ])
     if (!propertyExists) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
@@ -270,8 +270,9 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
       where: { userId_propertyId: { userId, propertyId } },
       update: { notes: body.notes, tags: body.tags, clientId: clientIdUpdate },
       create: { userId, propertyId, notes: body.notes, tags: body.tags, clientId: body.clientId ?? null },
+      select: { id: true, userId: true, propertyId: true, clientId: true, notes: true, tags: true, savedAt: true },
     })
-    res.status(existing ? 200 : 201).json({ success: true, data: saved })
+    res.json({ success: true, data: saved })
   } catch (err) {
     next(err)
   }
@@ -422,18 +423,7 @@ propertiesRouter.post('/:id/checklists', requireAuth, async (req: Request, res, 
     const propertyId = String(req.params.id)
     const body = createChecklistSchema.parse(req.body)
 
-    const propertyExists = await prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true },
-    })
-    if (!propertyExists) {
-      res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Property not found' },
-      })
-      return
-    }
-
+    // FK constraint on propertyId handles invalid IDs (saves 1 DB round trip)
     const checklist = await prisma.propertyChecklist.upsert({
       where: {
         userId_propertyId_checklistType: {

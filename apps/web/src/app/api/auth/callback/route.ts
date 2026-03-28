@@ -56,24 +56,21 @@ export async function GET(request: Request) {
     }
 
     if (user) {
-      // If a role was forwarded from the agent registration page, write it
-      // into the user's auth metadata.  The handle_user_updated trigger will
-      // then propagate it to public.users automatically.
-      if (agentRole) {
-        // Preserve any existing metadata fields and override role.
-        // The handle_user_updated trigger will sync this to public.users.
-        await supabase.auth.updateUser({
-          data: { ...user.user_metadata, role: agentRole },
-        })
-      }
-
-      // Guard: if the handle_new_user trigger failed (extremely rare), ensure
-      // the public.users profile exists so downstream API calls don't 404.
-      const { data: profile } = await supabase
+      // Run role update + profile check in parallel — they operate on
+      // independent tables (auth.users metadata vs public.users).
+      const profileCheck = supabase
         .from('users')
         .select('id')
         .eq('id', user.id)
         .maybeSingle()
+
+      const roleUpdate = agentRole
+        ? supabase.auth.updateUser({
+            data: { ...user.user_metadata, role: agentRole },
+          })
+        : Promise.resolve(null)
+
+      const [{ data: profile }] = await Promise.all([profileCheck, roleUpdate])
 
       if (!profile) {
         // Profile missing — create it via the authenticated API so the service-

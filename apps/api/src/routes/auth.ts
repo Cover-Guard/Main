@@ -124,9 +124,10 @@ authRouter.post('/register', async (req, res, next) => {
         where: { id: authData.user.id },
         update: profileData,
         create: { id: authData.user.id, ...profileData },
+        select: { id: true, email: true, role: true },
       })
 
-      res.status(201).json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
+      res.status(201).json({ success: true, data: user })
     } catch (profileErr) {
       // Profile creation failed after auth user was created — roll back the
       // Supabase auth user so the email isn't permanently "taken".
@@ -247,7 +248,7 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
     const email = (jwt?.email as string) ?? ''
     const fullName = meta.full_name ?? ''
 
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         id: userId,
         email,
@@ -258,8 +259,9 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
         licenseNumber: meta.licenseNumber ?? null,
         termsAcceptedAt: now,
       },
+      select: { id: true },
     })
-    res.json({ success: true, data: { termsAcceptedAt: user.termsAcceptedAt } })
+    res.json({ success: true, data: { termsAcceptedAt: now } })
   } catch (err) {
     next(err)
   }
@@ -293,9 +295,10 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
         licenseNumber: meta.licenseNumber ?? null,
         avatarUrl: meta.avatar_url ?? meta.picture ?? null,
       },
+      select: { id: true, email: true, role: true },
     })
 
-    res.json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
+    res.json({ success: true, data: user })
   } catch (err) {
     next(err)
   }
