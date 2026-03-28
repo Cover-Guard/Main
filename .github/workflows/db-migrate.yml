@@ -63,6 +63,7 @@ jobs:
         run: |
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
           POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          DIRECT_HOST="db.${SUPABASE_PROJECT_ID}.supabase.co"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
           {
@@ -70,11 +71,11 @@ jobs:
             printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:6543/postgres?pgbouncer=true"
             echo "GHEOF"
             echo "DIRECT_URL<<GHEOF"
-            printf '%s\n' "postgresql://${DB_USER}:${ENCODED_PW}@${POOLER_HOST}:5432/postgres"
+            printf '%s\n' "postgresql://postgres:${ENCODED_PW}@${DIRECT_HOST}:5432/postgres"
             echo "GHEOF"
           } >> "$GITHUB_ENV"
 
-          echo "Connection URLs built — pooler: ${POOLER_HOST}"
+          echo "Connection URLs built — pooler: ${POOLER_HOST}, direct: ${DIRECT_HOST}"
 
       - name: Pull schema from Supabase
         working-directory: apps/api
