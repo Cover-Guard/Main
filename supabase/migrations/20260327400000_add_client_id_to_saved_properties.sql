@@ -2,6 +2,6 @@
 -- save properties on behalf of specific clients.
 
 ALTER TABLE saved_properties
-  ADD COLUMN "clientId" UUID REFERENCES clients(id) ON DELETE SET NULL;
+  ADD COLUMN "clientId" TEXT REFERENCES clients(id) ON DELETE SET NULL;
 
 CREATE INDEX idx_saved_properties_client_id ON saved_properties ("clientId");
