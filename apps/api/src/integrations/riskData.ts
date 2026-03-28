@@ -7,6 +7,7 @@
  *   - FEMA National Flood Hazard Layer (NFHL) REST API
  *   - OpenFEMA API — historical flood claims by ZIP
  *   - NOAA Sea Level Rise projections (coastal enhancement)
+ *   - USGS 3DEP Elevation Point Query Service
  *
  * FIRE
  *   - Cal Fire FHSZ (California only)
@@ -19,6 +20,7 @@
  *   - USGS Design Maps Web Service (ASCE 7-22)
  *   - USGS Earthquake Hazard Tool (PGA fallback)
  *   - USGS Quaternary Fault & Fold Database (nearest fault distance)
+ *   - USGS Earthquake Catalog (historical seismic events)
  *
  * WIND / HURRICANE
  *   - NOAA Coastal Services Center / SLOSH (hurricane surge zones + category)
@@ -28,6 +30,13 @@
  * CRIME
  *   - FBI Crime Data Explorer API (requires API key: FBI_CDE_KEY)
  *   - Census Bureau ACS 5-year estimates (poverty/income proxy when FBI unavailable)
+ *
+ * SUPPLEMENTAL (cross-cutting)
+ *   - FEMA National Risk Index (NRI) — composite risk by census tract
+ *   - USGS Karst Map — sinkhole susceptibility
+ *   - USGS Landslide Susceptibility Map
+ *   - National Inventory of Dams (NID) — downstream dam hazard
+ *   - EPA Envirofacts — Superfund/brownfield proximity
  *
  * Each function returns a partial result; missing data falls back to
  * computed scores in riskService.ts.
@@ -327,7 +336,7 @@ async function fetchNearestFireStation(lat: number, lng: number, result: FireRis
         for (const station of stations) {
           const sLat = station.attributes?.LATITUDE as number | null
           const sLng = station.attributes?.LONGITUDE as number | null
-          if (sLat && sLng) {
+          if (sLat != null && sLng != null) {
             const dist = haversineDistanceMiles(lat, lng, sLat, sLng)
             if (dist < minDist) minDist = dist
           }
@@ -786,4 +795,261 @@ async function fetchCensusAcsCrimeProxy(zip: string): Promise<Partial<CrimeRisk>
     logger.warn('Census ACS API unavailable', { err })
     return null
   }
+}
+
+// ─── Supplemental Data Sources ───────────────────────────────────────────────
+
+/** USGS 3DEP Elevation Point Query — returns elevation in feet for any US lat/lng */
+export async function fetchElevation(lat: number, lng: number): Promise<number | null> {
+  try {
+    const url = `https://epqs.nationalmap.gov/v1/json?x=${lng}&y=${lat}&wkid=4326&units=Feet&includeDate=false`
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = await res.json() as { value?: number }
+      if (data.value != null && data.value > -1000) {
+        return Math.round(data.value * 10) / 10
+      }
+    }
+  } catch (err) {
+    logger.warn('USGS 3DEP Elevation API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * USGS Earthquake Catalog — historical seismic events near property.
+ * Returns count and max magnitude of earthquakes within 50km over last 20 years.
+ */
+export async function fetchHistoricalEarthquakes(lat: number, lng: number): Promise<{
+  count: number
+  maxMagnitude: number | null
+  significantCount: number // magnitude >= 4.0
+} | null> {
+  try {
+    const startDate = new Date()
+    startDate.setFullYear(startDate.getFullYear() - 20)
+    const startStr = startDate.toISOString().split('T')[0]
+    const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lng}&maxradiuskm=50&minmagnitude=2.5&starttime=${startStr}&limit=500`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = await res.json() as {
+        metadata?: { count?: number }
+        features?: Array<{ properties?: { mag?: number } }>
+      }
+      const features = data.features ?? []
+      const count = features.length
+      let maxMag: number | null = null
+      let significantCount = 0
+      for (const f of features) {
+        const mag = f.properties?.mag
+        if (mag != null) {
+          if (maxMag == null || mag > maxMag) maxMag = mag
+          if (mag >= 4.0) significantCount++
+        }
+      }
+      return { count, maxMagnitude: maxMag, significantCount }
+    }
+  } catch (err) {
+    logger.warn('USGS Earthquake Catalog API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * LANDFIRE Fuel Model — returns the Scott & Burgan 40 fuel model for fire behavior.
+ * Higher fuel loads = more intense fire behavior around property.
+ */
+export async function fetchLandfireFuelModel(lat: number, lng: number): Promise<{
+  fuelModel: string | null
+  fuelDescription: string | null
+} | null> {
+  try {
+    // LANDFIRE FBFM40 (Scott & Burgan 40 fuel models)
+    const url = `https://lfps.usgs.gov/arcgis/rest/services/Landfire/US_200/MapServer/identify?geometry=${lng},${lat}&geometryType=esriGeometryPoint&sr=4326&layers=all:10&tolerance=1&mapExtent=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&imageDisplay=100,100,96&returnGeometry=false&f=json`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = await res.json() as {
+        results?: Array<{
+          attributes?: { 'Pixel Value'?: string; 'FBFM40'?: string; 'CLASSNAME'?: string }
+        }>
+      }
+      const result = data.results?.[0]?.attributes
+      if (result) {
+        const fuelModel = result['FBFM40'] ?? result['Pixel Value'] ?? null
+        const fuelDescription = result['CLASSNAME'] ?? null
+        return { fuelModel, fuelDescription }
+      }
+    }
+  } catch (err) {
+    logger.warn('LANDFIRE Fuel Model API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * FEMA National Risk Index (NRI) — composite risk by census tract.
+ * Returns Expected Annual Loss and risk ratings for 18 natural hazards.
+ */
+export interface NriResult {
+  riskRating: string | null // 'Very High', 'Relatively High', 'Relatively Moderate', etc.
+  expectedAnnualLoss: number | null
+  socialVulnerability: string | null
+  communityResilience: string | null
+  earthquakeRisk: string | null
+  floodRisk: string | null
+  hurricaneRisk: string | null
+  tornadoRisk: string | null
+  wildfireRisk: string | null
+}
+
+export async function fetchFemaNri(lat: number, lng: number): Promise<NriResult | null> {
+  try {
+    const url = `https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/NRI_Census_Tracts/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=RISK_RATNG,EAL_VALT,SOVI_RATNG,RESL_RATNG,ERQK_RISKR,RFLD_RISKR,HRCN_RISKR,TRND_RISKR,WFIR_RISKR&returnGeometry=false&f=json`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        return {
+          riskRating: attrs.RISK_RATNG as string | null,
+          expectedAnnualLoss: attrs.EAL_VALT as number | null,
+          socialVulnerability: attrs.SOVI_RATNG as string | null,
+          communityResilience: attrs.RESL_RATNG as string | null,
+          earthquakeRisk: attrs.ERQK_RISKR as string | null,
+          floodRisk: attrs.RFLD_RISKR as string | null,
+          hurricaneRisk: attrs.HRCN_RISKR as string | null,
+          tornadoRisk: attrs.TRND_RISKR as string | null,
+          wildfireRisk: attrs.WFIR_RISKR as string | null,
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('FEMA NRI API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * USGS Karst Map — sinkhole susceptibility based on karst geology.
+ * Returns whether property is in a karst area (dissolution-prone limestone/dolostone).
+ */
+export async function fetchSinkholeRisk(lat: number, lng: number): Promise<{
+  inKarstArea: boolean
+  karstType: string | null
+} | null> {
+  try {
+    const url = `https://mrdata.usgs.gov/services/karst?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=karst&query_layers=karst&info_format=application/json&x=1&y=1&width=3&height=3&srs=EPSG:4326&bbox=${lng - 0.001},${lat - 0.001},${lng + 0.001},${lat + 0.001}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = await res.json() as { features?: Array<{ properties?: { ROCKTYPE1?: string } }> }
+      const feature = data.features?.[0]
+      if (feature) {
+        return {
+          inKarstArea: true,
+          karstType: feature.properties?.ROCKTYPE1 ?? 'Karst terrain',
+        }
+      }
+    }
+    return { inKarstArea: false, karstType: null }
+  } catch (err) {
+    logger.warn('USGS Karst Map API unavailable', { err })
+    return null
+  }
+}
+
+/**
+ * National Inventory of Dams (NID) — finds high-hazard dams near property.
+ * Downstream dam failure can cause catastrophic flooding.
+ */
+export async function fetchDamHazard(lat: number, lng: number): Promise<{
+  nearbyHighHazardDams: number
+  nearestDamName: string | null
+  nearestDamCondition: string | null
+  nearestDamDistance: number | null // miles
+} | null> {
+  try {
+    const url = `https://nid.sec.usace.army.mil/api/nation/dams?latitude=${lat}&longitude=${lng}&radius=25&hazard=H&limit=10`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const dams = await res.json() as Array<{
+        name?: string
+        conditionAssessment?: string
+        latitude?: number
+        longitude?: number
+        hazard?: string
+      }>
+      if (Array.isArray(dams) && dams.length > 0) {
+        let nearest = dams[0]
+        let minDist = Infinity
+        for (const dam of dams) {
+          if (dam.latitude != null && dam.longitude != null) {
+            const dist = haversineDistanceMiles(lat, lng, dam.latitude, dam.longitude)
+            if (dist < minDist) {
+              minDist = dist
+              nearest = dam
+            }
+          }
+        }
+        return {
+          nearbyHighHazardDams: dams.length,
+          nearestDamName: nearest.name ?? null,
+          nearestDamCondition: nearest.conditionAssessment ?? null,
+          nearestDamDistance: minDist < Infinity ? Math.round(minDist * 10) / 10 : null,
+        }
+      }
+      return { nearbyHighHazardDams: 0, nearestDamName: null, nearestDamCondition: null, nearestDamDistance: null }
+    }
+  } catch (err) {
+    logger.warn('NID Dam Hazard API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * EPA Envirofacts — Superfund (CERCLIS/SEMS) site proximity.
+ * Properties near contaminated sites face environmental liability risk.
+ */
+export async function fetchSuperfundProximity(lat: number, lng: number): Promise<{
+  nearbySites: number
+  nearestSiteName: string | null
+  nearestSiteDistance: number | null // miles
+} | null> {
+  try {
+    const url = `https://ofmpub.epa.gov/enviro/frs_rest_services.get_facilities?latitude83=${lat}&longitude83=${lng}&search_radius=3&pgm_sys_acrnm=SEMS&output=JSON`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = await res.json() as {
+        Results?: {
+          FRSFacility?: Array<{
+            PrimaryName?: string
+            Latitude83?: number
+            Longitude83?: number
+          }>
+        }
+      }
+      const sites = data.Results?.FRSFacility ?? []
+      if (sites.length > 0) {
+        let nearestName: string | null = null
+        let minDist = Infinity
+        for (const site of sites) {
+          if (site.Latitude83 != null && site.Longitude83 != null) {
+            const dist = haversineDistanceMiles(lat, lng, site.Latitude83, site.Longitude83)
+            if (dist < minDist) {
+              minDist = dist
+              nearestName = site.PrimaryName ?? null
+            }
+          }
+        }
+        return {
+          nearbySites: sites.length,
+          nearestSiteName: nearestName,
+          nearestSiteDistance: minDist < Infinity ? Math.round(minDist * 10) / 10 : null,
+        }
+      }
+      return { nearbySites: 0, nearestSiteName: null, nearestSiteDistance: null }
+    }
+  } catch (err) {
+    logger.warn('EPA Envirofacts API unavailable', { err })
+  }
+  return null
 }

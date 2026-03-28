@@ -43,7 +43,9 @@ function computeHomeownersPremium(inputs: InsuranceInputs): {
   high: number
   avg: number
 } {
-  let baseRate = 1.11 // per $1,000 of coverage (national avg)
+  // National average homeowners premium: ~$2,270/yr for ~$300k dwelling (NAIC 2023)
+  // This translates to roughly $7.56 per $1,000 of coverage
+  let baseRate = 7.56 // per $1,000 of insured value
 
   baseRate *= STATE_MULTIPLIERS[inputs.state] ?? 1.0
 

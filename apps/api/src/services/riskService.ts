@@ -6,12 +6,20 @@ import {
   fetchEarthquakeRisk,
   fetchWindRisk,
   fetchCrimeRisk,
+  fetchElevation,
+  fetchHistoricalEarthquakes,
+  fetchLandfireFuelModel,
+  fetchFemaNri,
+  fetchSinkholeRisk,
+  fetchDamHazard,
+  fetchSuperfundProximity,
 } from '../integrations/riskData'
 import type {
   FireRiskExtended,
   EarthquakeRiskExtended,
   WindRiskExtended,
   CrimeRiskExtended,
+  NriResult,
 } from '../integrations/riskData'
 import type { PropertyRiskProfile, RiskLevel, RiskTrend } from '@coverguard/shared'
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
@@ -153,7 +161,10 @@ function computeWindScore(windData: WindRiskExtended): number {
   return score
 }
 
-function computeEarthquakeScore(eqData: EarthquakeRiskExtended): number {
+function computeEarthquakeScore(
+  eqData: EarthquakeRiskExtended,
+  historicalEq?: { count: number; maxMagnitude: number | null; significantCount: number } | null,
+): number {
   const seismicZone = eqData.seismicZone ?? 'A'
   const ss = eqData.ss ?? null
   const nearestFault = eqData.nearestFaultLine ?? null
@@ -180,6 +191,17 @@ function computeEarthquakeScore(eqData: EarthquakeRiskExtended): number {
     if (nearestFault < 2) score = Math.min(100, score + 15)
     else if (nearestFault < 5) score = Math.min(100, score + 8)
     else if (nearestFault < 10) score = Math.min(100, score + 3)
+  }
+
+  // Historical earthquake activity boosts score
+  if (historicalEq) {
+    if (historicalEq.significantCount > 5) score = Math.min(100, score + 12)
+    else if (historicalEq.significantCount > 0) score = Math.min(100, score + 6)
+    else if (historicalEq.count > 20) score = Math.min(100, score + 4)
+
+    if (historicalEq.maxMagnitude != null && historicalEq.maxMagnitude >= 6.0) {
+      score = Math.min(100, score + 10)
+    }
   }
 
   return score
@@ -227,23 +249,66 @@ export async function getOrComputeRiskProfile(
 
     logger.info('Computing risk profile', { propertyId, forceRefresh, state: property.state })
 
-    // Fetch all risk data sources in parallel
-    const [floodData, fireData, earthquakeData, windData, crimeData] = await Promise.all([
+    // Fetch all risk data sources in parallel (primary + supplemental)
+    const [
+      floodData, fireData, earthquakeData, windData, crimeData,
+      elevation, historicalEq, fuelModel, nriData, sinkholeData, damData, superfundData,
+    ] = await Promise.all([
+      // Primary sources
       fetchFloodRisk(property.lat, property.lng, property.zip ?? ''),
       fetchFireRisk(property.lat, property.lng, property.state),
       fetchEarthquakeRisk(property.lat, property.lng),
       fetchWindRisk(property.lat, property.lng, property.state),
       fetchCrimeRisk(property.lat, property.lng, property.zip ?? ''),
+      // Supplemental sources
+      fetchElevation(property.lat, property.lng),
+      fetchHistoricalEarthquakes(property.lat, property.lng),
+      fetchLandfireFuelModel(property.lat, property.lng),
+      fetchFemaNri(property.lat, property.lng),
+      fetchSinkholeRisk(property.lat, property.lng),
+      fetchDamHazard(property.lat, property.lng),
+      fetchSuperfundProximity(property.lat, property.lng),
     ])
 
-    const floodScore = computeFloodScore(
+    // Enhance flood score with elevation data (low elevation = higher risk)
+    let elevationBoost = 0
+    if (elevation != null && elevation < 15 && floodData.inSpecialFloodHazardArea) {
+      elevationBoost = Math.min(10, Math.round((15 - elevation) / 2))
+    }
+    // Boost flood from dam hazard data
+    let damBoost = 0
+    if (damData && damData.nearbyHighHazardDams > 0) {
+      if (damData.nearestDamCondition === 'UNSATISFACTORY' || damData.nearestDamCondition === 'POOR') {
+        damBoost = 15
+      } else if (damData.nearbyHighHazardDams >= 3) {
+        damBoost = 8
+      } else {
+        damBoost = 5
+      }
+    }
+
+    const floodScore = Math.min(100, computeFloodScore(
       floodData.floodZone,
       floodData.inSpecialFloodHazardArea ?? false,
       floodData.annualChanceOfFlooding ?? null,
-    )
-    const fireScore = computeFireScore(fireData)
+    ) + elevationBoost + damBoost)
+
+    // Enhance fire score with LANDFIRE fuel model
+    const fireData2 = { ...fireData }
+    if (fuelModel) {
+      // High fuel models (timber, brush) boost fire risk
+      const fuelDesc = (fuelModel.fuelDescription ?? '').toLowerCase()
+      if (fuelDesc.includes('timber') || fuelDesc.includes('slash')) {
+        fireData2.vegetationDensity = fireData2.vegetationDensity ?? 'HIGH'
+      } else if (fuelDesc.includes('brush') || fuelDesc.includes('shrub')) {
+        fireData2.vegetationDensity = fireData2.vegetationDensity ?? 'MODERATE'
+      }
+    }
+    const fireScore = computeFireScore(fireData2)
     const windScore = computeWindScore(windData)
-    const earthquakeScore = computeEarthquakeScore(earthquakeData)
+
+    // Enhance earthquake score with historical events
+    const earthquakeScore = computeEarthquakeScore(earthquakeData, historicalEq)
     const crimeResult = computeCrimeScore(crimeData)
     const crimeScore = crimeResult.score
 
@@ -309,10 +374,17 @@ export async function getOrComputeRiskProfile(
     })
 
     const dto = prismaProfileToDto(profile, propertyId, {
-      fireData,
+      fireData: fireData2,
       earthquakeData,
       windData,
       crimeData,
+      elevation,
+      historicalEq,
+      fuelModel,
+      nriData,
+      sinkholeData,
+      damData,
+      superfundData,
     })
     riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
     return dto
@@ -326,6 +398,13 @@ interface EnrichmentData {
   earthquakeData?: EarthquakeRiskExtended
   windData?: WindRiskExtended
   crimeData?: CrimeRiskExtended
+  elevation?: number | null
+  historicalEq?: { count: number; maxMagnitude: number | null; significantCount: number } | null
+  fuelModel?: { fuelModel: string | null; fuelDescription: string | null } | null
+  nriData?: NriResult | null
+  sinkholeData?: { inKarstArea: boolean; karstType: string | null } | null
+  damData?: { nearbyHighHazardDams: number; nearestDamName: string | null; nearestDamCondition: string | null; nearestDamDistance: number | null } | null
+  superfundData?: { nearbySites: number; nearestSiteName: string | null; nearestSiteDistance: number | null } | null
 }
 
 function prismaProfileToDto(
@@ -351,6 +430,21 @@ function prismaProfileToDto(
   if (p.floodZone === 'D') {
     floodDetails.push('Zone D: Flood hazard undetermined — community not mapped by FEMA')
   }
+  if (enrichment?.elevation != null) {
+    floodDetails.push(`Property elevation: ${enrichment.elevation} ft (USGS 3DEP)`)
+    if (enrichment.elevation < 15) {
+      floodDetails.push('Low elevation increases vulnerability to flooding and storm surge')
+    }
+  }
+  if (enrichment?.damData && enrichment.damData.nearbyHighHazardDams > 0) {
+    floodDetails.push(`${enrichment.damData.nearbyHighHazardDams} high-hazard dam(s) within 25 miles`)
+    if (enrichment.damData.nearestDamName) {
+      floodDetails.push(`Nearest: ${enrichment.damData.nearestDamName} (${enrichment.damData.nearestDamDistance} mi, condition: ${enrichment.damData.nearestDamCondition ?? 'unknown'})`)
+    }
+  }
+  if (enrichment?.sinkholeData?.inKarstArea) {
+    floodDetails.push(`Located in karst terrain (${enrichment.sinkholeData.karstType ?? 'dissolution-prone geology'}) — sinkhole risk elevated`)
+  }
 
   const fireDetails: string[] = []
   if (p.fireHazardZone) fireDetails.push(`Fire hazard severity zone: ${p.fireHazardZone}`)
@@ -368,6 +462,9 @@ function prismaProfileToDto(
   }
   if (enrichment?.fireData?.vegetationDensity) {
     fireDetails.push(`Surrounding vegetation density: ${enrichment.fireData.vegetationDensity}`)
+  }
+  if (enrichment?.fuelModel?.fuelDescription) {
+    fireDetails.push(`LANDFIRE fuel model: ${enrichment.fuelModel.fuelDescription}`)
   }
 
   const windDetails: string[] = []
@@ -419,6 +516,15 @@ function prismaProfileToDto(
   if (enrichment?.earthquakeData?.liquidationPotential) {
     earthquakeDetails.push(`Liquefaction potential: ${enrichment.earthquakeData.liquidationPotential}`)
   }
+  if (enrichment?.historicalEq && enrichment.historicalEq.count > 0) {
+    earthquakeDetails.push(`${enrichment.historicalEq.count} earthquakes (M2.5+) within 50km in last 20 years`)
+    if (enrichment.historicalEq.maxMagnitude != null) {
+      earthquakeDetails.push(`Maximum recorded magnitude: M${enrichment.historicalEq.maxMagnitude.toFixed(1)}`)
+    }
+    if (enrichment.historicalEq.significantCount > 0) {
+      earthquakeDetails.push(`${enrichment.historicalEq.significantCount} significant events (M4.0+)`)
+    }
+  }
 
   const crimeDetails: string[] = [
     `Violent crime index: ${p.violentCrimeIndex} per 100k`,
@@ -434,6 +540,19 @@ function prismaProfileToDto(
   } else if (crimeSource === 'NONE') {
     crimeDetails.push('Crime data unavailable for this area')
   }
+  if (enrichment?.superfundData && enrichment.superfundData.nearbySites > 0) {
+    crimeDetails.push(`${enrichment.superfundData.nearbySites} EPA Superfund/SEMS site(s) within 3 miles`)
+    if (enrichment.superfundData.nearestSiteName) {
+      crimeDetails.push(`Nearest: ${enrichment.superfundData.nearestSiteName} (${enrichment.superfundData.nearestSiteDistance} mi)`)
+    }
+  }
+
+  // FEMA NRI enrichment — add to flood description if available
+  const nri = enrichment?.nriData
+  const nriSummary = nri?.riskRating
+    ? `FEMA National Risk Index: ${nri.riskRating}` +
+      (nri.expectedAnnualLoss != null ? ` (Expected Annual Loss: $${nri.expectedAnnualLoss.toLocaleString()})` : '')
+    : null
 
   return {
     propertyId,
@@ -443,9 +562,9 @@ function prismaProfileToDto(
       level: p.floodRiskLevel as RiskLevel,
       score: p.floodRiskScore,
       trend: 'STABLE' as RiskTrend,
-      description: 'Flood risk based on FEMA National Flood Hazard Layer and OpenFEMA historical claims',
-      details: floodDetails,
-      dataSource: 'FEMA NFHL / OpenFEMA / NOAA SLR',
+      description: 'Flood risk based on FEMA National Flood Hazard Layer, OpenFEMA claims, USGS elevation, and dam hazard data',
+      details: nriSummary ? [...floodDetails, nriSummary] : floodDetails,
+      dataSource: 'FEMA NFHL / OpenFEMA / NOAA SLR / USGS 3DEP / NID / FEMA NRI',
       lastUpdated: now,
       floodZone: p.floodZone ?? 'UNKNOWN',
       firmPanelId: p.floodFirmPanelId,
@@ -459,7 +578,7 @@ function prismaProfileToDto(
       trend: 'STABLE' as RiskTrend,
       description: 'Wildfire risk based on Cal Fire FHSZ, USFS WUI, NIFC fire history, and vegetation analysis',
       details: fireDetails,
-      dataSource: 'Cal Fire / USFS WUI / NIFC / HIFLD / USGS NLCD',
+      dataSource: 'Cal Fire / USFS WUI / NIFC / HIFLD / USGS NLCD / LANDFIRE',
       lastUpdated: now,
       fireHazardSeverityZone: p.fireHazardZone,
       wildlandUrbanInterface: p.wildlandUrbanInterface,
@@ -485,7 +604,7 @@ function prismaProfileToDto(
       trend: 'STABLE' as RiskTrend,
       description: 'Seismic risk based on USGS Design Maps (ASCE 7-22) and Quaternary Fault Database',
       details: earthquakeDetails,
-      dataSource: 'USGS Design Maps / USGS QFaults',
+      dataSource: 'USGS Design Maps / USGS QFaults / USGS Earthquake Catalog',
       lastUpdated: now,
       seismicZone: p.seismicZone,
       nearestFaultLine: p.nearestFaultLine,

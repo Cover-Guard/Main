@@ -258,6 +258,7 @@ function determineWritingStatus(
   marketCondition: MarketCondition,
   fireScore: number,
   windScore: number,
+  wildlandUI: boolean,
 ): Carrier['writingStatus'] {
   // State-specific carriers only write in their states
   if (!carrier.statesLicensed.includes('ALL') && !carrier.statesLicensed.includes(state)) {
@@ -299,11 +300,11 @@ function determineWritingStatus(
     }
   }
 
-  // California wildfire: many carriers pulling out
-  if (state === 'CA' && fireScore > 60) {
+  // California wildfire: many carriers pulling out of WUI and high-fire areas
+  if (state === 'CA' && (fireScore > 60 || wildlandUI)) {
     const caWildfireRestricted = ['state-farm', 'allstate', 'nationwide', 'lemonade', 'hippo']
     if (caWildfireRestricted.includes(carrier.id)) {
-      return fireScore > 80 ? 'NOT_WRITING' : 'LIMITED'
+      return (fireScore > 80 || (wildlandUI && fireScore > 50)) ? 'NOT_WRITING' : 'LIMITED'
     }
   }
 
@@ -350,6 +351,7 @@ export async function getCarriersForProperty(propertyId: string, forceRefresh = 
     const overallRiskScore = risk?.overallRiskScore ?? 30
     const fireScore = risk?.fireRiskScore ?? 20
     const windScore = risk?.windRiskScore ?? 20
+    const wildlandUI = risk?.wildlandUrbanInterface ?? false
     const state = property.state
     const marketCondition = getMarketCondition(state, overallRiskScore)
 
@@ -360,7 +362,7 @@ export async function getCarriersForProperty(propertyId: string, forceRefresh = 
       })
       .map((c) => ({
         ...c,
-        writingStatus: determineWritingStatus(c, state, overallRiskScore, marketCondition, fireScore, windScore),
+        writingStatus: determineWritingStatus(c, state, overallRiskScore, marketCondition, fireScore, windScore, wildlandUI),
       }))
       // Sort: actively writing first, then limited, then surplus, then not writing
       .sort((a, b) => {
