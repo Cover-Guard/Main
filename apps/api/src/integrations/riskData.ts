@@ -147,7 +147,7 @@ export async function fetchFloodRisk(lat: number, lng: number, zip: string): Pro
 
 async function fetchOpenFemaClaims(zip: string, floodZoneData: Partial<FloodRisk>): Promise<void> {
   try {
-    const claimsUrl = `https://www.fema.gov/api/open/v2/nfipClaims?$filter=reportedZipCode eq '${encodeURIComponent(zip)}'&$select=amountPaidOnBuildingClaim,dateOfLoss&$top=200&$orderby=dateOfLoss desc&$format=json`
+    const claimsUrl = `https://www.fema.gov/api/open/v2/nfipClaims?$filter=reportedZipCode eq '${encodeURIComponent(zip)}'&$select=amountPaidOnBuildingClaim,dateOfLoss&$top=200&$orderby=dateOfLoss%20desc&$format=json`
     const claimsRes = await fetch(claimsUrl, { signal: AbortSignal.timeout(8000) })
     if (claimsRes.ok) {
       const claimsData = (await claimsRes.json()) as { NfipClaims: OpenFemaFloodClaim[] }
@@ -946,22 +946,31 @@ export interface NriResult {
 
 export async function fetchFemaNri(lat: number, lng: number): Promise<NriResult | null> {
   try {
-    const url = `https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/NRI_Census_Tracts/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=RISK_RATNG,EAL_VALT,SOVI_RATNG,RESL_RATNG,ERQK_RISKR,RFLD_RISKR,HRCN_RISKR,TRND_RISKR,WFIR_RISKR&returnGeometry=false&f=json`
+    // Use outFields=* because NRI field names vary between service versions
+    const url = `https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/NRI_Census_Tracts/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&resultRecordCount=1&f=json`
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const attrs = data.features?.[0]?.attributes
       if (attrs) {
+        // Helper to find field by possible name variants
+        const field = (...names: string[]): string | number | null => {
+          for (const n of names) {
+            if (attrs[n] != null) return attrs[n] as string | number
+          }
+          return null
+        }
+        const ealRaw = field('EAL_VALT', 'EAL_VALUE', 'EAL_VALB')
         return {
-          riskRating: attrs.RISK_RATNG as string | null,
-          expectedAnnualLoss: attrs.EAL_VALT as number | null,
-          socialVulnerability: attrs.SOVI_RATNG as string | null,
-          communityResilience: attrs.RESL_RATNG as string | null,
-          earthquakeRisk: attrs.ERQK_RISKR as string | null,
-          floodRisk: attrs.RFLD_RISKR as string | null,
-          hurricaneRisk: attrs.HRCN_RISKR as string | null,
-          tornadoRisk: attrs.TRND_RISKR as string | null,
-          wildfireRisk: attrs.WFIR_RISKR as string | null,
+          riskRating: (field('RISK_RATNG', 'RISK_RATING') as string | null),
+          expectedAnnualLoss: typeof ealRaw === 'number' ? ealRaw : typeof ealRaw === 'string' ? parseFloat(ealRaw) || null : null,
+          socialVulnerability: (field('SOVI_RATNG', 'SOVI_RATING', 'SOVI_SCORE') as string | null),
+          communityResilience: (field('RESL_RATNG', 'RESL_RATING', 'RESL_SCORE') as string | null),
+          earthquakeRisk: (field('ERQK_RISKR', 'ERQK_RISKS', 'ERQK_SCORE') as string | null),
+          floodRisk: (field('RFLD_RISKR', 'RFLD_RISKS', 'RFLD_SCORE') as string | null),
+          hurricaneRisk: (field('HRCN_RISKR', 'HRCN_RISKS', 'HRCN_SCORE') as string | null),
+          tornadoRisk: (field('TRND_RISKR', 'TRND_RISKS', 'TRND_SCORE') as string | null),
+          wildfireRisk: (field('WFIR_RISKR', 'WFIR_RISKS', 'WFIR_SCORE') as string | null),
         }
       }
     }

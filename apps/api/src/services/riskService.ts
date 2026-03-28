@@ -275,14 +275,21 @@ export async function getOrComputeRiskProfile(
     ])
 
     // Enhance flood score with elevation data (low elevation = higher risk)
+    // Low elevation increases flooding vulnerability from storm surge, tidal flooding,
+    // and poor drainage regardless of FEMA zone designation
     let elevationBoost = 0
-    if (elevation != null && elevation < 15 && floodData.inSpecialFloodHazardArea) {
-      elevationBoost = Math.min(10, Math.round((15 - elevation) / 2))
+    if (elevation != null && elevation < 15) {
+      const baseBoost = Math.round((15 - elevation) / 2)
+      // Higher boost for SFHA properties (compounding risk)
+      elevationBoost = floodData.inSpecialFloodHazardArea
+        ? Math.min(12, baseBoost)
+        : Math.min(8, baseBoost)
     }
     // Boost flood from dam hazard data
     let damBoost = 0
     if (damData && damData.nearbyHighHazardDams > 0) {
-      if (damData.nearestDamCondition === 'UNSATISFACTORY' || damData.nearestDamCondition === 'POOR') {
+      const damCondition = damData.nearestDamCondition?.toUpperCase() ?? ''
+      if (damCondition === 'UNSATISFACTORY' || damCondition === 'POOR') {
         damBoost = 15
       } else if (damData.nearbyHighHazardDams >= 3) {
         damBoost = 8
