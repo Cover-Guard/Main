@@ -137,7 +137,7 @@ jobs:
         run: |
           CLEAN_ID="$(printf '%s' "$RAW_PROJECT_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           CLEAN_PW="$(printf '%s' "$RAW_DB_PASSWORD" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          CLEAN_REGION="$(printf '%s' "$RAW_DB_REGION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          CLEAN_POOLER="$(printf '%s' "$RAW_POOLER_HOST" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           {
             echo "SUPABASE_PROJECT_ID<<GHEOF"
             printf '%s\n' "$CLEAN_ID"
@@ -145,20 +145,20 @@ jobs:
             echo "SUPABASE_DB_PASSWORD<<GHEOF"
             printf '%s\n' "$CLEAN_PW"
             echo "GHEOF"
-            echo "SUPABASE_DB_REGION<<GHEOF"
-            printf '%s\n' "$CLEAN_REGION"
+            echo "SUPABASE_POOLER_HOST<<GHEOF"
+            printf '%s\n' "$CLEAN_POOLER"
             echo "GHEOF"
           } >> "$GITHUB_ENV"
-          echo "Sanitized — Project ID length: ${#CLEAN_ID}, Password length: ${#CLEAN_PW}, Region: ${CLEAN_REGION}"
+          echo "Sanitized — Project ID length: ${#CLEAN_ID}, Password length: ${#CLEAN_PW}, Pooler: ${CLEAN_POOLER}"
         env:
           RAW_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
           RAW_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          RAW_DB_REGION: ${{ secrets.SUPABASE_DB_REGION }}
+          RAW_POOLER_HOST: ${{ secrets.SUPABASE_POOLER_HOST }}
 
       - name: Build DB connection URLs
         run: |
           ENCODED_PW=$(node -e "process.stdout.write(encodeURIComponent(process.env.SUPABASE_DB_PASSWORD))")
-          POOLER_HOST="aws-${SUPABASE_DB_REGION}.pooler.supabase.com"
+          POOLER_HOST="${SUPABASE_POOLER_HOST}"
           DIRECT_HOST="db.${SUPABASE_PROJECT_ID}.supabase.co"
           DB_USER="postgres.${SUPABASE_PROJECT_ID}"
 
