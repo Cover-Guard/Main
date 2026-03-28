@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRef } from 'react'
 import type { User } from '@coverguard/shared'
 import { getMe, updateMe, deleteAccount } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
 import {
   Settings, Shield, FileText, Trash2, Edit2, Check, X, Loader2,
   LogOut, Eye, EyeOff, Save, Bell, ChevronDown, ChevronUp, User as UserIcon,
-  AlertTriangle, Lock, Calendar, BadgeCheck,
+  AlertTriangle, Lock, Calendar, BadgeCheck, Camera,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -119,21 +120,109 @@ function LegalSection({
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
-function Avatar({ user }: { user: User | null }) {
+function Avatar({
+  user,
+  editable,
+  onUploaded,
+}: {
+  user: User | null
+  editable?: boolean
+  onUploaded?: (url: string) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
   const initials =
     user?.firstName && user?.lastName
       ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
       : user?.email?.[0]?.toUpperCase() ?? '?'
 
-  if (user?.avatarUrl && (user.avatarUrl.startsWith('https://') || user.avatarUrl.startsWith('http://'))) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={user.avatarUrl} alt="Avatar" className="h-14 w-14 rounded-full object-cover ring-2 ring-gray-100" />
-    )
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !onUploaded) return
+
+    // Validate file type and size
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a JPG, PNG, WebP, or GIF image.')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image must be under 2 MB.')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const supabase = createClient()
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `avatars/${user?.id ?? 'unknown'}.${ext}`
+
+      // Upload to Supabase Storage (public bucket)
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+
+      if (uploadError) {
+        // If bucket doesn't exist, fall back to data URL
+        console.warn('Supabase Storage upload failed, using data URL fallback:', uploadError.message)
+        const reader = new FileReader()
+        reader.onload = () => {
+          if (typeof reader.result === 'string') onUploaded(reader.result)
+        }
+        reader.readAsDataURL(file)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+      // Append cache-buster so the browser doesn't serve a stale cached version
+      onUploaded(`${urlData.publicUrl}?t=${Date.now()}`)
+    } catch {
+      alert('Failed to upload image. Please try again.')
+    } finally {
+      setUploading(false)
+      // Reset input so the same file can be re-selected
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
+
+  const hasImage = user?.avatarUrl && (user.avatarUrl.startsWith('https://') || user.avatarUrl.startsWith('http://') || user.avatarUrl.startsWith('data:'))
+
   return (
-    <div className="h-14 w-14 rounded-full bg-emerald-500 flex items-center justify-center ring-2 ring-gray-100">
-      <span className="text-lg font-bold text-white">{initials}</span>
+    <div className="relative group">
+      {hasImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={user!.avatarUrl!} alt="Avatar" className="h-14 w-14 rounded-full object-cover ring-2 ring-gray-100" />
+      ) : (
+        <div className="h-14 w-14 rounded-full bg-emerald-500 flex items-center justify-center ring-2 ring-gray-100">
+          <span className="text-lg font-bold text-white">{initials}</span>
+        </div>
+      )}
+
+      {editable && (
+        <>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            title="Change photo"
+          >
+            {uploading ? (
+              <Loader2 className="h-5 w-5 text-white animate-spin" />
+            ) : (
+              <Camera className="h-5 w-5 text-white" />
+            )}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </>
+      )}
     </div>
   )
 }
@@ -345,7 +434,19 @@ export function AccountSettings() {
               <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex items-center gap-4">
-                    <Avatar user={user} />
+                    <Avatar
+                      user={user}
+                      editable={!loading}
+                      onUploaded={async (url) => {
+                        try {
+                          const updated = await updateMe({ avatarUrl: url })
+                          setUser(updated)
+                        } catch {
+                          // Avatar saved to storage but DB update failed — show it locally anyway
+                          setUser((prev) => prev ? { ...prev, avatarUrl: url } : prev)
+                        }
+                      }}
+                    />
                     <div>
                       <p className="font-semibold text-gray-900">{loading ? '—' : displayName}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{user?.email ?? '—'}</p>

@@ -170,6 +170,7 @@ const updateProfileSchema = z.object({
   lastName: z.string().min(1).max(50).optional(),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
+  avatarUrl: z.string().url().max(2048).nullish(),
 })
 
 authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
