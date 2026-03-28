@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "npm install --omit=dev",
-  "buildCommand": "echo 'Pre-built by CI'",
+  "installCommand": "",
+  "buildCommand": "",
   "outputDirectory": "public",
   "functions": {
     "api/index.js": {

@@ -200,6 +200,21 @@ jobs:
             require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
           "
 
+      - name: Install production deps for serverless function
+        working-directory: apps/api
+        run: |
+          # The Vercel CLI's installCommand fails with `spawn sh ENOENT` because
+          # the CLI constructs its own child process environment without /bin in PATH.
+          # Instead, run npm install directly in CI where sh is available.
+          #
+          # Problem: npm detects the monorepo root and installs to root node_modules/
+          # instead of apps/api/node_modules/. Fix: temporarily hide the root
+          # package.json so npm treats this directory as a standalone project.
+          mv ../../package.json ../../package.json.bak
+          npm install --omit=dev --ignore-scripts --no-package-lock
+          mv ../../package.json.bak ../../package.json
+          echo "Production node_modules created: $(ls node_modules | wc -l) packages"
+
       - name: Set up Vercel project link
         run: |
           mkdir -p apps/api/.vercel
