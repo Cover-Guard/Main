@@ -39,8 +39,14 @@ clientsRouter.get('/', async (req: Request, res, next) => {
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: (page - 1) * limit,
+      include: { _count: { select: { savedProperties: true } } },
     })
-    res.json({ success: true, data: clients })
+    // Flatten _count into savedPropertyCount to match the Client DTO
+    const data = clients.map(({ _count, ...client }) => ({
+      ...client,
+      savedPropertyCount: _count.savedProperties,
+    }))
+    res.json({ success: true, data })
   } catch (err) { next(err) }
 })
 
@@ -53,7 +59,7 @@ clientsRouter.post('/', async (req: Request, res, next) => {
     const client = await prisma.client.create({
       data: { agentId: userId, ...body },
     })
-    res.status(201).json({ success: true, data: client })
+    res.status(201).json({ success: true, data: { ...client, savedPropertyCount: 0 } })
   } catch (err) { next(err) }
 })
 
@@ -77,13 +83,18 @@ clientsRouter.patch('/:id', async (req: Request, res, next) => {
         data: body,
       })
       if (result.count === 0) return null
-      return tx.client.findFirst({ where: { id, agentId: userId } })
+      return tx.client.findFirst({
+        where: { id, agentId: userId },
+        include: { _count: { select: { savedProperties: true } } },
+      })
     })
     if (!updated) {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
       return
     }
-    res.json({ success: true, data: updated })
+
+    const { _count, ...client } = updated
+    res.json({ success: true, data: { ...client, savedPropertyCount: _count.savedProperties } })
   } catch (err) { next(err) }
 })
 

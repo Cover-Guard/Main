@@ -21,6 +21,7 @@ export interface SavedProperty {
   id: string
   userId: string
   propertyId: string
+  clientId: string | null
   notes: string | null
   tags: string[]
   savedAt: string

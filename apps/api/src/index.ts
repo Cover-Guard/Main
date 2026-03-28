@@ -21,7 +21,6 @@ import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 const REQUIRED_ENV = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
 const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k])
 if (missingEnv.length > 0) {
-  // eslint-disable-next-line no-console
   console.error(`FATAL: Missing required environment variables: ${missingEnv.join(', ')}`)
   process.exit(1)
 }

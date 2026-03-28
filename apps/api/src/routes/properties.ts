@@ -180,6 +180,7 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
 const saveSchema = z.object({
   notes: z.string().max(500).transform((s) => s.trim()).optional(),
   tags: z.array(z.string()).max(10).default([]),
+  clientId: z.string().uuid().nullish(),
 })
 
 propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
@@ -188,12 +189,52 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
     const body = saveSchema.parse(req.body)
     const propertyId = String(req.params.id)
 
+    // Verify property exists before creating the saved-property record
+    const propertyExists = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true },
+    })
+    if (!propertyExists) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+
+    // Verify the client belongs to the requesting user (prevents cross-agent association)
+    if (body.clientId) {
+      const clientOwned = await prisma.client.findFirst({
+        where: { id: body.clientId, agentId: userId },
+        select: { id: true },
+      })
+      if (!clientOwned) {
+        res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Client not found' },
+        })
+        return
+      }
+    }
+
+    // Check if already saved to determine correct status code
+    const existing = await prisma.savedProperty.findUnique({
+      where: { userId_propertyId: { userId, propertyId } },
+      select: { id: true },
+    })
+
+    // body.clientId is string | null | undefined:
+    //   string    → set the association
+    //   null      → explicitly remove the association
+    //   undefined → leave unchanged on update, null on create
+    const clientIdUpdate = body.clientId === undefined ? undefined : body.clientId
+
     const saved = await prisma.savedProperty.upsert({
       where: { userId_propertyId: { userId, propertyId } },
-      update: { notes: body.notes, tags: body.tags },
-      create: { userId, propertyId, notes: body.notes, tags: body.tags },
+      update: { notes: body.notes, tags: body.tags, clientId: clientIdUpdate },
+      create: { userId, propertyId, notes: body.notes, tags: body.tags, clientId: body.clientId ?? null },
     })
-    res.json({ success: true, data: saved })
+    res.status(existing ? 200 : 201).json({ success: true, data: saved })
   } catch (err) {
     next(err)
   }
@@ -255,11 +296,25 @@ propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, as
   try {
     const { userId } = req as AuthenticatedRequest
     const body = quoteRequestSchema.parse(req.body)
+    const propertyId = String(req.params.id)
+
+    // Verify property exists before creating the quote request
+    const propertyExists = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true },
+    })
+    if (!propertyExists) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
 
     const quoteRequest = await prisma.quoteRequest.create({
       data: {
         userId,
-        propertyId: String(req.params.id),
+        propertyId,
         carrierId: body.carrierId,
         coverageTypes: body.coverageTypes,
         notes: body.notes ?? null,
