@@ -1,0 +1,827 @@
+{
+  "info": {
+    "name": "CoverGuard API",
+    "description": "Complete API verification suite for CoverGuard (coverguard.io).\n\n## Setup\n1. Set the `base_url` variable (default: https://api.coverguard.io)\n2. Set `access_token` from your Supabase session (DevTools → Application → Local Storage)\n3. Run the **Health** request first, then **Search** to auto-populate `property_id`\n4. Run the full collection with Collection Runner",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://api.coverguard.io", "type": "string" },
+    { "key": "web_url", "value": "https://coverguard.io", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "property_id", "value": "", "type": "string" },
+    { "key": "client_id", "value": "", "type": "string" },
+    { "key": "checklist_id", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "1 — Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('Body has status ok', () => {",
+                "  const json = pm.response.json();",
+                "  pm.expect(json.status).to.eql('ok');",
+                "});"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "2 — Properties (Public)",
+      "item": [
+        {
+          "name": "Suggest",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/properties/suggest?q=miami&limit=5",
+              "host": ["{{base_url}}"], "path": ["api", "properties", "suggest"],
+              "query": [
+                { "key": "q", "value": "miami" },
+                { "key": "limit", "value": "5" }
+              ]
+            },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Search by ZIP",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/properties/search?address=90210",
+              "host": ["{{base_url}}"], "path": ["api", "properties", "search"],
+              "query": [{ "key": "address", "value": "90210" }]
+            },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "",
+                "// Auto-set property_id for downstream requests",
+                "const json = pm.response.json();",
+                "const props = json.data?.properties || json.data?.results || [];",
+                "if (props.length > 0 && props[0].id) {",
+                "  pm.collectionVariables.set('property_id', props[0].id);",
+                "  console.log('Set property_id =', props[0].id);",
+                "}"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Search by City/State",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/properties/search?city=Miami&state=FL",
+              "host": ["{{base_url}}"], "path": ["api", "properties", "search"],
+              "query": [
+                { "key": "city", "value": "Miami" },
+                { "key": "state", "value": "FL" }
+              ]
+            },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Search — missing params (expect 400)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/search", "host": ["{{base_url}}"], "path": ["api", "properties", "search"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Property Detail",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Has property data', () => pm.expect(pm.response.json().data).to.have.property('id'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Property Not Found (expect 404)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/nonexistent-id-99999", "host": ["{{base_url}}"], "path": ["api", "properties", "nonexistent-id-99999"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "3 — Risk & Insurance (Public)",
+      "item": [
+        {
+          "name": "Risk Profile",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/risk", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "risk"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Has risk data', () => {",
+                "  const d = pm.response.json().data;",
+                "  pm.expect(d).to.have.property('overallRiskScore');",
+                "});"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Insurance Estimate",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/insurance", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "insurance"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Insurability Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/insurability", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "insurability"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Active Carriers",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/carriers", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "carriers"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Full Report Bundle",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/report", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "report"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Has all report sections', () => {",
+                "  const d = pm.response.json().data;",
+                "  pm.expect(d).to.have.property('property');",
+                "  pm.expect(d).to.have.property('risk');",
+                "  pm.expect(d).to.have.property('insurance');",
+                "  pm.expect(d).to.have.property('insurability');",
+                "  pm.expect(d).to.have.property('carriers');",
+                "});"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "4 — Auth",
+      "item": [
+        {
+          "name": "Get Profile — no token (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Has user data', () => {",
+                "  const d = pm.response.json().data;",
+                "  pm.expect(d).to.have.property('id');",
+                "  pm.expect(d).to.have.property('email');",
+                "  pm.expect(d).to.have.property('role');",
+                "});"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api", "auth", "me"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Saved Properties",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/me/saved", "host": ["{{base_url}}"], "path": ["api", "auth", "me", "saved"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "User Reports",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/me/reports", "host": ["{{base_url}}"], "path": ["api", "auth", "me", "reports"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Accept Terms",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/api/auth/me/terms", "host": ["{{base_url}}"], "path": ["api", "auth", "me", "terms"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Has termsAcceptedAt', () => pm.expect(pm.response.json().data).to.have.property('termsAcceptedAt'));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "5 — Clients (CRUD)",
+      "item": [
+        {
+          "name": "List Clients — no token (expect 401)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/clients", "host": ["{{base_url}}"], "path": ["api", "clients"] },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "List Clients",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/clients", "host": ["{{base_url}}"], "path": ["api", "clients"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200 or 403', () => pm.expect([200, 403]).to.include(pm.response.code));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Create Client",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/api/clients", "host": ["{{base_url}}"], "path": ["api", "clients"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"TestClient\",\n  \"email\": \"postman-test@example.com\",\n  \"phone\": \"555-0100\",\n  \"notes\": \"Created by Postman API test\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "",
+                "// Save client_id for update/delete",
+                "const id = pm.response.json().data?.id;",
+                "if (id) {",
+                "  pm.collectionVariables.set('client_id', id);",
+                "  console.log('Set client_id =', id);",
+                "}"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Update Client",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{base_url}}/api/clients/{{client_id}}", "host": ["{{base_url}}"], "path": ["api", "clients", "{{client_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Updated by Postman\",\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Delete Client",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/clients/{{client_id}}", "host": ["{{base_url}}"], "path": ["api", "clients", "{{client_id}}"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Delete Client — already deleted (expect 404)",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/clients/{{client_id}}", "host": ["{{base_url}}"], "path": ["api", "clients", "{{client_id}}"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "6 — Save Property",
+      "item": [
+        {
+          "name": "Save Property",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/save", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "save"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Postman test save\",\n  \"tags\": [\"test\", \"postman\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200 or 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Save Property — update (expect 200)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/save", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "save"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Updated note\",\n  \"tags\": [\"test\", \"updated\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Unsave Property",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/save", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "save"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Unsave Property — already removed (expect 404)",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/save", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "save"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "7 — Quote Requests",
+      "item": [
+        {
+          "name": "Create Quote Request",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/quote-request", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "quote-request"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"carrierId\": \"carrier-postman-001\",\n  \"coverageTypes\": [\"HOMEOWNERS\", \"FLOOD\"],\n  \"notes\": \"Postman API verification test\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Has quoteRequestId', () => pm.expect(pm.response.json().data).to.have.property('quoteRequestId'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "List Quote Requests",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/quote-requests", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "quote-requests"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "8 — Checklists",
+      "item": [
+        {
+          "name": "Create Checklist",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/checklists", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "checklists"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"checklistType\": \"INSPECTION\",\n  \"title\": \"Postman Test Checklist\",\n  \"items\": [\n    { \"id\": \"item-1\", \"label\": \"Verify roof condition\", \"checked\": false },\n    { \"id\": \"item-2\", \"label\": \"Check foundation\", \"checked\": true }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "",
+                "const id = pm.response.json().data?.id;",
+                "if (id) {",
+                "  pm.collectionVariables.set('checklist_id', id);",
+                "  console.log('Set checklist_id =', id);",
+                "}"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "List Checklists",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/checklists", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "checklists"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Update Checklist",
+          "request": {
+            "method": "PATCH",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/checklists/{{checklist_id}}", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "checklists", "{{checklist_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated by Postman\",\n  \"items\": [\n    { \"id\": \"item-1\", \"label\": \"Verify roof condition\", \"checked\": true },\n    { \"id\": \"item-2\", \"label\": \"Check foundation\", \"checked\": true }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Delete Checklist",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/properties/{{property_id}}/checklists/{{checklist_id}}", "host": ["{{base_url}}"], "path": ["api", "properties", "{{property_id}}", "checklists", "{{checklist_id}}"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "9 — Analytics",
+      "item": [
+        {
+          "name": "Analytics Summary",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/analytics", "host": ["{{base_url}}"], "path": ["api", "analytics"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200 or 403', () => pm.expect([200, 403]).to.include(pm.response.code));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "10 — Stripe",
+      "item": [
+        {
+          "name": "Subscription Status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/stripe/subscription", "host": ["{{base_url}}"], "path": ["api", "stripe", "subscription"] }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);",
+                "pm.test('Has subscription data', () => {",
+                "  const d = pm.response.json().data;",
+                "  pm.expect(d).to.have.property('required');",
+                "  pm.expect(d).to.have.property('active');",
+                "});"
+              ]
+            }
+          }]
+        }
+      ]
+    },
+    {
+      "name": "11 — Web Proxy",
+      "item": [
+        {
+          "name": "Web Proxy → Suggest",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{web_url}}/api/properties/suggest?q=dallas&limit=3",
+              "host": ["{{web_url}}"], "path": ["api", "properties", "suggest"],
+              "query": [
+                { "key": "q", "value": "dallas" },
+                { "key": "limit", "value": "3" }
+              ]
+            },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        },
+        {
+          "name": "Web Proxy → Search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{web_url}}/api/properties/search?address=10001",
+              "host": ["{{web_url}}"], "path": ["api", "properties", "search"],
+              "query": [{ "key": "address", "value": "10001" }]
+            },
+            "auth": { "type": "noauth" }
+          },
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                "pm.test('success is true', () => pm.expect(pm.response.json().success).to.be.true);"
+              ]
+            }
+          }]
+        }
+      ]
+    }
+  ]
+}
