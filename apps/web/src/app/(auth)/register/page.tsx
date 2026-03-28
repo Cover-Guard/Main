@@ -77,6 +77,16 @@ export default function RegisterPage() {
 
       let json: Record<string, unknown>
       try {
+        const contentType = res.headers.get('content-type') ?? ''
+        if (!contentType.includes('application/json')) {
+          // Vercel may serve an HTML error page for 5xx responses
+          setError(
+            res.status >= 500
+              ? 'Service temporarily unavailable. Please try again in a moment.'
+              : 'Server returned an unexpected response. Please try again.',
+          )
+          return
+        }
         json = await res.json()
       } catch {
         setError('Server returned an invalid response. Please try again.')

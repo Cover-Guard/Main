@@ -76,7 +76,11 @@ export function errorHandler(
   // Missing configuration (DB, Supabase, etc.) → 503
   if (err instanceof Error && (
     err.message.includes('connection string is not configured') ||
-    err.message.includes('Missing SUPABASE_URL')
+    err.message.includes('Missing SUPABASE_URL') ||
+    err.message.includes('SUPABASE_SERVICE_ROLE_KEY') ||
+    err.message.includes('DATABASE_URL') ||
+    err.message.includes('POSTGRES_PRISMA_URL') ||
+    err.message.includes('POSTGRES_URL')
   )) {
     logger.error('Service unavailable: %s', err.message)
     res.status(503).json({

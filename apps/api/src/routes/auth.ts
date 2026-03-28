@@ -41,6 +41,26 @@ authRouter.post('/register', async (req, res, next) => {
 
     const agreedAt = new Date()
 
+    // Validate database connectivity BEFORE creating the Supabase auth user.
+    // If the DB is unreachable (e.g. missing connection string env var), we
+    // fail fast with a 503 instead of creating an orphaned auth user that
+    // blocks the email from future registration attempts.
+    try {
+      await prisma.$queryRawUnsafe('SELECT 1')
+    } catch (dbErr) {
+      logger.error('Database connectivity check failed during registration', {
+        error: dbErr instanceof Error ? dbErr.message : dbErr,
+      })
+      res.status(503).json({
+        success: false,
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Service temporarily unavailable. Please try again later.',
+        },
+      })
+      return
+    }
+
     // Create Supabase auth user with metadata so it stays in sync with the
     // Prisma profile and downstream checks (e.g. OAuth callback termsAcceptedAt
     // guard) work correctly.
@@ -84,13 +104,30 @@ authRouter.post('/register', async (req, res, next) => {
       privacyAcceptedAt: agreedAt,
       termsAcceptedAt: agreedAt,
     }
-    const user = await prisma.user.upsert({
-      where: { id: authData.user.id },
-      update: profileData,
-      create: { id: authData.user.id, ...profileData },
-    })
 
-    res.status(201).json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
+    try {
+      const user = await prisma.user.upsert({
+        where: { id: authData.user.id },
+        update: profileData,
+        create: { id: authData.user.id, ...profileData },
+      })
+
+      res.status(201).json({ success: true, data: { id: user.id, email: user.email, role: user.role } })
+    } catch (profileErr) {
+      // Profile creation failed after auth user was created — roll back the
+      // Supabase auth user so the email isn't permanently "taken".
+      logger.error('Profile creation failed, rolling back auth user', {
+        userId: authData.user.id,
+        error: profileErr instanceof Error ? profileErr.message : profileErr,
+      })
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id).catch((delErr) => {
+        logger.error('Failed to clean up orphaned auth user', {
+          userId: authData.user.id,
+          error: delErr instanceof Error ? delErr.message : delErr,
+        })
+      })
+      throw profileErr
+    }
   } catch (err) {
     next(err)
   }
