@@ -6,9 +6,25 @@ if (!process.env.STRIPE_SECRET_KEY) {
   logger.warn('STRIPE_SECRET_KEY is not set — Stripe features will be unavailable')
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2025-02-24.acacia',
-  maxNetworkRetries: 0, // No automatic retries — errors surface immediately; user must confirm retry
+// Lazy-initialize Stripe to avoid crashing the entire app when the key is missing.
+// The Stripe constructor throws if given an empty string, so we guard with a null.
+let _stripe: Stripe | null = null
+
+export const stripe: Stripe = new Proxy({} as Stripe, {
+  get(_target, prop, receiver) {
+    if (!_stripe) {
+      const key = process.env.STRIPE_SECRET_KEY
+      if (!key) {
+        throw new Error('STRIPE_SECRET_KEY is not configured')
+      }
+      _stripe = new Stripe(key, {
+        apiVersion: '2025-02-24.acacia',
+        maxNetworkRetries: 0,
+      })
+    }
+    const value = Reflect.get(_stripe, prop, receiver)
+    return typeof value === 'function' ? value.bind(_stripe) : value
+  },
 })
 
 const PRICE_TO_PLAN: Record<string, 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM'> = {}
