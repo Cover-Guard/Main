@@ -177,7 +177,10 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
     const saved = await prisma.savedProperty.findMany({
       where: { userId },
-      include: { property: { select: PROPERTY_PUBLIC_SELECT } },
+      select: {
+        id: true, notes: true, tags: true, savedAt: true, clientId: true,
+        property: { select: PROPERTY_PUBLIC_SELECT },
+      },
       orderBy: { savedAt: 'desc' },
       take: limit,
       skip: (page - 1) * limit,
@@ -296,7 +299,10 @@ authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
     const rLimit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
     const reports = await prisma.propertyReport.findMany({
       where: { userId },
-      include: { property: { select: PROPERTY_PUBLIC_SELECT } },
+      select: {
+        id: true, reportType: true, generatedAt: true, propertyId: true,
+        property: { select: PROPERTY_PUBLIC_SELECT },
+      },
       orderBy: { generatedAt: 'desc' },
       take: rLimit,
       skip: (rPage - 1) * rLimit,

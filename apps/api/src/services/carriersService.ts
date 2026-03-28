@@ -344,7 +344,15 @@ export async function getCarriersForProperty(propertyId: string, forceRefresh = 
   return carriersDeduplicator.dedupe(dedupeKey, async () => {
     const property = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
-      include: { riskProfile: true },
+      select: {
+        state: true,
+        riskProfile: {
+          select: {
+            overallRiskScore: true, fireRiskScore: true, windRiskScore: true,
+            wildlandUrbanInterface: true,
+          },
+        },
+      },
     })
 
     const risk = property.riskProfile

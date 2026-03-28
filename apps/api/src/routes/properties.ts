@@ -202,7 +202,12 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
 propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
-    const property = await getPropertyById(req.params.id)
+    const id = req.params.id
+    // Fetch property + compute risk in parallel (risk doesn't need the property DTO)
+    const [property, risk] = await Promise.all([
+      getPropertyById(id),
+      getOrComputeRiskProfile(id, forceRefresh),
+    ])
     if (!property) {
       res.status(404).json({
         success: false,
@@ -210,12 +215,11 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       })
       return
     }
-    // Risk must be computed first since insurance depends on it
-    const risk = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    // Insurance/insurability/carriers depend on risk — run in parallel now that risk is ready
     const [insurance, insurability, carriers] = await Promise.all([
-      getOrComputeInsuranceEstimate(req.params.id, forceRefresh),
-      getInsurabilityStatus(req.params.id, forceRefresh),
-      getCarriersForProperty(req.params.id, forceRefresh),
+      getOrComputeInsuranceEstimate(id, forceRefresh),
+      getInsurabilityStatus(id, forceRefresh),
+      getCarriersForProperty(id, forceRefresh),
     ])
     if (forceRefresh) setNoCacheHeaders(res)
     else setCacheHeaders(res, 3600, 300)
@@ -239,39 +243,22 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
     const body = saveSchema.parse(req.body)
     const propertyId = String(req.params.id)
 
-    // Verify property exists before creating the saved-property record
-    const propertyExists = await prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true },
-    })
+    // Run all verification queries in parallel (3 sequential queries → 1 round trip)
+    const [propertyExists, clientOwned, existing] = await Promise.all([
+      prisma.property.findUnique({ where: { id: propertyId }, select: { id: true } }),
+      body.clientId
+        ? prisma.client.findFirst({ where: { id: body.clientId, agentId: userId }, select: { id: true } })
+        : Promise.resolve(true),
+      prisma.savedProperty.findUnique({ where: { userId_propertyId: { userId, propertyId } }, select: { id: true } }),
+    ])
     if (!propertyExists) {
-      res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Property not found' },
-      })
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
       return
     }
-
-    // Verify the client belongs to the requesting user (prevents cross-agent association)
-    if (body.clientId) {
-      const clientOwned = await prisma.client.findFirst({
-        where: { id: body.clientId, agentId: userId },
-        select: { id: true },
-      })
-      if (!clientOwned) {
-        res.status(404).json({
-          success: false,
-          error: { code: 'NOT_FOUND', message: 'Client not found' },
-        })
-        return
-      }
+    if (!clientOwned) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Client not found' } })
+      return
     }
-
-    // Check if already saved to determine correct status code
-    const existing = await prisma.savedProperty.findUnique({
-      where: { userId_propertyId: { userId, propertyId } },
-      select: { id: true },
-    })
 
     // body.clientId is string | null | undefined:
     //   string    → set the association
@@ -389,7 +376,8 @@ propertiesRouter.get('/:id/quote-requests', requireAuth, requireSubscription, as
     const requests = await prisma.quoteRequest.findMany({
       where: { propertyId: String(req.params.id), userId },
       orderBy: { submittedAt: 'desc' },
-      take: 50, // Limit result set; don't return unbounded rows
+      take: 50,
+      select: { id: true, carrierId: true, coverageTypes: true, status: true, notes: true, submittedAt: true },
     })
     res.json({ success: true, data: requests })
   } catch (err) {
@@ -485,10 +473,15 @@ propertiesRouter.patch('/:id/checklists/:checklistId', requireAuth, async (req: 
     const checklistId = String(req.params.checklistId)
     const body = updateChecklistSchema.parse(req.body)
 
-    const existing = await prisma.propertyChecklist.findFirst({
+    // Combine auth check + update in one query (2 queries → 1)
+    const result = await prisma.propertyChecklist.updateMany({
       where: { id: checklistId, userId },
+      data: {
+        ...(body.title !== undefined ? { title: body.title } : {}),
+        ...(body.items !== undefined ? { items: body.items as unknown as Prisma.InputJsonValue } : {}),
+      },
     })
-    if (!existing) {
+    if (result.count === 0) {
       res.status(404).json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Checklist not found' },
@@ -496,12 +489,9 @@ propertiesRouter.patch('/:id/checklists/:checklistId', requireAuth, async (req: 
       return
     }
 
-    const checklist = await prisma.propertyChecklist.update({
-      where: { id: checklistId },
-      data: {
-        ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.items !== undefined ? { items: body.items as unknown as Prisma.InputJsonValue } : {}),
-      },
+    // Fetch the updated record for the response
+    const checklist = await prisma.propertyChecklist.findFirst({
+      where: { id: checklistId, userId },
     })
 
     res.json({ success: true, data: checklist })
@@ -515,18 +505,17 @@ propertiesRouter.delete('/:id/checklists/:checklistId', requireAuth, async (req:
   try {
     const { userId } = req as AuthenticatedRequest
     const checklistId = String(req.params.checklistId)
-    const existing = await prisma.propertyChecklist.findFirst({
+    // Combine auth check + delete in one query (2 queries → 1)
+    const result = await prisma.propertyChecklist.deleteMany({
       where: { id: checklistId, userId },
     })
-    if (!existing) {
+    if (result.count === 0) {
       res.status(404).json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Checklist not found' },
       })
       return
     }
-
-    await prisma.propertyChecklist.delete({ where: { id: checklistId } })
     res.json({ success: true, data: null })
   } catch (err) {
     next(err)

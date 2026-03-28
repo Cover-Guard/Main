@@ -173,14 +173,14 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-app.use('/api/auth', authLimiter, requestTimeout(15_000), authRouter)
-app.use('/api/stripe', requestTimeout(15_000), stripeRouter)
+app.use('/api/auth', authLimiter, requestTimeout(40_000), authRouter)
+app.use('/api/stripe', requestTimeout(40_000), stripeRouter)
 
 // Search: moderate limit, fast timeout
 app.use(
   '/api/properties/search',
   searchLimiter,
-  requestTimeout(10_000),
+  requestTimeout(40_000),
 )
 
 // External-data endpoints: stricter limit, longer timeout (upstream APIs can be slow)
@@ -197,18 +197,18 @@ app.use(
 app.use(
   '/api/properties/:id/carriers',
   externalDataLimiter,
-  requestTimeout(20_000),
+  requestTimeout(40_000),
 )
 app.use(
   '/api/properties/:id/insurability',
   externalDataLimiter,
-  requestTimeout(20_000),
+  requestTimeout(40_000),
 )
 
 app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
-app.use('/api/clients', requestTimeout(15_000), clientsRouter)
-app.use('/api/analytics', requestTimeout(20_000), analyticsRouter)
-app.use('/api/advisor', requestTimeout(30_000), advisorRouter)
+app.use('/api/clients', requestTimeout(40_000), clientsRouter)
+app.use('/api/analytics', requestTimeout(40_000), analyticsRouter)
+app.use('/api/advisor', requestTimeout(40_000), advisorRouter)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 

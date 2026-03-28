@@ -17,61 +17,22 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
     const twelveMonthsAgo = new Date()
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
 
-    // Run all DB queries in parallel, each scoped and limited at DB level
+    // Batch 1: Simple counts + Prisma queries (lightweight, fast)
     const [
       savedCount,
       clientCount,
       reportCount,
       totalSearchCount,
-      searchesByDayRaw,
-      riskDistributionRaw,
-      topStatesRaw,
       recentSearches,
       recentSaved,
       recentReports,
-      // New queries
       quoteRequestStats,
       clientPipelineRaw,
-      regionalRiskRaw,
-      searchesByMonthRaw,
-      avgInsuranceCostRaw,
     ] = await Promise.all([
       prisma.savedProperty.count({ where: { userId } }),
       prisma.client.count({ where: { agentId: userId } }),
       prisma.propertyReport.count({ where: { userId } }),
       prisma.searchHistory.count({ where: { userId } }),
-
-      // Searches per day — raw SQL for date-trunc aggregation
-      prisma.$queryRaw<Array<{ day: Date; count: bigint }>>`
-        SELECT date_trunc('day', "searchedAt") AS day, COUNT(*) AS count
-        FROM search_history
-        WHERE "userId" = ${userId}
-          AND "searchedAt" >= ${thirtyDaysAgo}
-        GROUP BY 1
-        ORDER BY 1
-      `,
-
-      // Risk level distribution across saved properties
-      prisma.$queryRaw<Array<{ level: string; count: bigint }>>`
-        SELECT rp."overallRiskLevel" AS level, COUNT(*) AS count
-        FROM saved_properties sp
-        JOIN properties p ON p.id = sp."propertyId"
-        LEFT JOIN risk_profiles rp ON rp."propertyId" = p.id
-        WHERE sp."userId" = ${userId}
-        GROUP BY 1
-        ORDER BY 1
-      `,
-
-      // Top states from saved properties
-      prisma.$queryRaw<Array<{ state: string; count: bigint }>>`
-        SELECT p.state, COUNT(*) AS count
-        FROM saved_properties sp
-        JOIN properties p ON p.id = sp."propertyId"
-        WHERE sp."userId" = ${userId}
-        GROUP BY p.state
-        ORDER BY count DESC
-        LIMIT 10
-      `,
 
       prisma.searchHistory.findMany({
         where: { userId },
@@ -94,72 +55,122 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
         select: { reportType: true, generatedAt: true },
       }),
 
-      // Quote request counts by status
       prisma.quoteRequest.groupBy({
         by: ['status'],
         where: { userId },
         _count: { _all: true },
       }),
 
-      // Client pipeline breakdown by status
       prisma.client.groupBy({
         by: ['status'],
         where: { agentId: userId },
         _count: { _all: true },
       }),
+    ])
 
-      // Regional risk data — avg scores per state across saved properties
-      prisma.$queryRaw<
-        Array<{
-          state: string
-          property_count: bigint
-          avg_overall: number
-          avg_flood: number
-          avg_fire: number
-          avg_wind: number
-          avg_earthquake: number
-          avg_crime: number
-          dominant_level: string
-        }>
-      >`
-        SELECT
-          p.state,
-          COUNT(DISTINCT p.id) AS property_count,
-          ROUND(AVG(rp."overallRiskScore")::numeric, 1) AS avg_overall,
-          ROUND(AVG(rp."floodRiskScore")::numeric, 1) AS avg_flood,
-          ROUND(AVG(rp."fireRiskScore")::numeric, 1) AS avg_fire,
-          ROUND(AVG(rp."windRiskScore")::numeric, 1) AS avg_wind,
-          ROUND(AVG(rp."earthquakeRiskScore")::numeric, 1) AS avg_earthquake,
-          ROUND(AVG(rp."crimeRiskScore")::numeric, 1) AS avg_crime,
-          MODE() WITHIN GROUP (ORDER BY rp."overallRiskLevel") AS dominant_level
+    // Batch 2: Combine all raw SQL into a single multi-statement query
+    // This sends one round trip to the DB instead of six separate queries
+    const [combinedResults] = await Promise.all([
+      prisma.$queryRaw<Array<Record<string, unknown>>>`
+        -- searches_by_day
+        SELECT 'searches_by_day' AS _query,
+               date_trunc('day', "searchedAt")::text AS key1,
+               NULL AS key2,
+               COUNT(*)::int AS val,
+               NULL::numeric AS n1, NULL::numeric AS n2, NULL::numeric AS n3,
+               NULL::numeric AS n4, NULL::numeric AS n5, NULL::numeric AS n6,
+               NULL AS s1
+        FROM search_history
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${thirtyDaysAgo}
+        GROUP BY 2
+
+        UNION ALL
+
+        -- searches_by_month
+        SELECT 'searches_by_month',
+               date_trunc('month', "searchedAt")::text, NULL,
+               COUNT(*)::int, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+        FROM search_history
+        WHERE "userId" = ${userId} AND "searchedAt" >= ${twelveMonthsAgo}
+        GROUP BY 2
+
+        UNION ALL
+
+        -- risk_distribution
+        SELECT 'risk_distribution',
+               rp."overallRiskLevel", NULL,
+               COUNT(*)::int, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+        FROM saved_properties sp
+        JOIN properties p ON p.id = sp."propertyId"
+        LEFT JOIN risk_profiles rp ON rp."propertyId" = p.id
+        WHERE sp."userId" = ${userId}
+        GROUP BY 2
+
+        UNION ALL
+
+        -- top_states
+        SELECT 'top_states',
+               p.state, NULL,
+               COUNT(*)::int, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+        FROM saved_properties sp
+        JOIN properties p ON p.id = sp."propertyId"
+        WHERE sp."userId" = ${userId}
+        GROUP BY 2
+        ORDER BY 4 DESC
+        LIMIT 10
+
+        UNION ALL
+
+        -- regional_risk
+        SELECT 'regional_risk',
+               p.state, NULL,
+               COUNT(DISTINCT p.id)::int,
+               ROUND(AVG(rp."overallRiskScore")::numeric, 1),
+               ROUND(AVG(rp."floodRiskScore")::numeric, 1),
+               ROUND(AVG(rp."fireRiskScore")::numeric, 1),
+               ROUND(AVG(rp."windRiskScore")::numeric, 1),
+               ROUND(AVG(rp."earthquakeRiskScore")::numeric, 1),
+               ROUND(AVG(rp."crimeRiskScore")::numeric, 1),
+               MODE() WITHIN GROUP (ORDER BY rp."overallRiskLevel")
         FROM saved_properties sp
         JOIN properties p ON p.id = sp."propertyId"
         JOIN risk_profiles rp ON rp."propertyId" = p.id
         WHERE sp."userId" = ${userId}
-        GROUP BY p.state
-        ORDER BY property_count DESC
+        GROUP BY 2
         LIMIT 15
-      `,
 
-      // Searches by month (last 12 months)
-      prisma.$queryRaw<Array<{ month: Date; count: bigint }>>`
-        SELECT date_trunc('month', "searchedAt") AS month, COUNT(*) AS count
-        FROM search_history
-        WHERE "userId" = ${userId}
-          AND "searchedAt" >= ${twelveMonthsAgo}
-        GROUP BY 1
-        ORDER BY 1
-      `,
+        UNION ALL
 
-      // Average annual insurance cost across saved properties
-      prisma.$queryRaw<Array<{ avg_cost: number | null }>>`
-        SELECT ROUND(AVG(ie."estimatedAnnualTotal")::numeric) AS avg_cost
+        -- avg_insurance_cost
+        SELECT 'avg_insurance_cost',
+               NULL, NULL,
+               0,
+               ROUND(AVG(ie."estimatedAnnualTotal")::numeric),
+               NULL, NULL, NULL, NULL, NULL, NULL
         FROM saved_properties sp
         JOIN properties p ON p.id = sp."propertyId"
         JOIN insurance_estimates ie ON ie."propertyId" = p.id
         WHERE sp."userId" = ${userId}
       `,
     ])
+
+    // Parse the combined results into separate datasets
+    const searchesByDayRaw: Array<{ key1: string; val: number }> = []
+    const searchesByMonthRaw: Array<{ key1: string; val: number }> = []
+    const riskDistributionRaw: Array<{ key1: string; val: number }> = []
+    const topStatesRaw: Array<{ key1: string; val: number }> = []
+    const regionalRiskRaw: Array<Record<string, unknown>> = []
+    let avgInsuranceCost: number | null = null
+
+    for (const row of combinedResults) {
+      const q = row._query as string
+      if (q === 'searches_by_day') searchesByDayRaw.push({ key1: row.key1 as string, val: Number(row.val) })
+      else if (q === 'searches_by_month') searchesByMonthRaw.push({ key1: row.key1 as string, val: Number(row.val) })
+      else if (q === 'risk_distribution') riskDistributionRaw.push({ key1: row.key1 as string, val: Number(row.val) })
+      else if (q === 'top_states') topStatesRaw.push({ key1: row.key1 as string, val: Number(row.val) })
+      else if (q === 'regional_risk') regionalRiskRaw.push(row)
+      else if (q === 'avg_insurance_cost') avgInsuranceCost = row.n1 ? Number(row.n1) : null
+    }
 
     // Build searches-by-day map (fill gaps with 0)
     const byDay = new Map<string, number>()
@@ -168,20 +179,20 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
       byDay.set(d.toISOString().slice(0, 10), 0)
     }
     for (const row of searchesByDayRaw) {
-      const day = new Date(row.day).toISOString().slice(0, 10)
-      byDay.set(day, Number(row.count))
+      const day = new Date(row.key1).toISOString().slice(0, 10)
+      byDay.set(day, row.val)
     }
     const searchesByDay = Array.from(byDay.entries()).map(([date, count]) => ({ date, count }))
 
     // Risk distribution
     const riskOrder = ['LOW', 'MODERATE', 'HIGH', 'VERY_HIGH', 'EXTREME']
     const riskDistribution = riskDistributionRaw
-      .filter((r) => r.level && riskOrder.includes(r.level))
-      .sort((a, b) => riskOrder.indexOf(a.level) - riskOrder.indexOf(b.level))
-      .map((r) => ({ level: r.level, count: Number(r.count) }))
+      .filter((r) => r.key1 && riskOrder.includes(r.key1))
+      .sort((a, b) => riskOrder.indexOf(a.key1) - riskOrder.indexOf(b.key1))
+      .map((r) => ({ level: r.key1, count: r.val }))
 
     // Top states
-    const topStates = topStatesRaw.map((r) => ({ state: r.state, count: Number(r.count) }))
+    const topStates = topStatesRaw.map((r) => ({ state: r.key1, count: r.val }))
 
     // Recent activity (merge and sort the three small slices)
     const recentActivity = [
@@ -231,15 +242,15 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
 
     // Regional risk
     const regionalRisk = regionalRiskRaw.map((r) => ({
-      state: r.state,
-      propertyCount: Number(r.property_count),
-      avgOverallScore: Number(r.avg_overall),
-      avgFloodScore: Number(r.avg_flood),
-      avgFireScore: Number(r.avg_fire),
-      avgWindScore: Number(r.avg_wind),
-      avgEarthquakeScore: Number(r.avg_earthquake),
-      avgCrimeScore: Number(r.avg_crime),
-      dominantRiskLevel: r.dominant_level,
+      state: r.key1 as string,
+      propertyCount: Number(r.val),
+      avgOverallScore: Number(r.n1),
+      avgFloodScore: Number(r.n2),
+      avgFireScore: Number(r.n3),
+      avgWindScore: Number(r.n4),
+      avgEarthquakeScore: Number(r.n5),
+      avgCrimeScore: Number(r.n6),
+      dominantRiskLevel: r.s1 as string,
     }))
 
     // Searches by month (fill gaps for 12 months)
@@ -250,15 +261,10 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
       byMonth.set(d.toISOString().slice(0, 7), 0)
     }
     for (const row of searchesByMonthRaw) {
-      const month = new Date(row.month).toISOString().slice(0, 7)
-      byMonth.set(month, Number(row.count))
+      const month = new Date(row.key1).toISOString().slice(0, 7)
+      byMonth.set(month, row.val)
     }
     const searchesByMonth = Array.from(byMonth.entries()).map(([month, count]) => ({ month, count }))
-
-    // Avg insurance cost
-    const avgInsuranceCost = avgInsuranceCostRaw[0]?.avg_cost
-      ? Number(avgInsuranceCostRaw[0].avg_cost)
-      : null
 
     res.json({
       success: true,
