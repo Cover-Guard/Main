@@ -94,17 +94,6 @@ app.use(
 )
 app.use(compression())
 
-// Stripe webhook must receive the raw body for signature verification —
-// mount it BEFORE the global express.json() parser.
-app.use('/api/stripe', stripeWebhookRouter)
-
-app.use(express.json({ limit: '1mb' }))
-app.use(
-  morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
-    stream: { write: (msg) => logger.http(msg.trim()) },
-  }),
-)
-
 // ─── Rate limiting ────────────────────────────────────────────────────────────
 //
 // Three tiers:
@@ -124,6 +113,20 @@ const globalLimiter = rateLimit({
     error: { code: 'RATE_LIMITED', message: 'Too many requests, please slow down.' },
   },
 })
+
+// Apply global rate limit BEFORE any route handlers (including webhooks)
+app.use('/api', globalLimiter)
+
+// Stripe webhook must receive the raw body for signature verification —
+// mount it AFTER the rate limiter but BEFORE the global express.json() parser.
+app.use('/api/stripe', stripeWebhookRouter)
+
+app.use(express.json({ limit: '1mb' }))
+app.use(
+  morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+    stream: { write: (msg) => logger.http(msg.trim()) },
+  }),
+)
 
 const searchLimiter = rateLimit({
   windowMs: 60_000,
@@ -163,8 +166,6 @@ const authLimiter = rateLimit({
     error: { code: 'RATE_LIMITED', message: 'Too many auth attempts. Please try again later.' },
   },
 })
-
-app.use('/api', globalLimiter)
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 

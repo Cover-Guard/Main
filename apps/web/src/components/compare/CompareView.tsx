@@ -126,7 +126,13 @@ export function CompareView() {
         const res = await fetch(`/api/properties/search?address=${encodeURIComponent(query)}`)
         if (!res.ok) {
           setSearchResults([])
-          setSearchError('Search failed. Please try again.')
+          setSearchError(res.status >= 500 ? 'Service temporarily unavailable.' : 'Search failed. Please try again.')
+          return
+        }
+        const contentType = res.headers.get('content-type') ?? ''
+        if (!contentType.includes('application/json')) {
+          setSearchResults([])
+          setSearchError('Service temporarily unavailable.')
           return
         }
         const json = await res.json()

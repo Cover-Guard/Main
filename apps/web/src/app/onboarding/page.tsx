@@ -27,13 +27,21 @@ export default function OnboardingPage() {
       // Update profile in API
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.access_token) {
-        await fetch('/api/auth/me/terms', {
+        const res = await fetch('/api/auth/me/terms', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
         })
+        if (!res.ok) {
+          const contentType = res.headers.get('content-type') ?? ''
+          if (contentType.includes('application/json')) {
+            const json = await res.json()
+            throw new Error((json.error as { message?: string })?.message ?? 'Failed to save terms acceptance')
+          }
+          throw new Error('Failed to save terms acceptance. Please try again.')
+        }
       }
 
       router.push('/dashboard')

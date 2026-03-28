@@ -24,8 +24,11 @@ export default async function DashboardPage() {
       const res = await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/me`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
-      const json = await res.json()
-      if (json.success) userRole = json.data.role
+      const contentType = res.headers.get('content-type') ?? ''
+      if (res.ok && contentType.includes('application/json')) {
+        const json = await res.json()
+        if (json.success) userRole = json.data.role
+      }
     }
   } catch {
     // API unavailable — fall back to Supabase auth metadata
