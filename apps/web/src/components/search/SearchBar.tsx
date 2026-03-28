@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps'
 import { Search, MapPin, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { PlacePrediction } from '@coverguard/shared'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
@@ -12,13 +13,6 @@ interface SearchBarProps {
   defaultValue?: string
   autoFocus?: boolean
   className?: string
-}
-
-interface PlacePrediction {
-  placeId: string
-  description: string
-  mainText: string
-  secondaryText: string
 }
 
 export function SearchBar(props: SearchBarProps) {

@@ -124,7 +124,7 @@ propertiesRouter.post('/geocode', async (req, res, next) => {
       })
       return
     }
-    setCacheHeaders(res, 1800, 300) // 30 min CDN cache — address data is stable
+    // No CDN caching for POST — response creates/mutates DB records
     res.json({ success: true, data: property })
   } catch (err) {
     next(err)

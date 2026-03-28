@@ -60,10 +60,19 @@ const RISK_LAYER_CONFIG: Record<RiskLayer, {
 // ─── ArcGIS Tile Service URLs ────────────────────────────────────────────────
 // These public ArcGIS MapServer services render real GIS data as map tiles.
 
-const ARCGIS_TILE_SERVICES: Partial<Record<RiskLayer, string>> = {
-  flood: 'https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer',
-  fire: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer',
-  wind: 'https://coast.noaa.gov/arcgis/rest/services/HurricaneEvacuation/SLOSH/MapServer',
+const ARCGIS_TILE_SERVICES: Partial<Record<RiskLayer, { url: string; layers: string }>> = {
+  flood: {
+    url: 'https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer',
+    layers: 'show:28',  // Layer 28 = Flood Hazard Zones
+  },
+  fire: {
+    url: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer',
+    layers: 'show:0',   // Layer 0 = WUI 2020
+  },
+  wind: {
+    url: 'https://coast.noaa.gov/arcgis/rest/services/HurricaneEvacuation/SLOSH/MapServer',
+    layers: 'show:0',   // Layer 0 = SLOSH zones
+  },
 }
 
 function riskLevelBadgeColor(level: RiskLevel): string {
@@ -136,12 +145,13 @@ export function PropertyMap({
         >
           {/* ── GIS tile overlays (real geographic data) ──────────── */}
           {Array.from(activeLayers).map((layer) => {
-            const tileUrl = ARCGIS_TILE_SERVICES[layer]
-            if (!tileUrl) return null
+            const service = ARCGIS_TILE_SERVICES[layer]
+            if (!service) return null
             return (
               <ArcGISTileOverlay
                 key={layer}
-                serviceUrl={tileUrl}
+                serviceUrl={service.url}
+                layers={service.layers}
                 opacity={0.55}
               />
             )
@@ -232,7 +242,7 @@ export function PropertyMap({
               const score = getRiskScore(layer)
               const level = getRiskLevel(layer)
               const isActive = activeLayers.has(layer)
-              const hasGISLayer = !!ARCGIS_TILE_SERVICES[layer]
+              const hasGISLayer = !!ARCGIS_TILE_SERVICES[layer]?.url
 
               return (
                 <button
@@ -326,9 +336,11 @@ export function PropertyMap({
 
 function ArcGISTileOverlay({
   serviceUrl,
+  layers,
   opacity = 0.5,
 }: {
   serviceUrl: string
+  layers?: string
   opacity?: number
 }) {
   const map = useMap()
@@ -372,6 +384,7 @@ function ArcGISTileOverlay({
             `bbox=${xmin},${ymin},${xmax},${ymax}` +
             `&bboxSR=3857&imageSR=3857` +
             `&size=${tileSize},${tileSize}` +
+            (layers ? `&layers=${layers}` : '') +
             `&format=png32` +
             `&transparent=true` +
             `&f=image`
@@ -395,7 +408,7 @@ function ArcGISTileOverlay({
         overlayRef.current = null
       }
     }
-  }, [map, serviceUrl, opacity])
+  }, [map, serviceUrl, layers, opacity])
 
   return null
 }

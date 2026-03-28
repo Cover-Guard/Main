@@ -2,13 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useMapsLibrary } from '@vis.gl/react-google-maps'
+import type { PlacePrediction } from '@coverguard/shared'
 
-export interface PlacePrediction {
-  placeId: string
-  description: string
-  mainText: string
-  secondaryText: string
-}
+export type { PlacePrediction }
 
 /**
  * Hook that wraps the Google Maps Places AutocompleteService for typeahead.

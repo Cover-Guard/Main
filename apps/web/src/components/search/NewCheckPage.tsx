@@ -14,22 +14,66 @@ import {
   Loader2,
 } from 'lucide-react'
 import { SearchMapClient } from '@/components/map/SearchMapClient'
-import { useGooglePlacesAutocomplete, type PlacePrediction } from '@/lib/useGooglePlacesAutocomplete'
+import { useGooglePlacesAutocomplete } from '@/lib/useGooglePlacesAutocomplete'
+import type { PlacePrediction } from '@coverguard/shared'
 import { cn } from '@/lib/utils'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
 export function NewCheckPage() {
-  if (!GOOGLE_MAPS_KEY) return <NewCheckPageInner />
+  if (!GOOGLE_MAPS_KEY) return <NewCheckPageFallback />
 
   return (
     <APIProvider apiKey={GOOGLE_MAPS_KEY} libraries={['places']}>
-      <NewCheckPageInner />
+      <NewCheckPageWithPlaces />
     </APIProvider>
   )
 }
 
-function NewCheckPageInner() {
+/** Version with Google Places autocomplete (requires APIProvider). */
+function NewCheckPageWithPlaces() {
+  const { predictions, loading, fetchPredictions, clearPredictions, resetSessionToken } =
+    useGooglePlacesAutocomplete()
+
+  return (
+    <NewCheckPageInner
+      predictions={predictions}
+      loading={loading}
+      fetchPredictions={fetchPredictions}
+      clearPredictions={clearPredictions}
+      resetSessionToken={resetSessionToken}
+    />
+  )
+}
+
+/** Fallback version without Google Places (no APIProvider). */
+function NewCheckPageFallback() {
+  return (
+    <NewCheckPageInner
+      predictions={[]}
+      loading={false}
+      fetchPredictions={() => {}}
+      clearPredictions={() => {}}
+      resetSessionToken={() => {}}
+    />
+  )
+}
+
+interface NewCheckPageInnerProps {
+  predictions: PlacePrediction[]
+  loading: boolean
+  fetchPredictions: (input: string) => void
+  clearPredictions: () => void
+  resetSessionToken: () => void
+}
+
+function NewCheckPageInner({
+  predictions,
+  loading,
+  fetchPredictions,
+  clearPredictions,
+  resetSessionToken,
+}: NewCheckPageInnerProps) {
   const router = useRouter()
   const [address, setAddress] = useState('')
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null)
@@ -40,13 +84,6 @@ function NewCheckPageInner() {
   const [sqft, setSqft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-
-  const hasGoogleMaps = !!GOOGLE_MAPS_KEY
-  const { predictions, loading, fetchPredictions, clearPredictions, resetSessionToken } =
-    hasGoogleMaps
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      ? useGooglePlacesAutocomplete()
-      : { predictions: [] as PlacePrediction[], loading: false, fetchPredictions: () => {}, clearPredictions: () => {}, resetSessionToken: () => {} }
 
   function handleAddressChange(value: string) {
     setAddress(value)

@@ -2,7 +2,7 @@ import { prisma } from '../utils/prisma'
 import { propertyCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { searchPropertiesByAddress } from '../integrations/propertyData'
-import { geocodeByPlaceId, geocodeByAddress } from '../integrations/googleGeocode'
+import { geocodeByPlaceId } from '../integrations/googleGeocode'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
 import { randomUUID } from 'crypto'
 
@@ -246,8 +246,10 @@ export async function geocodeAndCreateProperty(
   })
 
   if (existing) {
-    // Update lat/lng from Google if they differ (Google geocoding is authoritative)
-    if (existing.lat !== geocoded.lat || existing.lng !== geocoded.lng) {
+    // Update lat/lng from Google if they differ significantly (Google geocoding is authoritative)
+    const latDiff = Math.abs(existing.lat - geocoded.lat)
+    const lngDiff = Math.abs(existing.lng - geocoded.lng)
+    if (latDiff > 0.00001 || lngDiff > 0.00001) {
       await prisma.property.update({
         where: { id: existing.id },
         data: { lat: geocoded.lat, lng: geocoded.lng },
