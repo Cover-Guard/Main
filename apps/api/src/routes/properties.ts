@@ -154,8 +154,8 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
 propertiesRouter.get('/:id/insurance', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
-    // Ensure risk profile exists (insurance depends on risk scores)
-    await getOrComputeRiskProfile(req.params.id)
+    // Ensure risk profile exists and is fresh (insurance depends on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const estimate = await getOrComputeInsuranceEstimate(req.params.id, forceRefresh)
     if (!forceRefresh) setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: estimate })
@@ -236,8 +236,8 @@ propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (re
 propertiesRouter.get('/:id/insurability', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
-    // Ensure risk profile exists (insurability depends on risk scores)
-    await getOrComputeRiskProfile(req.params.id)
+    // Ensure risk profile exists and is fresh (insurability depends on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const status = await getInsurabilityStatus(req.params.id, forceRefresh)
     if (!forceRefresh) setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: status })
@@ -251,8 +251,8 @@ propertiesRouter.get('/:id/insurability', async (req, res, next) => {
 propertiesRouter.get('/:id/carriers', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
-    // Ensure risk profile exists (carrier decisions depend on risk scores)
-    await getOrComputeRiskProfile(req.params.id)
+    // Ensure risk profile exists and is fresh (carrier decisions depend on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const carriers = await getCarriersForProperty(req.params.id, forceRefresh)
     if (!forceRefresh) setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: carriers })

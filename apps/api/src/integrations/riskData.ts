@@ -433,13 +433,13 @@ async function fetchUsgsDesignMaps(lat: number, lng: number, result: EarthquakeR
         result.s1 = s1 ?? null
 
         // Determine soil liquefaction potential from PGA + seismic zone
-        if (pga > 0.3) {
+        if (pga != null && pga > 0.3) {
           result.liquidationPotential = 'HIGH'
           result.soilType = 'Soft soil (Site Class D-E assumed)'
-        } else if (pga > 0.15) {
+        } else if (pga != null && pga > 0.15) {
           result.liquidationPotential = 'MODERATE'
           result.soilType = 'Stiff soil (Site Class C)'
-        } else {
+        } else if (pga != null) {
           result.liquidationPotential = 'LOW'
           result.soilType = 'Rock/stiff soil (Site Class B-C)'
         }
@@ -606,7 +606,8 @@ async function fetchSpcStormEvents(lat: number, lng: number, result: WindRiskExt
 
   // Tornado events — SPC SVRGIS (Severe Weather GIS) tornado tracks
   try {
-    const spcUrl = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Tornado_Tracks/FeatureServer/0/query?geometry=${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=yr,mag&where=yr>=2004&resultRecordCount=50&returnGeometry=false&f=json`
+    const tornadoEnvelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
+    const spcUrl = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Tornado_Tracks/FeatureServer/0/query?geometry=${encodeURIComponent(tornadoEnvelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=yr,mag&where=yr>=2004&resultRecordCount=50&returnGeometry=false&f=json`
     const res = await fetch(spcUrl, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
@@ -633,7 +634,8 @@ async function fetchSpcStormEvents(lat: number, lng: number, result: WindRiskExt
 
   // Hail events — SPC SVRGIS Hail reports
   try {
-    const hailUrl = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Hail_Reports/FeatureServer/0/query?geometry=${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=yr,size&where=yr>=2004&resultRecordCount=50&returnGeometry=false&f=json`
+    const hailEnvelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
+    const hailUrl = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Hail_Reports/FeatureServer/0/query?geometry=${encodeURIComponent(hailEnvelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=yr,size&where=yr>=2004&resultRecordCount=50&returnGeometry=false&f=json`
     const res = await fetch(hailUrl, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult

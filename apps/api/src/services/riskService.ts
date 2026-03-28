@@ -134,7 +134,7 @@ function computeWindScore(windData: WindRiskExtended): number {
     if (sloshCategory != null) {
       // SLOSH category: 1 (minimal surge) to 5 (catastrophic)
       // Cat 1 surge zone → score 55; Cat 5 → score 90
-      score = Math.max(score, 45 + sloshCategory * 9)
+      score = Math.max(score, Math.min(100, 45 + sloshCategory * 9))
     } else {
       score = Math.max(score, 70) // Hurricane state but no SLOSH data
     }
