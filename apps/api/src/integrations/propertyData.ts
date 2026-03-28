@@ -242,8 +242,8 @@ function getMockSearchResults(params: PropertySearchParams): PropertySearchResul
     updatedAt: now,
   }))
 
-  const page = params.page ?? 1
-  const limit = params.limit ?? 20
+  const page = Math.max(1, params.page ?? 1)
+  const limit = Math.max(1, Math.min(100, params.limit ?? 20))
   const start = (page - 1) * limit
   const paged = properties.slice(start, start + limit)
 

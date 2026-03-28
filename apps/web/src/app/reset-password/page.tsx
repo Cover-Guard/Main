@@ -25,6 +25,13 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
 
+  // Redirect to dashboard after successful password reset
+  useEffect(() => {
+    if (!success) return
+    const timer = setTimeout(() => router.push('/dashboard'), 2500)
+    return () => clearTimeout(timer)
+  }, [success, router])
+
   const {
     register,
     handleSubmit,
@@ -56,7 +63,6 @@ export default function ResetPasswordPage() {
         return
       }
       setSuccess(true)
-      setTimeout(() => router.push('/dashboard'), 2500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     }

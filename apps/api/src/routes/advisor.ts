@@ -55,7 +55,7 @@ advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res) =
     if (!client) {
       res.status(503).json({
         success: false,
-        error: { code: 'SERVICE_UNAVAILABLE', message: 'AI Advisor is not configured. Please set the ANTHROPIC_API_KEY environment variable.' },
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'AI Advisor is not configured. Please contact your administrator.' },
       })
       return
     }

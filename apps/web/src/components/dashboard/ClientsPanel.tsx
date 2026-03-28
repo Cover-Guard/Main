@@ -411,7 +411,7 @@ export function ClientsPanel() {
           {filtered.map((client) => {
             const isEditing = editingId === client.id
             const isExpanded = expandedId === client.id
-            const initials = `${client.firstName[0]}${client.lastName[0]}`
+            const initials = `${client.firstName?.[0] ?? '?'}${client.lastName?.[0] ?? '?'}`
 
             if (isEditing && editForm) {
               return (

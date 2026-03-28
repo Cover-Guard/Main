@@ -20,8 +20,12 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   async function signOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+    } catch {
+      // Sign-out failed — still redirect to login
+    }
     router.push('/login')
     router.refresh()
   }

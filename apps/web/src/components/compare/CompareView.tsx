@@ -95,6 +95,11 @@ export function CompareView() {
     }
   }, [])
 
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => { if (searchDebounce.current) clearTimeout(searchDebounce.current) }
+  }, [])
+
   // Read property IDs from URL (supports ?a=&b=&c= and ?ids=id1,id2,id3)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

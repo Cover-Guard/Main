@@ -16,7 +16,7 @@ export const propertiesRouter = Router()
 // ─── Property ID param validation ────────────────────────────────────────────
 
 propertiesRouter.param('id', (req, res, next, id) => {
-  if (!id || id === 'undefined' || id === 'null') {
+  if (!id || id === 'undefined' || id === 'null' || id.length > 50) {
     res.status(400).json({
       success: false,
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
@@ -43,9 +43,9 @@ function setCacheHeaders(res: Response, sMaxAge: number, staleWhileRevalidate = 
 const searchSchema = z.object({
   address: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().length(2).optional(),
+  state: z.string().length(2).regex(/^[A-Z]{2}$/, 'Invalid state code').optional(),
   zip: z.string().regex(/^\d{5}$/).optional(),
-  parcelId: z.string().optional(),
+  parcelId: z.string().min(1).max(50).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
@@ -178,7 +178,7 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
 // ─── Save property (authenticated) ───────────────────────────────────────────
 
 const saveSchema = z.object({
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(500).transform((s) => s.trim()).optional(),
   tags: z.array(z.string()).max(10).default([]),
   clientId: z.string().uuid().nullish(),
 })
@@ -243,9 +243,13 @@ propertiesRouter.post('/:id/save', requireAuth, requireSubscription, async (req:
 propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    await prisma.savedProperty.deleteMany({
+    const result = await prisma.savedProperty.deleteMany({
       where: { userId, propertyId: String(req.params.id) },
     })
+    if (result.count === 0) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Saved property not found' } })
+      return
+    }
     res.json({ success: true, data: null })
   } catch (err) {
     next(err)

@@ -69,6 +69,7 @@ const PRICE_IDS: Record<string, string | undefined> = {
 export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [failedPlan, setFailedPlan] = useState<string | null>(null)
 
   async function handleSubscribe(plan: typeof plans[number]) {
     setError(null)
@@ -91,11 +92,13 @@ export default function PricingPage() {
     }
 
     setLoadingPlan(plan.name)
+    setFailedPlan(null)
     try {
       const { url } = await createCheckoutSession(priceId)
       window.location.assign(url)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start checkout. Please try again.')
+      setError(err instanceof Error ? err.message : 'Failed to start checkout.')
+      setFailedPlan(plan.name)
       setLoadingPlan(null)
     }
   }
@@ -174,12 +177,18 @@ export default function PricingPage() {
                       onClick={() => handleSubscribe(plan)}
                       disabled={loadingPlan !== null}
                       className={`mt-8 block w-full text-center rounded-lg px-4 py-3 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                        plan.highlighted
-                          ? 'bg-brand-600 text-white hover:bg-brand-700'
-                          : 'bg-gray-50 text-gray-900 border border-gray-200 hover:bg-gray-100'
+                        failedPlan === plan.name
+                          ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                          : plan.highlighted
+                            ? 'bg-brand-600 text-white hover:bg-brand-700'
+                            : 'bg-gray-50 text-gray-900 border border-gray-200 hover:bg-gray-100'
                       }`}
                     >
-                      {loadingPlan === plan.name ? 'Redirecting...' : 'Get Started'}
+                      {loadingPlan === plan.name
+                        ? 'Redirecting...'
+                        : failedPlan === plan.name
+                          ? 'Retry Checkout'
+                          : 'Get Started'}
                     </button>
                   )}
 

@@ -254,7 +254,7 @@ export default function AgentRegisterPage() {
                 />
                 <span className="text-xs text-gray-700">
                   I agree to the{' '}
-                  <a href="/terms" target="_blank" className="text-brand-600 underline hover:text-brand-700">
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">
                     Terms of Use
                   </a>
                 </span>
@@ -269,7 +269,7 @@ export default function AgentRegisterPage() {
                 />
                 <span className="text-xs text-gray-700">
                   I agree to the{' '}
-                  <a href="/privacy" target="_blank" className="text-brand-600 underline hover:text-brand-700">
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">
                     Privacy Policy
                   </a>
                 </span>

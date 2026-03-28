@@ -16,17 +16,22 @@ export function SavePropertyButton({ propertyId, className = '' }: SavePropertyB
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
     getSavedProperties()
       .then((list: unknown) => {
+        if (cancelled) return
         const arr = list as Array<{ propertyId: string }>
         setSaved(arr.some((s) => s.propertyId === propertyId))
       })
       .catch(() => {
+        if (cancelled) return
         // Unable to check saved status — default to unsaved.
         // Auth-required endpoint will fail for logged-out users; that's expected.
         setSaved(false)
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [propertyId])
 
   async function toggle() {

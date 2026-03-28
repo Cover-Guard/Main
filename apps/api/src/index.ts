@@ -16,6 +16,16 @@ import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
 import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
+// ─── Startup environment validation ──────────────────────────────────────────
+
+const REQUIRED_ENV = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k])
+if (missingEnv.length > 0) {
+  // eslint-disable-next-line no-console
+  console.error(`FATAL: Missing required environment variables: ${missingEnv.join(', ')}`)
+  process.exit(1)
+}
+
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '4000', 10)
 
@@ -32,11 +42,12 @@ const allowedOrigins = (
 
 /** Check if origin is allowed — supports exact match + *.coverguard.io subdomains. */
 function isOriginAllowed(origin: string): boolean {
+  if (origin.length > 256) return false
   if (allowedOrigins.includes(origin)) return true
   // Allow any *.coverguard.io subdomain (Vercel preview deploys, api subdomain, etc.)
-  if (/^https:\/\/[\w-]+\.coverguard\.io$/.test(origin)) return true
+  if (/^https:\/\/[\w-]{1,52}\.coverguard\.io$/.test(origin)) return true
   // Allow Vercel preview URLs for this project
-  if (/^https:\/\/[\w-]+-cover-guard\.vercel\.app$/.test(origin)) return true
+  if (/^https:\/\/[\w-]{1,52}-cover-guard\.vercel\.app$/.test(origin)) return true
   return false
 }
 
@@ -125,6 +136,18 @@ const externalDataLimiter = rateLimit({
   },
 })
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60_000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_AUTH ?? '20', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip ?? 'unknown',
+  message: {
+    success: false,
+    error: { code: 'RATE_LIMITED', message: 'Too many auth attempts. Please try again later.' },
+  },
+})
+
 app.use('/api', globalLimiter)
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -133,7 +156,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-app.use('/api/auth', requestTimeout(15_000), authRouter)
+app.use('/api/auth', authLimiter, requestTimeout(15_000), authRouter)
 app.use('/api/stripe', requestTimeout(15_000), stripeRouter)
 
 // Search: moderate limit, fast timeout

@@ -40,6 +40,20 @@ const nextConfig: NextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} maps.googleapis.com *.supabase.co`,
+              "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
+              "img-src 'self' data: blob: *.supabase.co maps.googleapis.com maps.gstatic.com *.google.com *.ggpht.com lh3.googleusercontent.com coverguard.io www.coverguard.io",
+              "font-src 'self' fonts.gstatic.com",
+              "connect-src 'self' *.supabase.co maps.googleapis.com *.googleapis.com",
+              "frame-src 'self' accounts.google.com *.supabase.co",
+              "object-src 'none'",
+              "base-uri 'self'",
+            ].join('; '),
+          },
         ],
       },
     ]

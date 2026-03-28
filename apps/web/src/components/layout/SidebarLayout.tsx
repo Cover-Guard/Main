@@ -62,15 +62,15 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   }
 
   const initials = user?.firstName && user?.lastName
-    ? `${user.firstName[0]}${user.lastName[0]}`
+    ? `${user.firstName[0] ?? '?'}${user.lastName[0] ?? '?'}`
     : user?.email?.[0]?.toUpperCase() ?? '?'
 
   const displayName = user?.firstName
-    ? `${user.firstName}${user.lastName ? ` ${user.lastName[0]}.` : ''}`
+    ? `${user.firstName}${user.lastName ? ` ${user.lastName[0] ?? ''}.` : ''}`
     : user?.email?.split('@')[0] ?? ''
 
   function isActive(href: string, exact?: boolean) {
-    if (exact) return pathname === href || pathname === '/search'
+    if (exact) return pathname === href
     return pathname === href || pathname.startsWith(href + '/')
   }
 
