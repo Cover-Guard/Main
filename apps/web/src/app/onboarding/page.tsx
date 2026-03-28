@@ -17,31 +17,33 @@ export default function OnboardingPage() {
     setError(null)
 
     try {
-      // Update Supabase user metadata with termsAcceptedAt
       const supabase = createClient()
-      const { error: metaError } = await supabase.auth.updateUser({
-        data: { termsAcceptedAt: new Date().toISOString() },
-      })
-      if (metaError) throw metaError
-
-      // Update profile in API
       const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        const res = await fetch('/api/auth/me/terms', {
+      if (!session?.access_token) throw new Error('No active session')
+
+      // Run Supabase metadata update + API terms acceptance in parallel.
+      // These are independent operations — no need to wait for one before the other.
+      const [metaResult, apiResult] = await Promise.all([
+        supabase.auth.updateUser({
+          data: { termsAcceptedAt: new Date().toISOString() },
+        }),
+        fetch('/api/auth/me/terms', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-        })
-        if (!res.ok) {
-          const contentType = res.headers.get('content-type') ?? ''
-          if (contentType.includes('application/json')) {
-            const json = await res.json()
-            throw new Error((json.error as { message?: string })?.message ?? 'Failed to save terms acceptance')
-          }
-          throw new Error('Failed to save terms acceptance. Please try again.')
+        }),
+      ])
+
+      if (metaResult.error) throw metaResult.error
+      if (!apiResult.ok) {
+        const contentType = apiResult.headers.get('content-type') ?? ''
+        if (contentType.includes('application/json')) {
+          const json = await apiResult.json()
+          throw new Error((json.error as { message?: string })?.message ?? 'Failed to save terms acceptance')
         }
+        throw new Error('Failed to save terms acceptance. Please try again.')
       }
 
       router.push('/dashboard')

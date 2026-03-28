@@ -20,6 +20,20 @@ function toValidRole(value: unknown): ValidRole {
   return 'BUYER'
 }
 
+/** Decode JWT payload to extract user metadata without a network call.
+ *  Safe to use after requireAuth has already verified the token. */
+function decodeJwtPayload(req: Request): Record<string, unknown> | null {
+  try {
+    const token = req.headers.authorization?.split(' ')[1]
+    if (!token) return null
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -206,33 +220,43 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
 })
 
 // ─── Accept terms ─────────────────────────────────────────────────────────────
-// Uses upsert so that OAuth users whose handle_new_user trigger fired correctly
-// get an update, while any edge-case where the profile is missing gets a create.
+// Optimistic: try update first (common path — profile exists from sync-profile
+// or register). Only fall back to create + Supabase lookup if profile is missing.
+// This avoids a ~50-200ms Supabase Admin API call on every terms acceptance.
 
 authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
+    const now = new Date()
 
-    // Look up the Supabase auth user so we have email + metadata for the upsert
-    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
-    const authUser = authData.user
-
-    const user = await prisma.user.upsert({
+    // Fast path: profile already exists (99% of cases after OAuth sync or register)
+    const updated = await prisma.user.updateMany({
       where: { id: userId },
-      update: { termsAcceptedAt: new Date() },
-      create: {
+      data: { termsAcceptedAt: now },
+    })
+
+    if (updated.count > 0) {
+      res.json({ success: true, data: { termsAcceptedAt: now } })
+      return
+    }
+
+    // Slow path: profile missing — extract metadata from JWT (already verified by
+    // requireAuth) to avoid a redundant Supabase Admin API round trip.
+    const jwt = decodeJwtPayload(req)
+    const meta = (jwt?.user_metadata ?? {}) as Record<string, string | undefined>
+    const email = (jwt?.email as string) ?? ''
+    const fullName = meta.full_name ?? ''
+
+    const user = await prisma.user.create({
+      data: {
         id: userId,
-        email: authUser?.email ?? '',
-        firstName: authUser?.user_metadata?.firstName
-          ?? authUser?.user_metadata?.full_name?.split(' ')[0]
-          ?? '',
-        lastName: authUser?.user_metadata?.lastName
-          ?? authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ')
-          ?? '',
-        role: toValidRole(authUser?.user_metadata?.role),
-        company: authUser?.user_metadata?.company ?? null,
-        licenseNumber: authUser?.user_metadata?.licenseNumber ?? null,
-        termsAcceptedAt: new Date(),
+        email,
+        firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
+        lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
+        role: toValidRole(meta.role),
+        company: meta.company ?? null,
+        licenseNumber: meta.licenseNumber ?? null,
+        termsAcceptedAt: now,
       },
     })
     res.json({ success: true, data: { termsAcceptedAt: user.termsAcceptedAt } })
@@ -245,34 +269,29 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
 // Called by the OAuth callback route when the handle_new_user trigger did not
 // create a public.users row (e.g. trigger misconfigured or first-deploy race).
 // Safe to call multiple times — upsert is idempotent.
+// Uses JWT claims (already verified by requireAuth) instead of a second Supabase
+// Admin API call, saving ~50-200ms on the critical onboarding path.
 
 authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const { data: authData } = await supabaseAdmin.auth.admin.getUserById(userId)
-    const authUser = authData.user
-
-    if (!authUser) {
-      res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'Auth user not found' } })
-      return
-    }
+    const jwt = decodeJwtPayload(req)
+    const meta = (jwt?.user_metadata ?? {}) as Record<string, string | undefined>
+    const email = (jwt?.email as string) ?? ''
+    const fullName = meta.full_name ?? meta.name ?? ''
 
     const user = await prisma.user.upsert({
       where: { id: userId },
       update: {}, // profile already exists — leave it untouched
       create: {
         id: userId,
-        email: authUser.email ?? '',
-        firstName: authUser.user_metadata?.firstName
-          ?? authUser.user_metadata?.full_name?.split(' ')[0]
-          ?? '',
-        lastName: authUser.user_metadata?.lastName
-          ?? authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ')
-          ?? '',
-        role: toValidRole(authUser.user_metadata?.role),
-        company: authUser.user_metadata?.company ?? null,
-        licenseNumber: authUser.user_metadata?.licenseNumber ?? null,
-        avatarUrl: authUser.user_metadata?.avatar_url ?? null,
+        email,
+        firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
+        lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
+        role: toValidRole(meta.role),
+        company: meta.company ?? null,
+        licenseNumber: meta.licenseNumber ?? null,
+        avatarUrl: meta.avatar_url ?? meta.picture ?? null,
       },
     })
 
