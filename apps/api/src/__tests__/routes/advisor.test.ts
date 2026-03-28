@@ -90,7 +90,7 @@ function makeRes(): { res: Response; status: jest.Mock; json: jest.Mock } {
 }
 
 describe('POST /api/advisor/chat', () => {
-  let handler: (req: Request, res: Response) => Promise<void>
+  let handler: (req: Request, res: Response, next?: jest.Mock) => Promise<void>
 
   beforeAll(() => {
     process.env.ANTHROPIC_API_KEY = 'sk-test-key'
@@ -379,15 +379,17 @@ describe('POST /api/advisor/chat', () => {
   })
 
   describe('unexpected errors', () => {
-    it('returns 500 on unknown Error', async () => {
-      mockCreate.mockRejectedValue(new Error('Something went wrong'))
+    it('forwards unknown Error to error handler via next()', async () => {
+      const thrownError = new Error('Something went wrong')
+      mockCreate.mockRejectedValue(thrownError)
 
       const req = makeReq({ messages: [{ role: 'user', content: 'test' }] })
-      const { res, status } = makeRes()
+      const { res } = makeRes()
+      const next = jest.fn()
 
-      await handler(req, res)
+      await handler(req, res, next)
 
-      expect(status).toHaveBeenCalledWith(500)
+      expect(next).toHaveBeenCalledWith(thrownError)
     })
   })
 })

@@ -49,7 +49,7 @@ function getAnthropicClient(): Anthropic | null {
   return anthropicClient
 }
 
-advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res) => {
+advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res, next) => {
   try {
     const client = getAnthropicClient()
     if (!client) {
@@ -138,10 +138,7 @@ advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res) =
       return
     }
 
-    logger.error('AI Advisor unexpected error', { error: err })
-    res.status(500).json({
-      success: false,
-      error: { code: 'ADVISOR_ERROR', message: 'Failed to get AI response. Please try again.' },
-    })
+    // Unexpected errors go to the central error handler
+    next(err)
   }
 })
