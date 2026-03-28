@@ -135,9 +135,11 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
     const profile = await getOrComputeRiskProfile(req.params.id, forceRefresh)
     // When risk is refreshed, invalidate dependent caches so they recompute with new scores
     if (forceRefresh) {
-      insuranceCache.delete(req.params.id)
-      carriersCache.delete(req.params.id)
-      insurabilityCache.delete(req.params.id)
+      try {
+        insuranceCache.delete(req.params.id)
+        carriersCache.delete(req.params.id)
+        insurabilityCache.delete(req.params.id)
+      } catch { /* cache invalidation is best-effort */ }
     } else {
       setCacheHeaders(res, 7200, 600)
     }

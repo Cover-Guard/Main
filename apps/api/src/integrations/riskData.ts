@@ -86,7 +86,7 @@ interface OpenFemaFloodClaim {
 }
 
 export async function fetchFloodRisk(lat: number, lng: number, zip: string): Promise<Partial<FloodRisk>> {
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     logger.warn('Invalid coordinates for flood risk', { lat, lng })
     return { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }
   }
@@ -218,7 +218,7 @@ export interface FireRiskExtended extends Partial<FireRisk> {
 }
 
 export async function fetchFireRisk(lat: number, lng: number, state: string): Promise<FireRiskExtended> {
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     logger.warn('Invalid coordinates for fire risk', { lat, lng })
     return {}
   }
@@ -305,9 +305,12 @@ async function fetchNifcHistoricalFires(lat: number, lng: number, result: FireRi
         const now = Date.now()
         const fiveYearsMs = 5 * 365.25 * 24 * 60 * 60 * 1000
         const recentLargeFires = fires.filter((f) => {
-          const discoveryTime = f.attributes?.irwin_FireDiscoveryDateTime as number | null
+          const rawTime = f.attributes?.irwin_FireDiscoveryDateTime
+          const discoveryTime = typeof rawTime === 'number' ? rawTime
+            : typeof rawTime === 'string' ? new Date(rawTime).getTime()
+            : null
           const acres = f.attributes?.poly_GISAcres as number | null
-          return discoveryTime && (now - discoveryTime < fiveYearsMs) && acres && acres > 1000
+          return discoveryTime && !isNaN(discoveryTime) && (now - discoveryTime < fiveYearsMs) && acres && acres > 1000
         })
         if (recentLargeFires.length > 0 && !result.fireHazardSeverityZone) {
           result.fireHazardSeverityZone = 'HIGH'
@@ -395,7 +398,7 @@ export interface EarthquakeRiskExtended extends Partial<EarthquakeRisk> {
 }
 
 export async function fetchEarthquakeRisk(lat: number, lng: number): Promise<EarthquakeRiskExtended> {
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     logger.warn('Invalid coordinates for earthquake risk', { lat, lng })
     return {}
   }
@@ -496,8 +499,8 @@ async function fetchNearestQuaternaryFault(lat: number, lng: number, result: Ear
           result.nearestFaultLine = Math.round(minDist * 10) / 10
         }
       } else {
-        // No faults found within 30 miles
-        result.nearestFaultLine = 30
+        // No faults found within 30-mile query range
+        result.nearestFaultLine = null
       }
     }
   } catch (err) {
@@ -516,7 +519,7 @@ export interface WindRiskExtended extends Partial<WindRisk> {
 }
 
 export async function fetchWindRisk(lat: number, lng: number, state: string): Promise<WindRiskExtended> {
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     logger.warn('Invalid coordinates for wind risk', { lat, lng })
     return {}
   }
@@ -704,7 +707,7 @@ export interface CrimeRiskExtended extends Partial<CrimeRisk> {
 }
 
 export async function fetchCrimeRisk(lat: number, lng: number, zip: string): Promise<CrimeRiskExtended> {
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     logger.warn('Invalid coordinates for crime risk', { lat, lng })
     return { dataSourceUsed: 'NONE' }
   }
@@ -787,13 +790,16 @@ async function fetchCensusAcsCrimeProxy(zip: string): Promise<Partial<CrimeRisk>
     if (!data || data.length < 2) return null
 
     const values = data[1]
+    if (!values || values.length < 5) return null
+
     const belowPoverty = parseInt(values[0], 10)
     const totalPovPop = parseInt(values[1], 10)
     const medianIncome = parseInt(values[2], 10)
     const unemployed = parseInt(values[3], 10)
     const laborForce = parseInt(values[4], 10)
 
-    if (isNaN(totalPovPop) || totalPovPop === 0) return null
+    if (isNaN(belowPoverty) || isNaN(totalPovPop) || isNaN(medianIncome) || isNaN(unemployed) || isNaN(laborForce)) return null
+    if (totalPovPop === 0) return null
 
     const povertyRate = (belowPoverty / totalPovPop) * 100
     const unemploymentRate = laborForce > 0 ? (unemployed / laborForce) * 100 : 0
@@ -1013,7 +1019,7 @@ export async function fetchDamHazard(lat: number, lng: number): Promise<{
         hazard?: string
       }>
       if (Array.isArray(dams) && dams.length > 0) {
-        let nearest = dams[0]
+        let nearest: typeof dams[0] | null = null
         let minDist = Infinity
         for (const dam of dams) {
           if (dam.latitude != null && dam.longitude != null) {
@@ -1026,8 +1032,8 @@ export async function fetchDamHazard(lat: number, lng: number): Promise<{
         }
         return {
           nearbyHighHazardDams: dams.length,
-          nearestDamName: nearest.name ?? null,
-          nearestDamCondition: nearest.conditionAssessment ?? null,
+          nearestDamName: nearest?.name ?? null,
+          nearestDamCondition: nearest?.conditionAssessment ?? null,
           nearestDamDistance: minDist < Infinity ? Math.round(minDist * 10) / 10 : null,
         }
       }
