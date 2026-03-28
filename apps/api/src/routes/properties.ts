@@ -341,19 +341,9 @@ propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, as
     const body = quoteRequestSchema.parse(req.body)
     const propertyId = String(req.params.id)
 
-    // Verify property exists before creating the quote request
-    const propertyExists = await prisma.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true },
-    })
-    if (!propertyExists) {
-      res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Property not found' },
-      })
-      return
-    }
-
+    // Create directly — the FK constraint on propertyId will reject invalid IDs
+    // with a P2003 error, which the error handler maps to 400. This saves a
+    // separate findUnique round trip (~5-20ms).
     const quoteRequest = await prisma.quoteRequest.create({
       data: {
         userId,
@@ -362,6 +352,7 @@ propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, as
         coverageTypes: body.coverageTypes,
         notes: body.notes ?? null,
       },
+      select: { id: true },
     })
 
     res.status(201).json({ success: true, data: { quoteRequestId: quoteRequest.id } })

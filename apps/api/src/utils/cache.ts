@@ -58,8 +58,8 @@ export class LRUCache<T> {
 
 // ── Shared cache instances ────────────────────────────────────────────────────
 
-/** Auth token → { userId, userRole } — 5 min TTL, 50k entries */
-export const tokenCache = new LRUCache<{ userId: string; userRole: string }>(
+/** Auth token → { userId, userRole, hasActiveSub } — 5 min TTL, 50k entries */
+export const tokenCache = new LRUCache<{ userId: string; userRole: string; hasActiveSub: boolean }>(
   50_000,
   5 * 60 * 1000,
 )
