@@ -512,6 +512,7 @@ export interface WindRiskExtended extends Partial<WindRisk> {
   sloshCategory?: number | null
   historicalTornadoCount?: number
   historicalHailCount?: number
+  historicalHurricaneCount?: number
 }
 
 export async function fetchWindRisk(lat: number, lng: number, state: string): Promise<WindRiskExtended> {
@@ -532,12 +533,14 @@ export async function fetchWindRisk(lat: number, lng: number, state: string): Pr
     sloshCategory: null,
     historicalTornadoCount: 0,
     historicalHailCount: 0,
+    historicalHurricaneCount: 0,
   }
 
   // Run wind data sources in parallel
   await Promise.all([
     fetchSloshHurricaneSurge(lat, lng, result),
     fetchSpcStormEvents(lat, lng, result),
+    fetchHistoricalHurricaneTracks(lat, lng, result),
   ])
 
   return result
@@ -648,6 +651,37 @@ async function fetchSpcStormEvents(lat: number, lng: number, result: WindRiskExt
     }
   } catch (err) {
     logger.warn('SPC Hail Reports API unavailable', { err })
+  }
+}
+
+/** NOAA Historical Hurricane Tracks (ArcGIS service) — historical hurricanes near property */
+async function fetchHistoricalHurricaneTracks(lat: number, lng: number, result: WindRiskExtended): Promise<void> {
+  if (!result.hurricaneRisk) return
+  try {
+    // NOAA AllHurricanes MapServer — query for tracks within ~75 miles (~120km)
+    const bufferDeg = 1.1 // ~75 miles
+    const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
+    const url = `https://coast.noaa.gov/arcgis/rest/services/Hurricanes/AllHurricanes/MapServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=YEAR_,MAX_WIND,NAME&where=MAX_WIND>=64&resultRecordCount=100&returnGeometry=false&f=json`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const tracks = data.features ?? []
+      result.historicalHurricaneCount = tracks.length
+
+      if (tracks.length > 0) {
+        result.hurricaneRisk = true
+        // Check for major hurricanes (Category 3+, winds >= 96 kt)
+        const majorHurricanes = tracks.filter((t) => {
+          const wind = t.attributes?.MAX_WIND as number | null
+          return wind != null && wind >= 96
+        })
+        if (majorHurricanes.length > 2) {
+          result.designWindSpeed = Math.max(result.designWindSpeed ?? 115, 170)
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('NOAA Historical Hurricane Tracks API unavailable', { err })
   }
 }
 

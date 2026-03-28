@@ -138,6 +138,10 @@ function computeWindScore(windData: WindRiskExtended): number {
     } else {
       score = Math.max(score, 70) // Hurricane state but no SLOSH data
     }
+    // Historical hurricane track proximity boosts further
+    const historicalHurricane = windData.historicalHurricaneCount ?? 0
+    if (historicalHurricane > 10) score = Math.min(100, score + 10)
+    else if (historicalHurricane > 5) score = Math.min(100, score + 5)
   }
 
   // Tornado risk boosted by historical occurrence
@@ -491,6 +495,10 @@ function prismaProfileToDto(
   if (p.designWindSpeed) {
     windDetails.push(`ASCE 7 design wind speed: ${p.designWindSpeed} mph`)
   }
+  const hurricaneCount = enrichment?.windData?.historicalHurricaneCount ?? 0
+  if (hurricaneCount > 0) {
+    windDetails.push(`${hurricaneCount} historical hurricane tracks within 75 miles (NOAA)`)
+  }
   if (windDetails.length === 0) {
     windDetails.push('Low wind hazard exposure')
   }
@@ -591,7 +599,7 @@ function prismaProfileToDto(
       trend: 'STABLE' as RiskTrend,
       description: 'Wind hazard based on ASCE 7 design wind speeds, NOAA SLOSH hurricane surge, and SPC storm history',
       details: windDetails,
-      dataSource: 'ASCE 7 / NOAA SLOSH / SPC SVRGIS',
+      dataSource: 'ASCE 7 / NOAA SLOSH / NOAA Hurricane Tracks / SPC SVRGIS',
       lastUpdated: now,
       designWindSpeed: p.designWindSpeed,
       hurricaneRisk: p.hurricaneRisk,
