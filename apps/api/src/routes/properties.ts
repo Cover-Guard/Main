@@ -202,7 +202,12 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
 propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
-    const property = await getPropertyById(req.params.id)
+    const id = req.params.id
+    // Fetch property + compute risk in parallel (risk doesn't need the property DTO)
+    const [property, risk] = await Promise.all([
+      getPropertyById(id),
+      getOrComputeRiskProfile(id, forceRefresh),
+    ])
     if (!property) {
       res.status(404).json({
         success: false,
@@ -210,12 +215,11 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       })
       return
     }
-    // Risk must be computed first since insurance depends on it
-    const risk = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    // Insurance/insurability/carriers depend on risk — run in parallel now that risk is ready
     const [insurance, insurability, carriers] = await Promise.all([
-      getOrComputeInsuranceEstimate(req.params.id, forceRefresh),
-      getInsurabilityStatus(req.params.id, forceRefresh),
-      getCarriersForProperty(req.params.id, forceRefresh),
+      getOrComputeInsuranceEstimate(id, forceRefresh),
+      getInsurabilityStatus(id, forceRefresh),
+      getCarriersForProperty(id, forceRefresh),
     ])
     if (forceRefresh) setNoCacheHeaders(res)
     else setCacheHeaders(res, 3600, 300)

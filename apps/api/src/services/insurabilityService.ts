@@ -23,7 +23,16 @@ export async function getInsurabilityStatus(propertyId: string, forceRefresh = f
   return insurabilityDeduplicator.dedupe(dedupeKey, async () => {
     const property = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
-      include: { riskProfile: true },
+      select: {
+        state: true,
+        riskProfile: {
+          select: {
+            overallRiskScore: true, floodRiskScore: true, fireRiskScore: true,
+            windRiskScore: true, earthquakeRiskScore: true, inSFHA: true,
+            hurricaneRisk: true, wildlandUrbanInterface: true,
+          },
+        },
+      },
     })
 
     const risk = property.riskProfile

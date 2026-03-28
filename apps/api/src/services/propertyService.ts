@@ -216,12 +216,7 @@ export async function geocodeAndCreateProperty(
       zip: geocoded.zip || undefined,
       state: geocoded.state,
     },
-    select: {
-      id: true, address: true, city: true, state: true, zip: true, county: true,
-      lat: true, lng: true, propertyType: true, yearBuilt: true, squareFeet: true,
-      bedrooms: true, bathrooms: true, lotSize: true, estimatedValue: true,
-      lastSalePrice: true, lastSaleDate: true, parcelId: true, createdAt: true, updatedAt: true,
-    },
+    select: PROPERTY_PUBLIC_SELECT,
   })
 
   if (existing) {
@@ -246,7 +241,6 @@ export async function geocodeAndCreateProperty(
 
   // Create a new property from geocoded data
   const id = randomUUID()
-  const now = new Date()
   const newProp = await prisma.property.create({
     data: {
       id,
@@ -258,41 +252,11 @@ export async function geocodeAndCreateProperty(
       lat: geocoded.lat,
       lng: geocoded.lng,
       propertyType: 'SINGLE_FAMILY',
-      yearBuilt: null,
-      squareFeet: null,
-      bedrooms: null,
-      bathrooms: null,
-      lotSize: null,
-      estimatedValue: null,
-      lastSalePrice: null,
-      lastSaleDate: null,
-      parcelId: null,
     },
+    select: PROPERTY_PUBLIC_SELECT,
   })
 
-  const dto: Property = {
-    id: newProp.id,
-    address: geocoded.address,
-    city: geocoded.city,
-    state: geocoded.state,
-    zip: geocoded.zip,
-    county: geocoded.county,
-    lat: geocoded.lat,
-    lng: geocoded.lng,
-    propertyType: 'SINGLE_FAMILY',
-    yearBuilt: null,
-    squareFeet: null,
-    bedrooms: null,
-    bathrooms: null,
-    lotSize: null,
-    estimatedValue: null,
-    lastSalePrice: null,
-    lastSaleDate: null,
-    parcelId: null,
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
-  }
-
+  const dto = prismaPropertyToDto(newProp)
   propertyCache.set(id, dto)
 
   // Record search history
