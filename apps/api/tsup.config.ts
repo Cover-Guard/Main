@@ -7,7 +7,7 @@ export default defineConfig({
   outDir: 'dist',
   bundle: true,
   // Inline the workspace package so Vercel doesn't need to resolve it
-  noExternal: ['@coverguard/shared'],
+  noExternal: ['@coverguard/shared', '@anthropic-ai/sdk'],
   // Keep heavy native/binary deps external — they're installed normally
   external: ['@prisma/client', '@prisma/adapter-pg', 'pg', 'prisma', 'fsevents'],
   clean: true,
