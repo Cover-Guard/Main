@@ -64,9 +64,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
 
       - name: Build project
-        run: |
-          export PATH="/bin:/usr/bin:/usr/local/bin:$PATH"
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
@@ -202,6 +200,19 @@ jobs:
             require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
           "
 
+      - name: Install production deps for serverless function
+        working-directory: apps/api
+        run: |
+          # The Vercel CLI's installCommand fails with `spawn sh ENOENT` because
+          # the CLI constructs its own child process environment without /bin in PATH.
+          # Instead, run npm install directly in CI where sh is available.
+          # The workspace dep was already stripped; remaining deps are standard packages.
+          # --omit=dev: exclude devDependencies (tsup, jest, etc.)
+          # --ignore-scripts: skip postinstall (prisma generate already ran)
+          # --no-package-lock: avoid conflicts with the workspace root lockfile
+          npm install --omit=dev --ignore-scripts --no-package-lock
+          echo "Production node_modules created: $(ls node_modules | wc -l) packages"
+
       - name: Set up Vercel project link
         run: |
           mkdir -p apps/api/.vercel
@@ -219,13 +230,7 @@ jobs:
 
       - name: Build Vercel output
         working-directory: apps/api
-        run: |
-          # Prepend /bin and /usr/bin to PATH inline so the Vercel CLI's
-          # child_process.spawn('sh', ...) can resolve sh. GITHUB_PATH and
-          # symlinks don't help because Vercel CLI inherits process.env.PATH
-          # at spawn time, not the shell's PATH.
-          export PATH="/bin:/usr/bin:/usr/local/bin:$PATH"
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
