@@ -11,9 +11,12 @@ export function register() {
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   ]
   for (const name of vars) {
+    if (process.env[name]) continue
+    // Prefix convention (Vercel marketplace standard): LABEL_VARNAME
+    const prefixed = `${label}_${name}`
+    if (process.env[prefixed]) { process.env[name] = process.env[prefixed]; continue }
+    // Suffix convention (fallback): VARNAME_LABEL
     const suffixed = `${name}_${label}`
-    if (!process.env[name] && process.env[suffixed]) {
-      process.env[name] = process.env[suffixed]
-    }
+    if (process.env[suffixed]) { process.env[name] = process.env[suffixed] }
   }
 }
