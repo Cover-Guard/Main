@@ -120,6 +120,56 @@ const CARRIER_POOL: Omit<Carrier, 'writingStatus'>[] = [
     notes: 'State-backed insurer of last resort for FL properties where private carriers decline.',
   },
   {
+    id: 'ca-fair-plan',
+    name: 'California FAIR Plan',
+    amBestRating: 'NR',
+    coverageTypes: ['HOMEOWNERS', 'FIRE'],
+    avgPremiumModifier: 1.30,
+    statesLicensed: ['CA'],
+    specialties: ['California insurer of last resort for fire/basic property coverage'],
+    notes: 'State-mandated pool for properties unable to obtain coverage in the voluntary market. Fire coverage only — requires separate policy for liability/theft.',
+  },
+  {
+    id: 'tx-fair-plan',
+    name: 'Texas FAIR Plan (TRIP)',
+    amBestRating: 'NR',
+    coverageTypes: ['HOMEOWNERS'],
+    avgPremiumModifier: 1.25,
+    statesLicensed: ['TX'],
+    specialties: ['Texas insurer of last resort'],
+    notes: 'Texas Residual Insurance Pool for properties unable to obtain voluntary market coverage.',
+  },
+  {
+    id: 'la-citizens',
+    name: 'Louisiana Citizens Property Insurance',
+    amBestRating: 'NR',
+    coverageTypes: ['HOMEOWNERS', 'WIND_HURRICANE'],
+    avgPremiumModifier: 1.20,
+    statesLicensed: ['LA'],
+    specialties: ['Louisiana insurer of last resort'],
+    notes: 'State-backed residual market for LA properties where private carriers decline.',
+  },
+  {
+    id: 'twia',
+    name: 'Texas Windstorm Insurance Association (TWIA)',
+    amBestRating: 'NR',
+    coverageTypes: ['WIND_HURRICANE'],
+    avgPremiumModifier: 1.18,
+    statesLicensed: ['TX'],
+    specialties: ['Texas coastal wind/hail coverage'],
+    notes: 'Provides wind and hail coverage for designated Texas coastal counties where private carriers exclude wind.',
+  },
+  {
+    id: 'cea',
+    name: 'California Earthquake Authority (CEA)',
+    amBestRating: 'A-',
+    coverageTypes: ['EARTHQUAKE'],
+    avgPremiumModifier: 1.10,
+    statesLicensed: ['CA'],
+    specialties: ['California earthquake coverage'],
+    notes: 'Publicly managed, privately funded earthquake insurance. Available through participating insurers.',
+  },
+  {
     id: 'frontline',
     name: 'Frontline Insurance',
     amBestRating: 'A',
@@ -159,6 +209,26 @@ const CARRIER_POOL: Omit<Carrier, 'writingStatus'>[] = [
     specialties: ['Competitive pricing', 'Online quotes'],
     notes: null,
   },
+  {
+    id: 'hippo',
+    name: 'Hippo Insurance',
+    amBestRating: 'A-',
+    coverageTypes: ['HOMEOWNERS'],
+    avgPremiumModifier: 0.93,
+    statesLicensed: ['CA', 'TX', 'AZ', 'CO', 'CT', 'GA', 'IL', 'MD', 'NV', 'NJ', 'OH', 'PA', 'TN', 'VA', 'WI'],
+    specialties: ['Smart home integration', 'Proactive home protection'],
+    notes: null,
+  },
+  {
+    id: 'palomar',
+    name: 'Palomar Specialty Insurance',
+    amBestRating: 'A-',
+    coverageTypes: ['EARTHQUAKE', 'FLOOD', 'WIND_HURRICANE'],
+    avgPremiumModifier: 1.08,
+    statesLicensed: ['ALL'],
+    specialties: ['Specialty lines', 'Earthquake coverage nationwide'],
+    notes: 'Growing specialty insurer offering earthquake, flood, and wind coverage.',
+  },
 ]
 
 // ─── Market condition by state ─────────────────────────────────────────────────
@@ -186,14 +256,23 @@ function determineWritingStatus(
   state: string,
   overallRiskScore: number,
   marketCondition: MarketCondition,
+  fireScore: number,
+  windScore: number,
 ): Carrier['writingStatus'] {
   // State-specific carriers only write in their states
   if (!carrier.statesLicensed.includes('ALL') && !carrier.statesLicensed.includes(state)) {
     return 'NOT_WRITING'
   }
 
-  // Citizens only writes in FL
-  if (carrier.id === 'citizens-fl' && state !== 'FL') return 'NOT_WRITING'
+  // FAIR Plan / residual market carriers — always available in their state as last resort
+  const fairPlanIds = ['citizens-fl', 'ca-fair-plan', 'tx-fair-plan', 'la-citizens', 'twia', 'cea']
+  if (fairPlanIds.includes(carrier.id)) {
+    // FAIR Plans actively write when standard market is difficult
+    if (overallRiskScore > 60 || marketCondition === 'HARD' || marketCondition === 'CRISIS') {
+      return 'ACTIVELY_WRITING'
+    }
+    return 'LIMITED' // Available but voluntary market preferred
+  }
 
   // Surplus lines carriers always available (last resort)
   if (carrier.id === 'lexington') {
@@ -202,8 +281,13 @@ function determineWritingStatus(
       : 'SURPLUS_LINES'
   }
 
-  // Flood-specific carriers
+  // Flood-only carriers — always actively writing
   if (carrier.coverageTypes.every((t) => t === 'FLOOD')) {
+    return 'ACTIVELY_WRITING'
+  }
+
+  // Specialty carriers (earthquake/flood/wind only) — actively writing for their specialty
+  if (carrier.id === 'palomar') {
     return 'ACTIVELY_WRITING'
   }
 
@@ -215,6 +299,22 @@ function determineWritingStatus(
     }
   }
 
+  // California wildfire: many carriers pulling out
+  if (state === 'CA' && fireScore > 60) {
+    const caWildfireRestricted = ['state-farm', 'allstate', 'nationwide', 'lemonade', 'hippo']
+    if (caWildfireRestricted.includes(carrier.id)) {
+      return fireScore > 80 ? 'NOT_WRITING' : 'LIMITED'
+    }
+  }
+
+  // Florida wind: carriers restricting coastal
+  if (state === 'FL' && windScore > 70) {
+    const flWindRestricted = ['lemonade', 'hippo', 'amica']
+    if (flWindRestricted.includes(carrier.id)) {
+      return 'NOT_WRITING'
+    }
+  }
+
   // High risk properties
   if (overallRiskScore > 85) {
     const alwaysWrite = ['chubb', 'travelers', 'lexington', 'frontline']
@@ -222,7 +322,7 @@ function determineWritingStatus(
   }
 
   if (overallRiskScore > 70) {
-    const limitedHigh = ['lemonade', 'amica', 'usaa']
+    const limitedHigh = ['lemonade', 'amica', 'usaa', 'hippo']
     if (limitedHigh.includes(carrier.id)) return 'LIMITED'
   }
 
@@ -231,19 +331,25 @@ function determineWritingStatus(
 
 // ─── Main service function ────────────────────────────────────────────────────
 
-export async function getCarriersForProperty(propertyId: string): Promise<CarriersResult> {
+export async function getCarriersForProperty(propertyId: string, forceRefresh = false): Promise<CarriersResult> {
   // L1 cache hit — no DB call needed
-  const l1 = carriersCache.get(propertyId)
-  if (l1) return l1
+  if (!forceRefresh) {
+    const l1 = carriersCache.get(propertyId)
+    if (l1) return l1
+  }
 
   // Deduplicate concurrent requests for the same property
-  return carriersDeduplicator.dedupe(propertyId, async () => {
+  const dedupeKey = forceRefresh ? `${propertyId}:refresh` : propertyId
+  return carriersDeduplicator.dedupe(dedupeKey, async () => {
     const property = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
       include: { riskProfile: true },
     })
 
-    const overallRiskScore = property.riskProfile?.overallRiskScore ?? 30
+    const risk = property.riskProfile
+    const overallRiskScore = risk?.overallRiskScore ?? 30
+    const fireScore = risk?.fireRiskScore ?? 20
+    const windScore = risk?.windRiskScore ?? 20
     const state = property.state
     const marketCondition = getMarketCondition(state, overallRiskScore)
 
@@ -254,7 +360,7 @@ export async function getCarriersForProperty(propertyId: string): Promise<Carrie
       })
       .map((c) => ({
         ...c,
-        writingStatus: determineWritingStatus(c, state, overallRiskScore, marketCondition),
+        writingStatus: determineWritingStatus(c, state, overallRiskScore, marketCondition, fireScore, windScore),
       }))
       // Sort: actively writing first, then limited, then surplus, then not writing
       .sort((a, b) => {

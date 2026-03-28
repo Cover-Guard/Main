@@ -130,9 +130,10 @@ propertiesRouter.get('/:id', async (req, res, next) => {
 
 propertiesRouter.get('/:id/risk', async (req, res, next) => {
   try {
-    const profile = await getOrComputeRiskProfile(req.params.id)
-    // Risk profiles change infrequently — 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    const profile = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    // Risk profiles change infrequently — 2 hour CDN cache (no cache on refresh)
+    if (!forceRefresh) setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: profile })
   } catch (err) {
     next(err)
@@ -143,9 +144,9 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
 
 propertiesRouter.get('/:id/insurance', async (req, res, next) => {
   try {
-    const estimate = await getOrComputeInsuranceEstimate(req.params.id)
-    // Insurance estimates: 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    const estimate = await getOrComputeInsuranceEstimate(req.params.id, forceRefresh)
+    if (!forceRefresh) setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: estimate })
   } catch (err) {
     next(err)
@@ -156,11 +157,8 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
 
 propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
-    const [property, risk, insurance] = await Promise.all([
-      getPropertyById(req.params.id),
-      getOrComputeRiskProfile(req.params.id),
-      getOrComputeInsuranceEstimate(req.params.id),
-    ])
+    const forceRefresh = req.query.refresh === 'true'
+    const property = await getPropertyById(req.params.id)
     if (!property) {
       res.status(404).json({
         success: false,
@@ -168,8 +166,15 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       })
       return
     }
-    setCacheHeaders(res, 3600, 300)
-    res.json({ success: true, data: { property, risk, insurance } })
+    // Risk must be computed first since insurance depends on it
+    const risk = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const [insurance, insurability, carriers] = await Promise.all([
+      getOrComputeInsuranceEstimate(req.params.id, forceRefresh),
+      getInsurabilityStatus(req.params.id, forceRefresh),
+      getCarriersForProperty(req.params.id, forceRefresh),
+    ])
+    if (!forceRefresh) setCacheHeaders(res, 3600, 300)
+    res.json({ success: true, data: { property, risk, insurance, insurability, carriers } })
   } catch (err) {
     next(err)
   }
@@ -219,9 +224,9 @@ propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (re
 
 propertiesRouter.get('/:id/insurability', async (req, res, next) => {
   try {
-    const status = await getInsurabilityStatus(req.params.id)
-    // Insurability is derived from risk — same 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    const status = await getInsurabilityStatus(req.params.id, forceRefresh)
+    if (!forceRefresh) setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: status })
   } catch (err) {
     next(err)
@@ -232,9 +237,9 @@ propertiesRouter.get('/:id/insurability', async (req, res, next) => {
 
 propertiesRouter.get('/:id/carriers', async (req, res, next) => {
   try {
-    const carriers = await getCarriersForProperty(req.params.id)
-    // Carrier availability: 1 hour CDN cache
-    setCacheHeaders(res, 3600, 300)
+    const forceRefresh = req.query.refresh === 'true'
+    const carriers = await getCarriersForProperty(req.params.id, forceRefresh)
+    if (!forceRefresh) setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: carriers })
   } catch (err) {
     next(err)
