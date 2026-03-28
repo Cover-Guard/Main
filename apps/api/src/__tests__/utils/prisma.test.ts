@@ -51,8 +51,27 @@ jest.mock('../../utils/logger', () => ({
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/** Save and restore individual env vars instead of replacing process.env
+ *  (replacing the whole object can behave differently across Node versions). */
+const ENV_KEYS = ['DATABASE_URL', 'NODE_ENV', 'LOG_LEVEL'] as const
+let savedEnv: Record<string, string | undefined>
+
+function saveEnv() {
+  savedEnv = {}
+  for (const k of ENV_KEYS) savedEnv[k] = process.env[k]
+}
+
+function restoreEnv() {
+  for (const k of ENV_KEYS) {
+    if (savedEnv[k] === undefined) delete process.env[k]
+    else process.env[k] = savedEnv[k]
+  }
+}
+
 function resetModuleAndGlobals() {
   delete (global as Record<string, unknown>).__prisma
+  // Keep __prismaShutdownRegistered intact to prevent listener accumulation.
+  // Only the "shutdown listener registration" describe block clears it.
   jest.resetModules()
 }
 
@@ -64,15 +83,14 @@ function loadPrismaModule() {
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe('prisma.ts — lazy Proxy initialization', () => {
-  const originalEnv = { ...process.env }
-
   beforeEach(() => {
+    saveEnv()
     resetModuleAndGlobals()
     jest.clearAllMocks()
   })
 
   afterEach(() => {
-    process.env = { ...originalEnv }
+    restoreEnv()
     delete (global as Record<string, unknown>).__prisma
   })
 
@@ -323,6 +341,35 @@ describe('prisma.ts — lazy Proxy initialization', () => {
         { level: 'error', emit: 'stdout' },
         { level: 'warn', emit: 'stdout' },
       ])
+    })
+  })
+
+  // ── Shutdown listener guard ────────────────────────────────────────────
+
+  describe('shutdown listener registration', () => {
+    beforeEach(() => {
+      // These tests specifically need a clean shutdown flag
+      delete (global as Record<string, unknown>).__prismaShutdownRegistered
+    })
+
+    it('registers shutdown listeners on first load', () => {
+      process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
+      loadPrismaModule()
+      expect((global as Record<string, unknown>).__prismaShutdownRegistered).toBe(true)
+    })
+
+    it('does not register duplicate listeners on repeated module loads', () => {
+      process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
+      const listenersBefore = process.listenerCount('SIGTERM')
+      // First load sets the guard flag
+      jest.resetModules()
+      loadPrismaModule()
+      // Second load should skip registration because guard flag is set
+      jest.resetModules()
+      loadPrismaModule()
+      const listenersAfter = process.listenerCount('SIGTERM')
+      // Should add at most 1 new listener (the first load only)
+      expect(listenersAfter - listenersBefore).toBeLessThanOrEqual(1)
     })
   })
 })

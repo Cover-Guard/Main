@@ -76,11 +76,15 @@ export const prisma = new Proxy({} as PrismaClient, {
   },
 })
 
-// Graceful shutdown — close pool on process signals
-process.once('SIGTERM', async () => {
-  await prisma.$disconnect()
-})
-
-process.once('SIGINT', async () => {
-  await prisma.$disconnect()
-})
+// Graceful shutdown — close pool on process signals.
+// Guard with a flag so re-evaluation (e.g. in tests using jest.resetModules)
+// does not keep adding duplicate listeners.
+if (!(global as Record<string, unknown>).__prismaShutdownRegistered) {
+  ;(global as Record<string, unknown>).__prismaShutdownRegistered = true
+  process.once('SIGTERM', async () => {
+    await prisma.$disconnect()
+  })
+  process.once('SIGINT', async () => {
+    await prisma.$disconnect()
+  })
+}
