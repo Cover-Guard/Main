@@ -27,9 +27,10 @@ export default function OnboardingPage() {
 
       // Run Supabase metadata update + API terms acceptance in parallel.
       // These are independent operations — no need to wait for one before the other.
+      const acceptedAt = new Date().toISOString()
       const [metaResult, apiResult] = await Promise.all([
         supabase.auth.updateUser({
-          data: { termsAcceptedAt: new Date().toISOString() },
+          data: { termsAcceptedAt: acceptedAt, ndaAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt },
         }),
         fetch('/api/auth/me/terms', {
           method: 'POST',
