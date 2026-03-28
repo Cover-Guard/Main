@@ -66,12 +66,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   if (q) {
     try {
       const parsed = parseSearchQuery(q)
-      const params: PropertySearchParams = { ...parsed }
-      // When a Google Place ID is provided, pass it through for server-side validation
+      const params: PropertySearchParams = { ...parsed, page: parseInt(page ?? '1', 10), limit: 50 }
+      // When a Google Place ID is provided, pass it through for server-side geocoding.
+      // If the query already parsed into city+state+zip, send those too so the API
+      // can attempt a DB lookup while the geocode resolves (or skip it entirely).
       if (placeId) {
         params.placeId = placeId
       }
-      const result = await searchProperties({ ...params, page: parseInt(page ?? '1', 10), limit: 50 })
+      const result = await searchProperties(params)
       properties = result.properties
     } catch {
       searchError = true

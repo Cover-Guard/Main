@@ -7,10 +7,15 @@
  */
 
 import { logger } from '../utils/logger'
+import { LRUCache } from '../utils/cache'
 import type { GeocodedProperty } from '@coverguard/shared'
 
 const GEOCODING_BASE_URL = 'https://maps.googleapis.com/maps/api/geocode/json'
 const PLACE_DETAILS_BASE_URL = 'https://maps.googleapis.com/maps/api/place/details/json'
+
+/** Cache geocode results — same placeId always returns same data.
+ *  Saves ~100-300ms per repeat lookup and reduces Google API costs. */
+const geocodeCache = new LRUCache<GeocodedProperty>(10_000, 24 * 60 * 60 * 1000) // 24hr TTL
 
 function getApiKey(): string | null {
   return process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null
@@ -105,6 +110,10 @@ function parseGeocodedResult(result: GoogleGeocodeResult): GeocodedProperty {
  * Returns null if the Place ID is invalid or the API is unavailable.
  */
 export async function geocodeByPlaceId(placeId: string): Promise<GeocodedProperty | null> {
+  // L1 cache hit — same placeId always resolves to same address
+  const cached = geocodeCache.get(placeId)
+  if (cached) return cached
+
   const apiKey = getApiKey()
   if (!apiKey) {
     logger.warn('No Google Maps API key configured — cannot geocode place ID')
@@ -129,7 +138,9 @@ export async function geocodeByPlaceId(placeId: string): Promise<GeocodedPropert
       return null
     }
 
-    return parseGeocodedResult(data.results[0])
+    const result = parseGeocodedResult(data.results[0])
+    geocodeCache.set(placeId, result)
+    return result
   } catch (err) {
     logger.error('Google Geocoding API request failed', {
       placeId,
@@ -145,6 +156,10 @@ export async function geocodeByPlaceId(placeId: string): Promise<GeocodedPropert
  * Returns null if the address cannot be resolved.
  */
 export async function geocodeByAddress(address: string): Promise<GeocodedProperty | null> {
+  const cacheKey = `addr:${address.toLowerCase().trim()}`
+  const cached = geocodeCache.get(cacheKey)
+  if (cached) return cached
+
   const apiKey = getApiKey()
   if (!apiKey) {
     logger.warn('No Google Maps API key configured — cannot geocode address')
@@ -174,7 +189,9 @@ export async function geocodeByAddress(address: string): Promise<GeocodedPropert
       r.types.includes('street_address') || r.types.includes('premise') || r.types.includes('subpremise'),
     )
 
-    return parseGeocodedResult(streetResult ?? data.results[0])
+    const result = parseGeocodedResult(streetResult ?? data.results[0])
+    geocodeCache.set(cacheKey, result)
+    return result
   } catch (err) {
     logger.error('Google Geocoding API request failed', {
       address,
