@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * prisma.ts — lazy-initialized Prisma client tests
  *
