@@ -282,8 +282,8 @@ export async function getOrComputeRiskProfile(
       const baseBoost = Math.round((15 - elevation) / 2)
       // Higher boost for SFHA properties (compounding risk)
       elevationBoost = floodData.inSpecialFloodHazardArea
-        ? Math.min(12, baseBoost)
-        : Math.min(8, baseBoost)
+        ? Math.max(12, baseBoost)
+        : Math.max(8, baseBoost)
     }
     // Boost flood from dam hazard data
     let damBoost = 0
