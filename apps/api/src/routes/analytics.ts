@@ -45,7 +45,7 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
         where: { userId },
         orderBy: { savedAt: 'desc' },
         take: 5,
-        include: { property: { select: { address: true, city: true } } },
+        select: { savedAt: true, property: { select: { address: true, city: true } } },
       }),
 
       prisma.propertyReport.findMany({

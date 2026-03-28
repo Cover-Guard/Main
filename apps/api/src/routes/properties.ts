@@ -413,6 +413,10 @@ propertiesRouter.get('/:id/checklists', requireAuth, async (req: Request, res, n
     const checklists = await prisma.propertyChecklist.findMany({
       where: { propertyId: String(req.params.id), userId },
       orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true, checklistType: true, title: true, items: true,
+        createdAt: true, updatedAt: true, propertyId: true,
+      },
     })
     res.json({ success: true, data: checklists })
   } catch (err) {
@@ -473,26 +477,31 @@ propertiesRouter.patch('/:id/checklists/:checklistId', requireAuth, async (req: 
     const checklistId = String(req.params.checklistId)
     const body = updateChecklistSchema.parse(req.body)
 
-    // Combine auth check + update in one query (2 queries → 1)
-    const result = await prisma.propertyChecklist.updateMany({
-      where: { id: checklistId, userId },
-      data: {
-        ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.items !== undefined ? { items: body.items as unknown as Prisma.InputJsonValue } : {}),
-      },
+    // Atomically verify ownership + update + return in one transaction
+    const checklist = await prisma.$transaction(async (tx) => {
+      const result = await tx.propertyChecklist.updateMany({
+        where: { id: checklistId, userId },
+        data: {
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.items !== undefined ? { items: body.items as unknown as Prisma.InputJsonValue } : {}),
+        },
+      })
+      if (result.count === 0) return null
+      return tx.propertyChecklist.findFirst({
+        where: { id: checklistId, userId },
+        select: {
+          id: true, checklistType: true, title: true, items: true,
+          createdAt: true, updatedAt: true, propertyId: true,
+        },
+      })
     })
-    if (result.count === 0) {
+    if (!checklist) {
       res.status(404).json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Checklist not found' },
       })
       return
     }
-
-    // Fetch the updated record for the response
-    const checklist = await prisma.propertyChecklist.findFirst({
-      where: { id: checklistId, userId },
-    })
 
     res.json({ success: true, data: checklist })
   } catch (err) {

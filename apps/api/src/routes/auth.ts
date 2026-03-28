@@ -138,10 +138,16 @@ authRouter.post('/register', async (req, res, next) => {
 authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
-    // Omit internal fields that shouldn't be exposed to the client
-    const { stripeCustomerId: _stripe, ...profile } = user
-    res.json({ success: true, data: profile })
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        id: true, email: true, firstName: true, lastName: true, role: true,
+        company: true, licenseNumber: true, avatarUrl: true,
+        termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
+        createdAt: true, updatedAt: true,
+      },
+    })
+    res.json({ success: true, data: user })
   } catch (err) {
     next(err)
   }
@@ -160,9 +166,17 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const body = updateProfileSchema.parse(req.body)
-    const user = await prisma.user.update({ where: { id: userId }, data: body })
-    const { stripeCustomerId: _stripe, ...profile } = user
-    res.json({ success: true, data: profile })
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: body,
+      select: {
+        id: true, email: true, firstName: true, lastName: true, role: true,
+        company: true, licenseNumber: true, avatarUrl: true,
+        termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
+        createdAt: true, updatedAt: true,
+      },
+    })
+    res.json({ success: true, data: user })
   } catch (err) {
     next(err)
   }

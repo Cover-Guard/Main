@@ -39,7 +39,12 @@ clientsRouter.get('/', async (req: Request, res, next) => {
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: (page - 1) * limit,
-      include: { _count: { select: { savedProperties: true } } },
+      select: {
+        id: true, agentId: true, firstName: true, lastName: true,
+        email: true, phone: true, notes: true, status: true,
+        createdAt: true, updatedAt: true,
+        _count: { select: { savedProperties: true } },
+      },
     })
     // Flatten _count into savedPropertyCount to match the Client DTO
     const data = clients.map(({ _count, ...client }) => ({
