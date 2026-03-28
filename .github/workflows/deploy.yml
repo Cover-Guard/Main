@@ -64,7 +64,9 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
 
       - name: Build project
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          export PATH="/bin:/usr/bin:/usr/local/bin:$PATH"
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_WEB_PROJECT_ID }}
@@ -217,7 +219,13 @@ jobs:
 
       - name: Build Vercel output
         working-directory: apps/api
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Prepend /bin and /usr/bin to PATH inline so the Vercel CLI's
+          # child_process.spawn('sh', ...) can resolve sh. GITHUB_PATH and
+          # symlinks don't help because Vercel CLI inherits process.env.PATH
+          # at spawn time, not the shell's PATH.
+          export PATH="/bin:/usr/bin:/usr/local/bin:$PATH"
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_API_PROJECT_ID }}
