@@ -1,4 +1,19 @@
 // Vercel serverless function entry point
+
+// Supabase Vercel Integration suffixes env var names with the project label
+// (e.g. POSTGRES_URL_COVERGUARD_2). Normalize to standard names before the
+// Express app loads so Prisma, Supabase, and other services resolve them.
+const _label = process.env.SUPABASE_ENV_LABEL || 'COVERGUARD_2';
+[
+  'DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLED',
+  'DIRECT_URL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+].forEach((name) => {
+  const suffixed = `${name}_${_label}`;
+  if (!process.env[name] && process.env[suffixed]) {
+    process.env[name] = process.env[suffixed];
+  }
+});
+
 // The Express app is bundled by tsup into dist/index.js (CommonJS)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const entry = require('../dist/index.js');
