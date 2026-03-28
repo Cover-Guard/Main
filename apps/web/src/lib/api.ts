@@ -93,6 +93,14 @@ export async function getProperty(id: string): Promise<Property> {
   return apiFetch<Property>(`/api/properties/${id}`)
 }
 
+/** Resolve a Google Place ID into a validated property via server-side geocoding. */
+export async function geocodeProperty(placeId: string): Promise<Property> {
+  return apiFetch<Property>('/api/properties/geocode', {
+    method: 'POST',
+    body: JSON.stringify({ placeId }),
+  })
+}
+
 export async function getPropertyRisk(id: string): Promise<PropertyRiskProfile> {
   return apiFetch<PropertyRiskProfile>(`/api/properties/${id}/risk`)
 }

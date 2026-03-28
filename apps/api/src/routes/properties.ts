@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { searchProperties, suggestProperties, getPropertyById } from '../services/propertyService'
+import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateProperty } from '../services/propertyService'
 import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
@@ -52,6 +52,7 @@ const searchSchema = z.object({
   state: z.string().length(2).regex(/^[A-Z]{2}$/, 'Invalid state code').optional(),
   zip: z.string().regex(/^\d{5}$/).optional(),
   parcelId: z.string().min(1).max(50).optional(),
+  placeId: z.string().min(1).max(300).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
@@ -96,10 +97,10 @@ propertiesRouter.get('/suggest', async (req, res, next) => {
 propertiesRouter.get('/search', async (req, res, next) => {
   try {
     const params = searchSchema.parse(req.query)
-    if (!params.address && !params.zip && !params.parcelId && !params.city) {
+    if (!params.address && !params.zip && !params.parcelId && !params.city && !params.placeId) {
       res.status(400).json({
         success: false,
-        error: { code: 'MISSING_PARAM', message: 'Provide address, zip, city, or parcelId' },
+        error: { code: 'MISSING_PARAM', message: 'Provide address, zip, city, placeId, or parcelId' },
       })
       return
     }
@@ -107,6 +108,30 @@ propertiesRouter.get('/search', async (req, res, next) => {
     // Search results: short CDN TTL (60 s) since properties can be added
     setCacheHeaders(res, 60, 30)
     res.json({ success: true, data: result })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Geocode (validate address via Google Place ID) ──────────────────────────
+
+const geocodeSchema = z.object({
+  placeId: z.string().min(1).max(300),
+})
+
+propertiesRouter.post('/geocode', async (req, res, next) => {
+  try {
+    const { placeId } = geocodeSchema.parse(req.body)
+    const property = await geocodeAndCreateProperty(placeId, extractOptionalUserId(req))
+    if (!property) {
+      res.status(422).json({
+        success: false,
+        error: { code: 'GEOCODE_FAILED', message: 'Could not validate this address. Please try a different address.' },
+      })
+      return
+    }
+    // No CDN caching for POST — response creates/mutates DB records
+    res.json({ success: true, data: property })
   } catch (err) {
     next(err)
   }

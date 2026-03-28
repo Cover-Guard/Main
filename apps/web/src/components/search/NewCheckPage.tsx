@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { APIProvider } from '@vis.gl/react-google-maps'
 import {
   Shield,
   MapPin,
@@ -10,24 +11,122 @@ import {
   Zap,
   Building2,
   TrendingUp,
+  Loader2,
 } from 'lucide-react'
 import { SearchMapClient } from '@/components/map/SearchMapClient'
+import { useGooglePlacesAutocomplete } from '@/lib/useGooglePlacesAutocomplete'
+import type { PlacePrediction } from '@coverguard/shared'
+import { cn } from '@/lib/utils'
+
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
 export function NewCheckPage() {
+  if (!GOOGLE_MAPS_KEY) return <NewCheckPageFallback />
+
+  return (
+    <APIProvider apiKey={GOOGLE_MAPS_KEY} libraries={['places']}>
+      <NewCheckPageWithPlaces />
+    </APIProvider>
+  )
+}
+
+/** Version with Google Places autocomplete (requires APIProvider). */
+function NewCheckPageWithPlaces() {
+  const { predictions, loading, fetchPredictions, clearPredictions, resetSessionToken } =
+    useGooglePlacesAutocomplete()
+
+  return (
+    <NewCheckPageInner
+      predictions={predictions}
+      loading={loading}
+      fetchPredictions={fetchPredictions}
+      clearPredictions={clearPredictions}
+      resetSessionToken={resetSessionToken}
+    />
+  )
+}
+
+/** Fallback version without Google Places (no APIProvider). */
+function NewCheckPageFallback() {
+  return (
+    <NewCheckPageInner
+      predictions={[]}
+      loading={false}
+      fetchPredictions={() => {}}
+      clearPredictions={() => {}}
+      resetSessionToken={() => {}}
+    />
+  )
+}
+
+interface NewCheckPageInnerProps {
+  predictions: PlacePrediction[]
+  loading: boolean
+  fetchPredictions: (input: string) => void
+  clearPredictions: () => void
+  resetSessionToken: () => void
+}
+
+function NewCheckPageInner({
+  predictions,
+  loading,
+  fetchPredictions,
+  clearPredictions,
+  resetSessionToken,
+}: NewCheckPageInnerProps) {
   const router = useRouter()
   const [address, setAddress] = useState('')
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [yearBuilt, setYearBuilt] = useState('')
   const [sqft, setSqft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  function handleAddressChange(value: string) {
+    setAddress(value)
+    setSelectedPlaceId(null)
+    fetchPredictions(value)
+    if (value.trim().length >= 3) {
+      setShowDropdown(true)
+    } else {
+      setShowDropdown(false)
+    }
+  }
+
+  function selectPrediction(prediction: PlacePrediction) {
+    setAddress(prediction.description)
+    setSelectedPlaceId(prediction.placeId)
+    setShowDropdown(false)
+    clearPredictions()
+    resetSessionToken()
+  }
 
   function handleCheck(e: React.FormEvent) {
     e.preventDefault()
     if (!address.trim()) return
     const params = new URLSearchParams({ q: address.trim() })
+    if (selectedPlaceId) params.set('placeId', selectedPlaceId)
     if (yearBuilt) params.set('yearBuilt', yearBuilt)
     if (sqft) params.set('sqft', sqft)
     router.push(`/search?${params.toString()}`)
   }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current && !inputRef.current.contains(e.target as Node)
+      ) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
     <div className="flex flex-col h-full">
@@ -53,20 +152,80 @@ export function NewCheckPage() {
                 Search by address or click the map
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Enter a full address, ZIP, city, state, or APN.
+                Start typing a US property address for suggestions.
               </p>
             </div>
 
             {/* Search form */}
             <form onSubmit={handleCheck} className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-emerald-400 focus-within:border-emerald-400">
-                <MapPin className="h-4 w-4 text-gray-400 shrink-0" />
-                <input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Address, ZIP, or APN…"
-                  className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
-                />
+              <div className="relative">
+                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-emerald-400 focus-within:border-emerald-400">
+                  <MapPin className="h-4 w-4 text-gray-400 shrink-0" />
+                  <input
+                    ref={inputRef}
+                    value={address}
+                    onChange={(e) => handleAddressChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (!showDropdown || predictions.length === 0) return
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault()
+                        setActiveIndex((prev) => (prev < predictions.length - 1 ? prev + 1 : 0))
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault()
+                        setActiveIndex((prev) => (prev > 0 ? prev - 1 : predictions.length - 1))
+                      } else if (e.key === 'Enter' && activeIndex >= 0) {
+                        e.preventDefault()
+                        selectPrediction(predictions[activeIndex]!)
+                      } else if (e.key === 'Escape') {
+                        setShowDropdown(false)
+                      }
+                    }}
+                    onFocus={() => { if (predictions.length > 0) setShowDropdown(true) }}
+                    placeholder="Address — e.g. 123 Main St, Austin, TX"
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={showDropdown}
+                    aria-controls="newcheck-suggestions"
+                    aria-haspopup="listbox"
+                    aria-autocomplete="list"
+                    className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
+                  />
+                  {loading && <Loader2 className="h-4 w-4 animate-spin text-emerald-500 shrink-0" />}
+                </div>
+
+                {/* Predictions dropdown */}
+                {showDropdown && predictions.length > 0 && (
+                  <div
+                    ref={dropdownRef}
+                    id="newcheck-suggestions"
+                    role="listbox"
+                    className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+                  >
+                    {predictions.map((prediction, index) => (
+                      <button
+                        key={prediction.placeId}
+                        role="option"
+                        type="button"
+                        aria-selected={index === activeIndex}
+                        className={cn(
+                          'flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors',
+                          index === activeIndex ? 'bg-emerald-50 text-emerald-900' : 'text-gray-700 hover:bg-gray-50',
+                        )}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onClick={() => selectPrediction(prediction)}
+                      >
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-xs">{prediction.mainText}</p>
+                          <p className="truncate text-[11px] text-gray-500">{prediction.secondaryText}</p>
+                        </div>
+                      </button>
+                    ))}
+                    <div className="border-t border-gray-100 px-3 py-1.5 text-right">
+                      <span className="text-[10px] text-gray-400">Powered by Google</span>
+                    </div>
+                  </div>
+                )}
               </div>
               <button
                 type="submit"
