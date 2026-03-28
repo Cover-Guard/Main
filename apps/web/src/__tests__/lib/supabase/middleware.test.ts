@@ -104,6 +104,21 @@ jest.mock('next/server', () => {
 import { NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
+// ─── Mock response type ─────────────────────────────────────────────────────
+
+interface MockResponse {
+  _type: 'next' | 'redirect'
+  _url?: string
+  _pathname?: string
+  _searchParams?: Record<string, string>
+  cookies: MockCookieStore
+}
+
+// Wrapper that casts the return type so TS recognises our _type property
+async function callUpdateSession(req: ReturnType<typeof createMockRequest>): Promise<MockResponse> {
+  return updateSession(req as never) as unknown as MockResponse
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function setupEnvVars(overrides: Record<string, string | undefined> = {}) {
@@ -160,55 +175,55 @@ describe('updateSession', () => {
   describe('/get-started is a public route (the fix)', () => {
     it('allows unauthenticated access to /get-started', async () => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest('/get-started'))
+      const res = await callUpdateSession(createMockRequest('/get-started'))
       expect(res._type).toBe('next')
     })
 
     it('does not call NextResponse.redirect for unauthenticated /get-started', async () => {
       mockUnauthenticated()
-      await updateSession(createMockRequest('/get-started'))
+      await callUpdateSession(createMockRequest('/get-started'))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
 
     it('allows authenticated access to /get-started', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/get-started'))
+      const res = await callUpdateSession(createMockRequest('/get-started'))
       expect(res._type).toBe('next')
     })
 
     it('does not redirect authenticated users on /get-started to /dashboard', async () => {
       mockAuthenticated()
-      await updateSession(createMockRequest('/get-started'))
+      await callUpdateSession(createMockRequest('/get-started'))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
 
     it('allows unauthenticated access to /get-started/ (trailing slash)', async () => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest('/get-started/'))
+      const res = await callUpdateSession(createMockRequest('/get-started/'))
       expect(res._type).toBe('next')
     })
 
     it('allows unauthenticated access to /get-started/step2', async () => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest('/get-started/step2'))
+      const res = await callUpdateSession(createMockRequest('/get-started/step2'))
       expect(res._type).toBe('next')
     })
 
     it('allows unauthenticated access to /get-started/agent', async () => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest('/get-started/agent'))
+      const res = await callUpdateSession(createMockRequest('/get-started/agent'))
       expect(res._type).toBe('next')
     })
 
     it('allows unauthenticated access to /get-started/individual', async () => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest('/get-started/individual'))
+      const res = await callUpdateSession(createMockRequest('/get-started/individual'))
       expect(res._type).toBe('next')
     })
 
     it('allows authenticated access to /get-started/step2', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/get-started/step2'))
+      const res = await callUpdateSession(createMockRequest('/get-started/step2'))
       expect(res._type).toBe('next')
     })
   })
@@ -236,19 +251,19 @@ describe('updateSession', () => {
 
     it.each(publicRoutes)('allows unauthenticated access to %s', async (route) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('next')
     })
 
     it.each(publicRoutes)('does not redirect unauthenticated user from %s', async (route) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
 
     it.each(publicRoutes)('calls NextResponse.next for unauthenticated %s', async (route) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(NextResponse.next).toHaveBeenCalled()
     })
   })
@@ -289,13 +304,13 @@ describe('updateSession', () => {
 
     it.each(subPaths)('allows unauthenticated access to %s', async (path) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(path))
+      const res = await callUpdateSession(createMockRequest(path))
       expect(res._type).toBe('next')
     })
 
     it.each(subPaths)('does not redirect from %s', async (path) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(path))
+      await callUpdateSession(createMockRequest(path))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
   })
@@ -339,19 +354,19 @@ describe('updateSession', () => {
 
     it.each(protectedRoutes)('redirects unauthenticated user from %s', async (route) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('redirect')
     })
 
     it.each(protectedRoutes)('redirects to /login from %s', async (route) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(getRedirectPathname()).toBe('/login')
     })
 
     it.each(protectedRoutes)('sets redirectTo param for %s', async (route) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(getRedirectSearchParam('redirectTo')).toBe(route)
     })
   })
@@ -374,7 +389,7 @@ describe('updateSession', () => {
 
     it.each(routesWithQuery)('preserves query for %s', async (route, expectedRedirectTo) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(getRedirectSearchParam('redirectTo')).toBe(expectedRedirectTo)
     })
   })
@@ -388,14 +403,14 @@ describe('updateSession', () => {
 
     it.each(authRoutes)('redirects authenticated user from %s to /dashboard', async (route) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/dashboard')
     })
 
     it.each(authRoutes)('calls NextResponse.redirect for authenticated user on %s', async (route) => {
       mockAuthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(NextResponse.redirect).toHaveBeenCalledTimes(1)
     })
   })
@@ -418,7 +433,7 @@ describe('updateSession', () => {
 
     it.each(authSubRoutes)('redirects authenticated user from %s to /dashboard', async (route) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/dashboard')
     })
@@ -431,13 +446,13 @@ describe('updateSession', () => {
   describe('/get-started is not an auth route', () => {
     it('does not redirect authenticated users from /get-started', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/get-started'))
+      const res = await callUpdateSession(createMockRequest('/get-started'))
       expect(res._type).toBe('next')
     })
 
     it('does not redirect authenticated users from /get-started/agent', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/get-started/agent'))
+      const res = await callUpdateSession(createMockRequest('/get-started/agent'))
       expect(res._type).toBe('next')
     })
 
@@ -452,7 +467,7 @@ describe('updateSession', () => {
         jest.clearAllMocks()
         setupEnvVars()
         mockAuthenticated(user)
-        const res = await updateSession(createMockRequest('/get-started'))
+        const res = await callUpdateSession(createMockRequest('/get-started'))
         expect(res._type).toBe('next')
       }
     })
@@ -479,13 +494,13 @@ describe('updateSession', () => {
 
     it.each(nonAuthPublicRoutes)('allows authenticated user through %s', async (route) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('next')
     })
 
     it.each(nonAuthPublicRoutes)('does not redirect authenticated user from %s', async (route) => {
       mockAuthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
   })
@@ -507,7 +522,7 @@ describe('updateSession', () => {
 
     it.each(protectedRoutes)('allows authenticated user through %s', async (route) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('next')
     })
   })
@@ -550,13 +565,13 @@ describe('updateSession', () => {
 
     it.each(falsePositiveRoutes)('%s is NOT a public route (redirects unauthenticated)', async (route) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('redirect')
     })
 
     it.each(falsePositiveRoutes)('%s redirects to /login', async (route) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(getRedirectPathname()).toBe('/login')
     })
   })
@@ -568,25 +583,25 @@ describe('updateSession', () => {
   describe('root path (/) handling', () => {
     it('/ is always public for unauthenticated', async () => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest('/'))
+      const res = await callUpdateSession(createMockRequest('/'))
       expect(res._type).toBe('next')
     })
 
     it('/ is accessible for authenticated', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/'))
+      const res = await callUpdateSession(createMockRequest('/'))
       expect(res._type).toBe('next')
     })
 
     it('/ does not redirect unauthenticated users', async () => {
       mockUnauthenticated()
-      await updateSession(createMockRequest('/'))
+      await callUpdateSession(createMockRequest('/'))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
 
     it('/ does not redirect authenticated users (not an auth route)', async () => {
       mockAuthenticated()
-      await updateSession(createMockRequest('/'))
+      await callUpdateSession(createMockRequest('/'))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
   })
@@ -608,40 +623,40 @@ describe('updateSession', () => {
 
     it.each(routesToTest)('returns next() for %s when both env vars missing', async (route) => {
       clearEnvVars()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('next')
     })
 
     it.each(routesToTest)('does not redirect from %s when env vars missing', async (route) => {
       clearEnvVars()
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(NextResponse.redirect).not.toHaveBeenCalled()
     })
 
     it('returns next() when only SUPABASE_URL is missing', async () => {
       setupEnvVars()
       delete process.env.NEXT_PUBLIC_SUPABASE_URL
-      const res = await updateSession(createMockRequest('/dashboard'))
+      const res = await callUpdateSession(createMockRequest('/dashboard'))
       expect(res._type).toBe('next')
     })
 
     it('returns next() when only ANON_KEY is missing', async () => {
       setupEnvVars()
       delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      const res = await updateSession(createMockRequest('/dashboard'))
+      const res = await callUpdateSession(createMockRequest('/dashboard'))
       expect(res._type).toBe('next')
     })
 
     it('does not call createServerClient when env vars missing', async () => {
       clearEnvVars()
       const ssr = await import('@supabase/ssr')
-      await updateSession(createMockRequest('/get-started'))
+      await callUpdateSession(createMockRequest('/get-started'))
       expect(ssr.createServerClient).not.toHaveBeenCalled()
     })
 
     it('does not call getUser when env vars missing', async () => {
       clearEnvVars()
-      await updateSession(createMockRequest('/dashboard'))
+      await callUpdateSession(createMockRequest('/dashboard'))
       expect(mockGetUser).not.toHaveBeenCalled()
     })
   })
@@ -674,7 +689,7 @@ describe('updateSession', () => {
 
     it.each(subscriptionExemptRoutes)('%s is exempt from subscription check (public)', async (route) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       // Auth routes redirect to /dashboard, non-auth public routes pass through
       // Either way, no subscription redirect to /pricing
       if (res._type === 'redirect') {
@@ -687,37 +702,37 @@ describe('updateSession', () => {
 
     it.each(subscriptionExemptProtected)('%s is exempt from subscription check (exempted)', async (route) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('next')
     })
 
     it('cached active subscription (cookie=1) allows /dashboard', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/dashboard', { cg_sub_active: '1' }))
+      const res = await callUpdateSession(createMockRequest('/dashboard', { cg_sub_active: '1' }))
       expect(res._type).toBe('next')
     })
 
     it('cached active subscription (cookie=1) allows /analytics', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/analytics', { cg_sub_active: '1' }))
+      const res = await callUpdateSession(createMockRequest('/analytics', { cg_sub_active: '1' }))
       expect(res._type).toBe('next')
     })
 
     it('cached active subscription (cookie=1) allows /compare', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/compare', { cg_sub_active: '1' }))
+      const res = await callUpdateSession(createMockRequest('/compare', { cg_sub_active: '1' }))
       expect(res._type).toBe('next')
     })
 
     it('cached active subscription (cookie=1) allows /properties/123', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/properties/123', { cg_sub_active: '1' }))
+      const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '1' }))
       expect(res._type).toBe('next')
     })
 
     it('cached inactive subscription (cookie=0) redirects /dashboard to /pricing', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/pricing')
       expect(getRedirectSearchParam('reason')).toBe('subscription_required')
@@ -725,28 +740,28 @@ describe('updateSession', () => {
 
     it('cached inactive subscription (cookie=0) redirects /analytics to /pricing', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/analytics', { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest('/analytics', { cg_sub_active: '0' }))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/pricing')
     })
 
     it('cached inactive subscription (cookie=0) redirects /compare to /pricing', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/compare', { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest('/compare', { cg_sub_active: '0' }))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/pricing')
     })
 
     it('cached inactive subscription (cookie=0) redirects /properties/123 to /pricing', async () => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/properties/123', { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '0' }))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/pricing')
     })
 
     it('cached inactive subscription includes reason param', async () => {
       mockAuthenticated()
-      await updateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
+      await callUpdateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
       expect(getRedirectSearchParam('reason')).toBe('subscription_required')
     })
   })
@@ -761,7 +776,7 @@ describe('updateSession', () => {
     it.each(protectedRoutes)('allows authenticated access to %s when STRIPE_SUBSCRIPTION_REQUIRED=false', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'false' })
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('next')
     })
 
@@ -769,7 +784,7 @@ describe('updateSession', () => {
       setupEnvVars()
       delete process.env.STRIPE_SUBSCRIPTION_REQUIRED
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('next')
     })
 
@@ -778,7 +793,7 @@ describe('updateSession', () => {
     it.each(subRequiredFalsyValues)('STRIPE_SUBSCRIPTION_REQUIRED=%s does not trigger subscription gate for /dashboard', async (value) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: value })
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/dashboard'))
+      const res = await callUpdateSession(createMockRequest('/dashboard'))
       // Only 'true' (case-insensitive) triggers the gate
       expect(res._type).toBe('next')
     })
@@ -794,7 +809,7 @@ describe('updateSession', () => {
     it.each(trueValues)('value "%s" activates subscription gate', async (value) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: value })
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/pricing')
     })
@@ -809,14 +824,14 @@ describe('updateSession', () => {
 
     it.each(authRoutes)('exercises cookie delete path for unauthenticated user on %s', async (route) => {
       mockUnauthenticated()
-      await updateSession(createMockRequest(route, { cg_sub_active: '1' }))
+      await callUpdateSession(createMockRequest(route, { cg_sub_active: '1' }))
       expect(NextResponse.next).toHaveBeenCalled()
     })
 
     it('exercises cookie clear on /dashboard?subscription=success', async () => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'true' })
       mockAuthenticated()
-      await updateSession(createMockRequest('/dashboard?subscription=success', { cg_sub_active: '0' }))
+      await callUpdateSession(createMockRequest('/dashboard?subscription=success', { cg_sub_active: '0' }))
       // Should not crash
       expect(true).toBe(true)
     })
@@ -824,7 +839,7 @@ describe('updateSession', () => {
     it('authenticated user on /dashboard?subscription=success with active cookie passes', async () => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'false' })
       mockAuthenticated()
-      const res = await updateSession(createMockRequest('/dashboard?subscription=success', { cg_sub_active: '1' }))
+      const res = await callUpdateSession(createMockRequest('/dashboard?subscription=success', { cg_sub_active: '1' }))
       expect(res._type).toBe('next')
     })
   })
@@ -848,7 +863,7 @@ describe('updateSession', () => {
     // All these users should be redirected from /login to /dashboard
     it.each(userShapes)('%s is redirected from /login to /dashboard', async (_desc, user) => {
       mockAuthenticated(user)
-      const res = await updateSession(createMockRequest('/login'))
+      const res = await callUpdateSession(createMockRequest('/login'))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/dashboard')
     })
@@ -856,14 +871,14 @@ describe('updateSession', () => {
     // All these users should pass through on /dashboard
     it.each(userShapes)('%s passes through on /dashboard', async (_desc, user) => {
       mockAuthenticated(user)
-      const res = await updateSession(createMockRequest('/dashboard'))
+      const res = await callUpdateSession(createMockRequest('/dashboard'))
       expect(res._type).toBe('next')
     })
 
     // All these users should pass through on /get-started
     it.each(userShapes)('%s passes through on /get-started', async (_desc, user) => {
       mockAuthenticated(user)
-      const res = await updateSession(createMockRequest('/get-started'))
+      const res = await callUpdateSession(createMockRequest('/get-started'))
       expect(res._type).toBe('next')
     })
   })
@@ -888,7 +903,7 @@ describe('updateSession', () => {
 
     it.each(deepPaths)('allows unauthenticated access to deep path %s', async (path) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(path))
+      const res = await callUpdateSession(createMockRequest(path))
       expect(res._type).toBe('next')
     })
   })
@@ -909,13 +924,13 @@ describe('updateSession', () => {
 
     it.each(deepProtected)('redirects unauthenticated from %s', async (path) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(path))
+      const res = await callUpdateSession(createMockRequest(path))
       expect(res._type).toBe('redirect')
     })
 
     it.each(deepProtected)('allows authenticated access to %s', async (path) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(path))
+      const res = await callUpdateSession(createMockRequest(path))
       expect(res._type).toBe('next')
     })
   })
@@ -928,7 +943,7 @@ describe('updateSession', () => {
     it('handles 20 successive calls without issues', async () => {
       mockUnauthenticated()
       for (let i = 0; i < 20; i++) {
-        const res = await updateSession(createMockRequest('/get-started'))
+        const res = await callUpdateSession(createMockRequest('/get-started'))
         expect(res._type).toBe('next')
       }
     })
@@ -938,13 +953,13 @@ describe('updateSession', () => {
         jest.clearAllMocks()
         setupEnvVars()
         mockUnauthenticated()
-        const publicRes = await updateSession(createMockRequest('/get-started'))
+        const publicRes = await callUpdateSession(createMockRequest('/get-started'))
         expect(publicRes._type).toBe('next')
 
         jest.clearAllMocks()
         setupEnvVars()
         mockUnauthenticated()
-        const protectedRes = await updateSession(createMockRequest('/dashboard'))
+        const protectedRes = await callUpdateSession(createMockRequest('/dashboard'))
         expect(protectedRes._type).toBe('redirect')
       }
     })
@@ -954,13 +969,13 @@ describe('updateSession', () => {
         jest.clearAllMocks()
         setupEnvVars()
         mockUnauthenticated()
-        const unauthRes = await updateSession(createMockRequest('/dashboard'))
+        const unauthRes = await callUpdateSession(createMockRequest('/dashboard'))
         expect(unauthRes._type).toBe('redirect')
 
         jest.clearAllMocks()
         setupEnvVars()
         mockAuthenticated()
-        const authRes = await updateSession(createMockRequest('/dashboard'))
+        const authRes = await callUpdateSession(createMockRequest('/dashboard'))
         expect(authRes._type).toBe('next')
       }
     })
@@ -997,7 +1012,7 @@ describe('updateSession', () => {
     const unauthPublic = routes.filter(r => r.isPublic)
     it.each(unauthPublic.map(r => [r.path]))('unauthenticated + public %s → next', async (path) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(path as string))
+      const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('next')
     })
 
@@ -1005,7 +1020,7 @@ describe('updateSession', () => {
     const unauthProtected = routes.filter(r => !r.isPublic)
     it.each(unauthProtected.map(r => [r.path]))('unauthenticated + protected %s → redirect /login', async (path) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(path as string))
+      const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/login')
     })
@@ -1014,7 +1029,7 @@ describe('updateSession', () => {
     const authAuthRoutes = routes.filter(r => r.isAuthRoute)
     it.each(authAuthRoutes.map(r => [r.path]))('authenticated + authRoute %s → redirect /dashboard', async (path) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(path as string))
+      const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/dashboard')
     })
@@ -1023,7 +1038,7 @@ describe('updateSession', () => {
     const authNonAuthPublic = routes.filter(r => r.isPublic && !r.isAuthRoute)
     it.each(authNonAuthPublic.map(r => [r.path]))('authenticated + nonAuth public %s → next', async (path) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(path as string))
+      const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('next')
     })
 
@@ -1031,7 +1046,7 @@ describe('updateSession', () => {
     const authProtected = routes.filter(r => !r.isPublic)
     it.each(authProtected.map(r => [r.path]))('authenticated + protected %s → next', async (path) => {
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(path as string))
+      const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('next')
     })
   })
@@ -1064,7 +1079,7 @@ describe('updateSession', () => {
 
     it.each(moreFalsePositives)('%s is protected (redirects unauthenticated)', async (route) => {
       mockUnauthenticated()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(res._type).toBe('redirect')
     })
   })
@@ -1091,14 +1106,14 @@ describe('updateSession', () => {
     it.each(protectedRoutes)('cached active (cookie=1) allows %s', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'true' })
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route, { cg_sub_active: '1' }))
+      const res = await callUpdateSession(createMockRequest(route, { cg_sub_active: '1' }))
       expect(res._type).toBe('next')
     })
 
     it.each(protectedRoutes)('cached inactive (cookie=0) redirects from %s to /pricing', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'true' })
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route, { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest(route, { cg_sub_active: '0' }))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/pricing')
     })
@@ -1123,7 +1138,7 @@ describe('updateSession', () => {
     it.each(passThroughCases)('calls NextResponse.next for %s', async (_desc, setup) => {
       setup()
       const route = _desc.split(' ')[1]
-      await updateSession(createMockRequest(route))
+      await callUpdateSession(createMockRequest(route))
       expect(NextResponse.next).toHaveBeenCalled()
     })
   })
@@ -1152,7 +1167,7 @@ describe('updateSession', () => {
     it.each(exemptRoutes)('authenticated user with cookie=0 still accesses %s', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'true' })
       mockAuthenticated()
-      const res = await updateSession(createMockRequest(route, { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest(route, { cg_sub_active: '0' }))
       // Auth routes redirect to /dashboard, but never to /pricing
       if (res._type === 'redirect') {
         expect(getRedirectPathname()).not.toBe('/pricing')
@@ -1190,7 +1205,7 @@ describe('updateSession', () => {
 
     it.each(mixedCases)('%s returns next or redirect', async (_desc, setup, route) => {
       setup()
-      const res = await updateSession(createMockRequest(route))
+      const res = await callUpdateSession(createMockRequest(route))
       expect(['next', 'redirect']).toContain(res._type)
     })
   })
