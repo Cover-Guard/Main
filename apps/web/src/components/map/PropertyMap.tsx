@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef, Component, type ReactNode } from 'react'
 import { APIProvider, Map, AdvancedMarker, InfoWindow, useMap, useApiIsLoaded } from '@vis.gl/react-google-maps'
-import type { Property, PropertyRiskProfile } from '@coverguard/shared'
-import { MapPin, Layers, AlertTriangle } from 'lucide-react'
+import type { Property, PropertyRiskProfile, RiskLevel } from '@coverguard/shared'
+import { MapPin, Layers, AlertTriangle, Droplets, Flame, Wind, Activity, ShieldAlert, Eye, EyeOff } from 'lucide-react'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
@@ -19,20 +19,61 @@ interface PropertyMapProps {
 
 type RiskLayer = 'flood' | 'fire' | 'wind' | 'earthquake' | 'crime'
 
-const RISK_LAYER_COLORS: Record<RiskLayer, string> = {
-  flood:      '#3b82f6',
-  fire:       '#ef4444',
-  wind:       '#a855f7',
-  earthquake: '#f97316',
-  crime:      '#6b7280',
+const RISK_LAYER_CONFIG: Record<RiskLayer, {
+  label: string
+  color: string
+  icon: typeof Droplets
+  description: string
+}> = {
+  flood: {
+    label: 'Flood Zones',
+    color: '#3b82f6',
+    icon: Droplets,
+    description: 'FEMA National Flood Hazard Layer',
+  },
+  fire: {
+    label: 'Fire Hazard',
+    color: '#ef4444',
+    icon: Flame,
+    description: 'USFS Wildland-Urban Interface',
+  },
+  wind: {
+    label: 'Wind / Hurricane',
+    color: '#a855f7',
+    icon: Wind,
+    description: 'NOAA Hurricane Surge Zones',
+  },
+  earthquake: {
+    label: 'Earthquake',
+    color: '#f97316',
+    icon: Activity,
+    description: 'USGS Seismic Hazard',
+  },
+  crime: {
+    label: 'Crime',
+    color: '#6b7280',
+    icon: ShieldAlert,
+    description: 'FBI Crime Data Explorer',
+  },
 }
 
-const RISK_LAYER_LABELS: Record<RiskLayer, string> = {
-  flood:      'Flood',
-  fire:       'Fire',
-  wind:       'Wind',
-  earthquake: 'Earthquake',
-  crime:      'Crime',
+// ─── ArcGIS Tile Service URLs ────────────────────────────────────────────────
+// These public ArcGIS MapServer services render real GIS data as map tiles.
+
+const ARCGIS_TILE_SERVICES: Partial<Record<RiskLayer, string>> = {
+  flood: 'https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer',
+  fire: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer',
+  wind: 'https://coast.noaa.gov/arcgis/rest/services/HurricaneEvacuation/SLOSH/MapServer',
+}
+
+function riskLevelBadgeColor(level: RiskLevel): string {
+  switch (level) {
+    case 'LOW': return 'bg-green-100 text-green-700'
+    case 'MODERATE': return 'bg-yellow-100 text-yellow-700'
+    case 'HIGH': return 'bg-orange-100 text-orange-700'
+    case 'VERY_HIGH': return 'bg-red-100 text-red-700'
+    case 'EXTREME': return 'bg-red-200 text-red-900'
+  }
 }
 
 export function PropertyMap({
@@ -53,13 +94,12 @@ export function PropertyMap({
 
   const getRiskScore = useCallback((layer: RiskLayer): number | null => {
     if (!riskProfile) return null
-    return {
-      flood:      riskProfile.flood.score,
-      fire:       riskProfile.fire.score,
-      wind:       riskProfile.wind.score,
-      earthquake: riskProfile.earthquake.score,
-      crime:      riskProfile.crime.score,
-    }[layer]
+    return riskProfile[layer].score
+  }, [riskProfile])
+
+  const getRiskLevel = useCallback((layer: RiskLayer): RiskLevel | null => {
+    if (!riskProfile) return null
+    return riskProfile[layer].level
   }, [riskProfile])
 
   const toggleLayer = useCallback((layer: RiskLayer) => {
@@ -94,21 +134,35 @@ export function PropertyMap({
           disableDefaultUI={false}
           style={{ width: '100%', height: '100%' }}
         >
-          {/* Risk layer circle overlays */}
-          {riskCenter && Array.from(activeLayers).map((layer) => {
-            const score = getRiskScore(layer)
-            if (score === null) return null
+          {/* ── GIS tile overlays (real geographic data) ──────────── */}
+          {Array.from(activeLayers).map((layer) => {
+            const tileUrl = ARCGIS_TILE_SERVICES[layer]
+            if (!tileUrl) return null
             return (
-              <RiskCircleOverlay
+              <ArcGISTileOverlay
                 key={layer}
-                center={{ lat: riskCenter.lat, lng: riskCenter.lng }}
-                radius={500 + score * 20}
-                color={RISK_LAYER_COLORS[layer]}
+                serviceUrl={tileUrl}
+                opacity={0.55}
               />
             )
           })}
 
-          {/* Property markers */}
+          {/* ── Risk score circle overlays ────────────────────────── */}
+          {riskCenter && Array.from(activeLayers).map((layer) => {
+            const score = getRiskScore(layer)
+            if (score === null || score === 0) return null
+            return (
+              <RiskCircleOverlay
+                key={`circle-${layer}`}
+                center={{ lat: riskCenter.lat, lng: riskCenter.lng }}
+                radius={300 + score * 25}
+                color={RISK_LAYER_CONFIG[layer].color}
+                score={score}
+              />
+            )
+          })}
+
+          {/* ── Property markers ──────────────────────────────────── */}
           {properties.map((p) => (
             <AdvancedMarker
               key={p.id}
@@ -163,49 +217,251 @@ export function PropertyMap({
       </APIProvider>
       </MapErrorBoundary>
 
-      {/* Risk layer controls */}
-      <div className="absolute bottom-4 left-4 z-10">
-        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+      {/* ── Risk layer control panel ─────────────────────────────── */}
+      <div className="absolute bottom-4 left-4 z-10 max-h-[calc(100%-2rem)] overflow-y-auto">
+        <div className="rounded-xl border border-gray-200 bg-white/95 backdrop-blur-sm p-3 shadow-lg w-56">
+          <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
             <Layers className="h-3.5 w-3.5" />
             Risk Layers
           </div>
+
           <div className="flex flex-col gap-1">
-            {(Object.keys(RISK_LAYER_LABELS) as RiskLayer[]).map((layer) => {
+            {(Object.keys(RISK_LAYER_CONFIG) as RiskLayer[]).map((layer) => {
+              const config = RISK_LAYER_CONFIG[layer]
+              const Icon = config.icon
               const score = getRiskScore(layer)
+              const level = getRiskLevel(layer)
               const isActive = activeLayers.has(layer)
+              const hasGISLayer = !!ARCGIS_TILE_SERVICES[layer]
+
               return (
                 <button
                   key={layer}
                   onClick={() => toggleLayer(layer)}
-                  className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                    isActive ? 'text-white shadow-sm' : 'text-gray-700 hover:bg-gray-100'
+                  className={`group flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all ${
+                    isActive
+                      ? 'shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-50'
                   }`}
-                  style={isActive ? { backgroundColor: RISK_LAYER_COLORS[layer] } : {}}
+                  style={isActive ? {
+                    backgroundColor: `${config.color}10`,
+                    color: config.color,
+                    boxShadow: `inset 0 0 0 1px ${config.color}40`,
+                  } : {}}
+                  title={config.description}
                 >
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: RISK_LAYER_COLORS[layer] }}
-                  />
-                  {RISK_LAYER_LABELS[layer]}
+                  {/* Toggle eye icon */}
+                  <div className="shrink-0">
+                    {isActive ? (
+                      <Eye className="h-3.5 w-3.5" style={{ color: config.color }} />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-500" />
+                    )}
+                  </div>
+
+                  {/* Layer icon + label */}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: isActive ? config.color : undefined }} />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium block truncate">{config.label}</span>
+                      {isActive && hasGISLayer && (
+                        <span className="text-[10px] opacity-70 block truncate">{config.description}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Score badge */}
                   {score !== null && (
-                    <span className={`ml-auto rounded px-1 py-0.5 text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                      {score}
-                    </span>
+                    <div className="shrink-0 flex flex-col items-end gap-0.5">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+                        style={isActive
+                          ? { backgroundColor: `${config.color}20`, color: config.color }
+                          : { backgroundColor: '#f3f4f6', color: '#6b7280' }
+                        }
+                      >
+                        {score}
+                      </span>
+                      {level && isActive && (
+                        <span className={`rounded px-1 py-0.5 text-[9px] font-semibold ${riskLevelBadgeColor(level)}`}>
+                          {level.replace('_', ' ')}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </button>
               )
             })}
           </div>
+
+          {/* Legend note */}
+          {activeLayers.size > 0 && (
+            <div className="mt-2.5 border-t border-gray-100 pt-2">
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                {Array.from(activeLayers).some((l) => ARCGIS_TILE_SERVICES[l])
+                  ? 'Map overlays show real geographic risk zones from public data sources.'
+                  : 'Circles indicate risk intensity centered on the property.'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ── Overall risk badge (top-right) ───────────────────────── */}
+      {riskProfile && (
+        <div className="absolute top-4 right-4 z-10">
+          <div className={`rounded-lg px-3 py-1.5 text-xs font-bold shadow-md ${riskLevelBadgeColor(riskProfile.overallRiskLevel)}`}>
+            Overall: {riskProfile.overallRiskScore}/100 — {riskProfile.overallRiskLevel.replace('_', ' ')}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-/**
- * Error boundary that catches Google Maps rendering errors.
- */
+// ─── ArcGIS Tile Overlay ─────────────────────────────────────────────────────
+// Renders an ArcGIS MapServer as a transparent image tile layer on Google Maps.
+// This brings real GIS data (flood zones, fire hazard zones, surge zones) onto
+// the map directly from public government servers.
+
+function ArcGISTileOverlay({
+  serviceUrl,
+  opacity = 0.5,
+}: {
+  serviceUrl: string
+  opacity?: number
+}) {
+  const map = useMap()
+  const overlayRef = useRef<google.maps.ImageMapType | null>(null)
+
+  useEffect(() => {
+    if (!map) return
+
+    // Remove any existing overlay from this component instance
+    if (overlayRef.current) {
+      const idx = findOverlayIndex(map, overlayRef.current)
+      if (idx >= 0) map.overlayMapTypes.removeAt(idx)
+      overlayRef.current = null
+    }
+
+    try {
+      const tileLayer = new google.maps.ImageMapType({
+        getTileUrl: (coord, zoom) => {
+          // Convert tile coordinates to bounding box in Web Mercator (EPSG:3857)
+          const tileSize = 256
+          const scale = 1 << zoom
+          const worldSize = tileSize * scale
+
+          // Tile bounds in pixel coordinates
+          const x0 = coord.x * tileSize
+          const y0 = coord.y * tileSize
+          const x1 = x0 + tileSize
+          const y1 = y0 + tileSize
+
+          // Convert pixel to Web Mercator
+          const originShift = 20037508.342789244
+          const mpp = (2 * originShift) / worldSize
+          const xmin = x0 * mpp - originShift
+          const xmax = x1 * mpp - originShift
+          // Y is flipped in Web Mercator
+          const ymin = originShift - y1 * mpp
+          const ymax = originShift - y0 * mpp
+
+          return (
+            `${serviceUrl}/export?` +
+            `bbox=${xmin},${ymin},${xmax},${ymax}` +
+            `&bboxSR=3857&imageSR=3857` +
+            `&size=${tileSize},${tileSize}` +
+            `&format=png32` +
+            `&transparent=true` +
+            `&f=image`
+          )
+        },
+        tileSize: new google.maps.Size(256, 256),
+        opacity,
+        name: serviceUrl,
+      })
+
+      map.overlayMapTypes.push(tileLayer)
+      overlayRef.current = tileLayer
+    } catch {
+      // Google Maps API not fully available yet — skip
+    }
+
+    return () => {
+      if (overlayRef.current && map) {
+        const idx = findOverlayIndex(map, overlayRef.current)
+        if (idx >= 0) map.overlayMapTypes.removeAt(idx)
+        overlayRef.current = null
+      }
+    }
+  }, [map, serviceUrl, opacity])
+
+  return null
+}
+
+function findOverlayIndex(map: google.maps.Map, overlay: google.maps.ImageMapType): number {
+  for (let i = 0; i < map.overlayMapTypes.getLength(); i++) {
+    if (map.overlayMapTypes.getAt(i) === overlay) return i
+  }
+  return -1
+}
+
+// ─── Risk Circle Overlay ─────────────────────────────────────────────────────
+// Draws a colored circle overlay scaled by the risk score.
+
+function RiskCircleOverlay({
+  center,
+  radius,
+  color,
+  score,
+}: {
+  center: { lat: number; lng: number }
+  radius: number
+  color: string
+  score: number
+}) {
+  const map = useMap()
+  const circleRef = useRef<google.maps.Circle | null>(null)
+
+  // Opacity scales with score: low risk = faint, high risk = bold
+  const fillOpacity = 0.08 + (score / 100) * 0.22
+  const strokeOpacity = 0.3 + (score / 100) * 0.5
+
+  useEffect(() => {
+    if (!map) return
+
+    if (circleRef.current) {
+      circleRef.current.setMap(null)
+    }
+
+    try {
+      circleRef.current = new google.maps.Circle({
+        map,
+        center,
+        radius,
+        fillColor: color,
+        fillOpacity,
+        strokeColor: color,
+        strokeWeight: 2,
+        strokeOpacity,
+        clickable: false,
+      })
+    } catch {
+      circleRef.current = null
+    }
+
+    return () => {
+      circleRef.current?.setMap(null)
+      circleRef.current = null
+    }
+  }, [map, center, radius, color, fillOpacity, strokeOpacity])
+
+  return null
+}
+
+// ─── Error Boundary ──────────────────────────────────────────────────────────
+
 class MapErrorBoundary extends Component<
   { children: ReactNode; className?: string },
   { hasError: boolean }
@@ -232,9 +488,8 @@ class MapErrorBoundary extends Component<
   }
 }
 
-/**
- * Shows a loading skeleton until the Google Maps API is fully loaded.
- */
+// ─── Loading Guard ───────────────────────────────────────────────────────────
+
 function MapLoadingGuard({ children }: { children: ReactNode }) {
   const isLoaded = useApiIsLoaded()
 
@@ -250,52 +505,4 @@ function MapLoadingGuard({ children }: { children: ReactNode }) {
   }
 
   return <>{children}</>
-}
-
-/**
- * Draws a circle overlay on the Google Map using the Maps JS API directly.
- */
-function RiskCircleOverlay({
-  center,
-  radius,
-  color,
-}: {
-  center: { lat: number; lng: number }
-  radius: number
-  color: string
-}) {
-  const map = useMap()
-  const circleRef = useRef<google.maps.Circle | null>(null)
-
-  useEffect(() => {
-    if (!map) return
-
-    if (circleRef.current) {
-      circleRef.current.setMap(null)
-    }
-
-    try {
-      circleRef.current = new google.maps.Circle({
-        map,
-        center,
-        radius,
-        fillColor: color,
-        fillOpacity: 0.18,
-        strokeColor: color,
-        strokeWeight: 2,
-        strokeOpacity: 0.6,
-        clickable: false,
-      })
-    } catch {
-      // Google Maps Circle API not available — skip overlay silently
-      circleRef.current = null
-    }
-
-    return () => {
-      circleRef.current?.setMap(null)
-      circleRef.current = null
-    }
-  }, [map, center, radius, color])
-
-  return null
 }
