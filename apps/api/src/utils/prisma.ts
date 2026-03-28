@@ -4,6 +4,7 @@ import { logger } from './logger'
 
 declare global {
   var __prisma: PrismaClient | undefined
+  var __prismaShutdownRegistered: boolean | undefined
 }
 
 const isProduction = process.env.NODE_ENV === 'production'
