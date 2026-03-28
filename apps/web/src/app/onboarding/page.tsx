@@ -7,12 +7,16 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [accepted, setAccepted] = useState(false)
+  const [agreeNDA, setAgreeNDA] = useState(false)
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [agreePrivacy, setAgreePrivacy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const allAccepted = agreeNDA && agreeTerms && agreePrivacy
+
   async function handleAccept() {
-    if (!accepted) return
+    if (!allAccepted) return
     setLoading(true)
     setError(null)
 
@@ -110,26 +114,66 @@ export default function OnboardingPage() {
               comprehensive security controls to protect the confidentiality, integrity, and availability of your information.
             </div>
 
+            {/* NDA */}
+            <div className="rounded-lg border border-gray-200 bg-gray-50">
+              <details className="group">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 select-none">
+                  Non-Disclosure Agreement <span className="text-xs font-normal text-gray-500">(click to expand)</span>
+                </summary>
+                <div className="max-h-48 overflow-y-auto border-t border-gray-200 px-4 py-3 text-xs leading-relaxed text-gray-600">
+                  This Non-Disclosure Agreement is entered into between CoverGuard, Inc. and the User. Confidential Information includes proprietary risk scoring methodologies, carrier availability data, underwriting intelligence, property insurability assessments, and pricing models. User agrees to hold all Confidential Information in strict confidence, not disclose it to third parties, and use it solely for lawful property research purposes. This Agreement remains in effect for 5 years following termination of access. Full NDA text is available in the Terms of Service.
+                </div>
+              </details>
+            </div>
+
             {error && (
               <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
             )}
 
-            {/* Accept checkbox */}
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={accepted}
-                onChange={(e) => setAccepted(e.target.checked)}
-                className="mt-0.5 h-5 w-5 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-              />
-              <span className="text-sm font-medium text-gray-800">
-                I have read and understand these disclosures, and I agree to the Terms of Service and Privacy Policy.
-              </span>
-            </label>
+            {/* Agreement checkboxes */}
+            <div className="space-y-3">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={agreeNDA}
+                  onChange={(e) => setAgreeNDA(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-sm text-gray-800">
+                  I have read and agree to the <strong>Non-Disclosure Agreement</strong>
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-sm text-gray-800">
+                  I agree to the{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={agreePrivacy}
+                  onChange={(e) => setAgreePrivacy(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-sm text-gray-800">
+                  I agree to the{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>
+                </span>
+              </label>
+            </div>
 
             <button
               onClick={handleAccept}
-              disabled={!accepted || loading}
+              disabled={!allAccepted || loading}
               className="btn-primary w-full py-3 text-base"
             >
               {loading ? 'Saving…' : 'Accept & Continue to CoverGuard'}

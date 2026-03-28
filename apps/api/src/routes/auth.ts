@@ -42,9 +42,8 @@ const registerSchema = z.object({
   role: z.enum(['BUYER', 'AGENT', 'LENDER']).default('BUYER'),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
-  agreeNDA: z.literal(true, { errorMap: () => ({ message: 'NDA agreement is required' }) }),
-  agreeTerms: z.literal(true, { errorMap: () => ({ message: 'Terms of Use agreement is required' }) }),
-  agreePrivacy: z.literal(true, { errorMap: () => ({ message: 'Privacy Policy agreement is required' }) }),
+  // NDA, terms, and privacy agreements are handled during onboarding (POST /me/terms)
+  // to ensure the same workflow for email and OAuth users.
 })
 
 // ─── Register ─────────────────────────────────────────────────────────────────
@@ -52,8 +51,6 @@ const registerSchema = z.object({
 authRouter.post('/register', async (req, res, next) => {
   try {
     const body = registerSchema.parse(req.body)
-
-    const agreedAt = new Date()
 
     // Validate database connectivity BEFORE creating the Supabase auth user.
     // If the DB is unreachable (e.g. missing connection string env var), we
@@ -88,9 +85,9 @@ authRouter.post('/register', async (req, res, next) => {
         role: body.role,
         company: body.company ?? null,
         licenseNumber: body.licenseNumber ?? null,
-        termsAcceptedAt: agreedAt.toISOString(),
-        ndaAcceptedAt: agreedAt.toISOString(),
-        privacyAcceptedAt: agreedAt.toISOString(),
+        // Agreement timestamps are NOT set here — they are set during the
+        // unified onboarding step (POST /me/terms) so email and OAuth users
+        // go through the same NDA/terms/privacy acceptance workflow.
       },
     })
 
@@ -114,9 +111,7 @@ authRouter.post('/register', async (req, res, next) => {
       role: body.role,
       company: body.company ?? null,
       licenseNumber: body.licenseNumber ?? null,
-      ndaAcceptedAt: agreedAt,
-      privacyAcceptedAt: agreedAt,
-      termsAcceptedAt: agreedAt,
+      // Agreement timestamps left null — set during onboarding (POST /me/terms)
     }
 
     try {
@@ -220,24 +215,30 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Accept terms ─────────────────────────────────────────────────────────────
-// Optimistic: try update first (common path — profile exists from sync-profile
-// or register). Only fall back to create + Supabase lookup if profile is missing.
-// This avoids a ~50-200ms Supabase Admin API call on every terms acceptance.
+// ─── Accept terms / NDA / privacy (unified onboarding endpoint) ─────────────
+// Used by both email-registered and OAuth-registered users. Sets all three
+// agreement timestamps in a single call. Optimistic update first (profile
+// already exists from register or sync-profile), create fallback if missing.
 
 authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const now = new Date()
 
-    // Fast path: profile already exists (99% of cases after OAuth sync or register)
+    const agreements = {
+      termsAcceptedAt: now,
+      ndaAcceptedAt: now,
+      privacyAcceptedAt: now,
+    }
+
+    // Fast path: profile already exists (99% of cases after register or OAuth sync)
     const updated = await prisma.user.updateMany({
       where: { id: userId },
-      data: { termsAcceptedAt: now },
+      data: agreements,
     })
 
     if (updated.count > 0) {
-      res.json({ success: true, data: { termsAcceptedAt: now } })
+      res.json({ success: true, data: agreements })
       return
     }
 
@@ -257,11 +258,11 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
         role: toValidRole(meta.role),
         company: meta.company ?? null,
         licenseNumber: meta.licenseNumber ?? null,
-        termsAcceptedAt: now,
+        ...agreements,
       },
       select: { id: true },
     })
-    res.json({ success: true, data: { termsAcceptedAt: now } })
+    res.json({ success: true, data: agreements })
   } catch (err) {
     next(err)
   }
