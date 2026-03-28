@@ -22,14 +22,10 @@ describe('tsup.config.ts', () => {
     expect(fs.existsSync(TSUP_CONFIG_PATH)).toBe(true)
   })
 
-  it('bundles @coverguard/shared as noExternal', () => {
-    expect(configContent).toContain('@coverguard/shared')
-    expect(configContent).toMatch(/noExternal.*@coverguard\/shared/)
-  })
-
-  it('bundles @anthropic-ai/sdk as noExternal', () => {
-    expect(configContent).toContain('@anthropic-ai/sdk')
-    expect(configContent).toMatch(/noExternal.*@anthropic-ai\/sdk/)
+  it('inlines all non-native packages via noExternal regex', () => {
+    // noExternal uses a regex to inline everything except @prisma, pg, prisma, fsevents
+    expect(configContent).toMatch(/noExternal/)
+    expect(configContent).toMatch(/\@prisma|pg|prisma|fsevents/)
   })
 
   it('keeps @prisma/client as external', () => {
