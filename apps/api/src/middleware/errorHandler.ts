@@ -73,6 +73,22 @@ export function errorHandler(
     return
   }
 
+  // Missing configuration (DB, Supabase, etc.) → 503
+  if (err instanceof Error && (
+    err.message.includes('connection string is not configured') ||
+    err.message.includes('Missing SUPABASE_URL')
+  )) {
+    logger.error('Service unavailable: %s', err.message)
+    res.status(503).json({
+      success: false,
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Service temporarily unavailable. Please try again later.',
+      },
+    })
+    return
+  }
+
   // Generic Error → 500
   if (err instanceof Error) {
     logger.error(err.message, { stack: err.stack })

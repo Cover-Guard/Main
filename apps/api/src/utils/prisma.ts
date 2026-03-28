@@ -4,6 +4,7 @@ import { logger } from './logger'
 
 declare global {
   var __prisma: PrismaClient | undefined
+  var __prismaShutdownRegistered: boolean | undefined
 }
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -49,23 +50,51 @@ function createPrismaClient(): PrismaClient {
   })
 }
 
-export const prisma = global.__prisma ?? createPrismaClient()
+/**
+ * Lazy-initializing Prisma client proxy.
+ *
+ * In serverless environments (Vercel), modules are evaluated at cold-start.
+ * If DATABASE_URL is missing at that point, eagerly creating PrismaClient
+ * throws an unhandled error that crashes the entire function before Express
+ * can boot — resulting in an HTML 500 page instead of a JSON error.
+ *
+ * This proxy defers client creation until the first actual usage, allowing
+ * Express to start and return proper JSON error responses.
+ */
+function getLazyPrisma(): PrismaClient {
+  let instance: PrismaClient | undefined = global.__prisma
 
-if (!isProduction) {
-  global.__prisma = prisma
-
-  prisma.$on('query' as never, (e: { query: string; duration: number }) => {
-    if (process.env.LOG_LEVEL === 'debug') {
-      logger.debug(`Query: ${e.query} (${e.duration}ms)`)
-    }
+  return new Proxy({} as PrismaClient, {
+    get(_target, prop) {
+      if (!instance) {
+        instance = createPrismaClient()
+        if (!isProduction) {
+          global.__prisma = instance
+          instance.$on('query' as never, (e: { query: string; duration: number }) => {
+            if (process.env.LOG_LEVEL === 'debug') {
+              logger.debug(`Query: ${e.query} (${e.duration}ms)`)
+            }
+          })
+        }
+      }
+      const value = (instance as unknown as Record<string | symbol, unknown>)[prop]
+      if (typeof value === 'function') {
+        return value.bind(instance)
+      }
+      return value
+    },
   })
 }
 
-// Graceful shutdown — close pool on process signals
-process.once('SIGTERM', async () => {
-  await prisma.$disconnect()
-})
+export const prisma: PrismaClient = getLazyPrisma()
 
-process.once('SIGINT', async () => {
-  await prisma.$disconnect()
-})
+// Graceful shutdown — close pool on process signals
+if (!global.__prismaShutdownRegistered) {
+  global.__prismaShutdownRegistered = true
+  process.once('SIGTERM', async () => {
+    if (global.__prisma) await global.__prisma.$disconnect()
+  })
+  process.once('SIGINT', async () => {
+    if (global.__prisma) await global.__prisma.$disconnect()
+  })
+}

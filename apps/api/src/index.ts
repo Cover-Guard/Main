@@ -32,7 +32,11 @@ if (!hasDbUrl) {
 }
 if (missingEnv.length > 0) {
   console.error(`FATAL: Missing required environment variables: ${missingEnv.join(', ')}`)
-  process.exit(1)
+  // In serverless (Vercel), don't crash the process — let Express boot so it
+  // can return proper JSON 503 errors instead of an HTML 500 page.
+  if (process.env.VERCEL !== '1') {
+    process.exit(1)
+  }
 }
 
 const app = express()
