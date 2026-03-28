@@ -69,38 +69,65 @@ const mockQuoteGroupBy = prisma.quoteRequest.groupBy as jest.Mock
 const mockClientGroupBy = prisma.client.groupBy as jest.Mock
 const mockQueryRaw = prisma.$queryRaw as jest.Mock
 
+/** Build a combined query result matching the UNION ALL structure */
+function buildCombinedRows(opts: {
+  searchesByDay?: Array<{ key1: string; val: number }>
+  searchesByMonth?: Array<{ key1: string; val: number }>
+  riskDistribution?: Array<{ key1: string | null; val: number }>
+  topStates?: Array<{ key1: string; val: number }>
+  regionalRisk?: Array<{
+    key1: string; val: number
+    n1: number; n2: number; n3: number; n4: number; n5: number; n6: number
+    s1: string
+  }>
+  avgInsuranceCost?: number | null
+} = {}) {
+  const rows: Array<Record<string, unknown>> = []
+  for (const r of opts.searchesByDay ?? []) {
+    rows.push({ _query: 'searches_by_day', key1: r.key1, key2: null, val: r.val, n1: null, n2: null, n3: null, n4: null, n5: null, n6: null, s1: null })
+  }
+  for (const r of opts.searchesByMonth ?? []) {
+    rows.push({ _query: 'searches_by_month', key1: r.key1, key2: null, val: r.val, n1: null, n2: null, n3: null, n4: null, n5: null, n6: null, s1: null })
+  }
+  for (const r of opts.riskDistribution ?? []) {
+    rows.push({ _query: 'risk_distribution', key1: r.key1, key2: null, val: r.val, n1: null, n2: null, n3: null, n4: null, n5: null, n6: null, s1: null })
+  }
+  for (const r of opts.topStates ?? []) {
+    rows.push({ _query: 'top_states', key1: r.key1, key2: null, val: r.val, n1: null, n2: null, n3: null, n4: null, n5: null, n6: null, s1: null })
+  }
+  for (const r of opts.regionalRisk ?? []) {
+    rows.push({ _query: 'regional_risk', key1: r.key1, key2: null, val: r.val, n1: r.n1, n2: r.n2, n3: r.n3, n4: r.n4, n5: r.n5, n6: r.n6, s1: r.s1 })
+  }
+  rows.push({
+    _query: 'avg_insurance_cost', key1: null, key2: null, val: 0,
+    n1: opts.avgInsuranceCost ?? null, n2: null, n3: null, n4: null, n5: null, n6: null, s1: null,
+  })
+  return rows
+}
+
 function setupDefaultMocks() {
   mockSavedCount.mockResolvedValue(3)
   mockClientCount.mockResolvedValue(2)
   mockReportCount.mockResolvedValue(1)
   mockSearchCount.mockResolvedValue(10)
 
-  // Raw queries: searchesByDay, riskDistribution, topStates, regionalRisk, searchesByMonth, avgInsuranceCost
-  mockQueryRaw
-    .mockResolvedValueOnce([]) // searchesByDay
-    .mockResolvedValueOnce([  // riskDistribution
-      { level: 'LOW', count: BigInt(2) },
-      { level: 'HIGH', count: BigInt(1) },
-    ])
-    .mockResolvedValueOnce([  // topStates
-      { state: 'CA', count: BigInt(2) },
-      { state: 'TX', count: BigInt(1) },
-    ])
-    .mockResolvedValueOnce([  // regionalRisk
-      {
-        state: 'CA',
-        property_count: BigInt(2),
-        avg_overall: '45.3',
-        avg_flood: '20.1',
-        avg_fire: '65.0',
-        avg_wind: '30.5',
-        avg_earthquake: '55.2',
-        avg_crime: '25.8',
-        dominant_level: 'MODERATE',
-      },
-    ])
-    .mockResolvedValueOnce([]) // searchesByMonth
-    .mockResolvedValueOnce([{ avg_cost: '2500' }]) // avgInsuranceCost
+  // Combined raw query
+  mockQueryRaw.mockResolvedValue(buildCombinedRows({
+    riskDistribution: [
+      { key1: 'LOW', val: 2 },
+      { key1: 'HIGH', val: 1 },
+    ],
+    topStates: [
+      { key1: 'CA', val: 2 },
+      { key1: 'TX', val: 1 },
+    ],
+    regionalRisk: [{
+      key1: 'CA', val: 2,
+      n1: 45.3, n2: 20.1, n3: 65.0, n4: 30.5, n5: 55.2, n6: 25.8,
+      s1: 'MODERATE',
+    }],
+    avgInsuranceCost: 2500,
+  }))
 
   mockSearchFindMany.mockResolvedValue([
     { query: 'test search', searchedAt: new Date('2026-03-27T10:00:00Z') },
@@ -227,7 +254,7 @@ describe('GET /api/analytics', () => {
   // ── Risk distribution ──────────────────────────────────────────────────
 
   describe('riskDistribution', () => {
-    it('converts BigInt counts to numbers', async () => {
+    it('converts counts to numbers', async () => {
       const res = await request(app).get('/api/analytics')
       for (const entry of res.body.data.riskDistribution) {
         expect(typeof entry.count).toBe('number')
@@ -243,17 +270,12 @@ describe('GET /api/analytics', () => {
     })
 
     it('filters out null risk levels', async () => {
-      mockQueryRaw
-        .mockReset()
-        .mockResolvedValueOnce([]) // searchesByDay
-        .mockResolvedValueOnce([
-          { level: null, count: BigInt(1) },
-          { level: 'LOW', count: BigInt(2) },
-        ])
-        .mockResolvedValueOnce([]) // topStates
-        .mockResolvedValueOnce([]) // regionalRisk
-        .mockResolvedValueOnce([]) // searchesByMonth
-        .mockResolvedValueOnce([{ avg_cost: null }]) // avgInsuranceCost
+      mockQueryRaw.mockResolvedValue(buildCombinedRows({
+        riskDistribution: [
+          { key1: null, val: 1 },
+          { key1: 'LOW', val: 2 },
+        ],
+      }))
 
       const res = await request(app).get('/api/analytics')
       const levels = res.body.data.riskDistribution.map(
@@ -266,7 +288,7 @@ describe('GET /api/analytics', () => {
   // ── Top states ─────────────────────────────────────────────────────────
 
   describe('topStates', () => {
-    it('converts BigInt counts to numbers', async () => {
+    it('converts counts to numbers', async () => {
       const res = await request(app).get('/api/analytics')
       expect(res.body.data.topStates).toEqual([
         { state: 'CA', count: 2 },
@@ -348,14 +370,9 @@ describe('GET /api/analytics', () => {
     })
 
     it('returns empty array when no saved properties have risk data', async () => {
-      mockQueryRaw
-        .mockReset()
-        .mockResolvedValueOnce([]) // searchesByDay
-        .mockResolvedValueOnce([]) // riskDistribution
-        .mockResolvedValueOnce([]) // topStates
-        .mockResolvedValueOnce([]) // regionalRisk
-        .mockResolvedValueOnce([]) // searchesByMonth
-        .mockResolvedValueOnce([{ avg_cost: null }])
+      mockQueryRaw.mockResolvedValue(buildCombinedRows({
+        avgInsuranceCost: null,
+      }))
 
       const res = await request(app).get('/api/analytics')
       expect(res.body.data.regionalRisk).toEqual([])
@@ -371,28 +388,9 @@ describe('GET /api/analytics', () => {
     })
 
     it('returns null when no insurance estimates exist', async () => {
-      mockQueryRaw
-        .mockReset()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ avg_cost: null }])
-
-      const res = await request(app).get('/api/analytics')
-      expect(res.body.data.avgInsuranceCost).toBeNull()
-    })
-
-    it('returns null when result set is empty', async () => {
-      mockQueryRaw
-        .mockReset()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
+      mockQueryRaw.mockResolvedValue(buildCombinedRows({
+        avgInsuranceCost: null,
+      }))
 
       const res = await request(app).get('/api/analytics')
       expect(res.body.data.avgInsuranceCost).toBeNull()
@@ -453,14 +451,7 @@ describe('GET /api/analytics', () => {
       mockClientCount.mockResolvedValue(0)
       mockReportCount.mockResolvedValue(0)
       mockSearchCount.mockResolvedValue(0)
-      mockQueryRaw
-        .mockReset()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ avg_cost: null }])
+      mockQueryRaw.mockResolvedValue(buildCombinedRows({ avgInsuranceCost: null }))
       mockSearchFindMany.mockResolvedValue([])
       mockSavedFindMany.mockResolvedValue([])
       mockReportFindMany.mockResolvedValue([])
