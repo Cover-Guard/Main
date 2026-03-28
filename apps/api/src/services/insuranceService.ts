@@ -14,8 +14,28 @@ interface InsuranceInputs {
   fireRiskScore: number
   windRiskScore: number
   earthquakeRiskScore: number
+  crimeRiskScore: number
   hurricaneRisk: boolean
+  tornadoRisk: boolean
+  hailRisk: boolean
   inSFHA: boolean
+  wildlandUrbanInterface: boolean
+  floodZone: string | null
+  seismicZone: string | null
+  designWindSpeed: number | null
+  overallRiskScore: number
+}
+
+// ─── State premium multipliers (based on NAIC average premium data) ──────────
+
+const STATE_MULTIPLIERS: Record<string, number> = {
+  FL: 3.10, LA: 2.40, TX: 2.00, OK: 2.00, KS: 1.80, MS: 1.70, AR: 1.60,
+  AL: 1.50, SC: 1.40, NC: 1.30, NE: 1.25, MO: 1.20, GA: 1.15, TN: 1.12,
+  KY: 1.10, CT: 1.08, MA: 1.05, NJ: 1.05, NY: 1.05, RI: 1.02,
+  SD: 1.00, ND: 1.00, MN: 0.95, WI: 0.95, MI: 0.95, PA: 0.95,
+  CO: 0.90, AZ: 0.88, NM: 0.88, UT: 0.85, ID: 0.85,
+  OR: 0.82, WA: 0.78, HI: 0.75, VT: 0.75, NH: 0.75, ME: 0.78,
+  CA: 1.10, // CA is avg+ due to wildfire exposure
 }
 
 function computeHomeownersPremium(inputs: InsuranceInputs): {
@@ -23,90 +43,210 @@ function computeHomeownersPremium(inputs: InsuranceInputs): {
   high: number
   avg: number
 } {
-  let baseRate = 1.11
+  // National average homeowners premium: ~$2,270/yr for ~$300k dwelling (NAIC 2023)
+  // This translates to roughly $7.56 per $1,000 of coverage
+  let baseRate = 7.56 // per $1,000 of insured value
 
-  const stateMultipliers: Record<string, number> = {
-    FL: 3.1, LA: 2.4, TX: 2.0, OK: 2.0, KS: 1.8, MS: 1.7, AR: 1.6, AL: 1.5,
-    SC: 1.4, NC: 1.3, MO: 1.2, CO: 0.9, UT: 0.8, OR: 0.8, WA: 0.75,
-  }
-  baseRate *= stateMultipliers[inputs.state] ?? 1.0
+  baseRate *= STATE_MULTIPLIERS[inputs.state] ?? 1.0
 
-  if (inputs.yearBuilt < 1970) baseRate *= 1.25
-  else if (inputs.yearBuilt < 1990) baseRate *= 1.1
+  // Building age factor
+  if (inputs.yearBuilt < 1960) baseRate *= 1.35
+  else if (inputs.yearBuilt < 1970) baseRate *= 1.25
+  else if (inputs.yearBuilt < 1990) baseRate *= 1.10
+  else if (inputs.yearBuilt >= 2010) baseRate *= 0.95
 
-  if (inputs.fireRiskScore > 70) baseRate *= 1.4
-  else if (inputs.fireRiskScore > 50) baseRate *= 1.2
+  // Fire risk factor
+  if (inputs.fireRiskScore > 80) baseRate *= 1.50
+  else if (inputs.fireRiskScore > 70) baseRate *= 1.40
+  else if (inputs.fireRiskScore > 50) baseRate *= 1.20
 
-  if (inputs.windRiskScore > 70) baseRate *= 1.3
+  // Wind risk factor
+  if (inputs.windRiskScore > 80) baseRate *= 1.40
+  else if (inputs.windRiskScore > 70) baseRate *= 1.30
+  else if (inputs.windRiskScore > 50) baseRate *= 1.10
+
+  // Crime risk factor
+  if (inputs.crimeRiskScore > 70) baseRate *= 1.15
+  else if (inputs.crimeRiskScore > 50) baseRate *= 1.08
+
+  // Square footage adjustment (larger homes cost more to insure)
+  if (inputs.squareFeet > 3000) baseRate *= 1.10
+  else if (inputs.squareFeet < 1200) baseRate *= 0.92
 
   const insuredValue = inputs.estimatedValue * 0.8
   const avg = Math.round((baseRate / 1000) * insuredValue)
   return { low: Math.round(avg * 0.75), high: Math.round(avg * 1.35), avg }
 }
 
-function computeFloodPremium(
-  inSFHA: boolean,
-  floodScore: number,
-  estimatedValue: number,
-): { low: number; high: number; avg: number } | null {
-  if (!inSFHA && floodScore < 30) return null
+function computeFloodPremium(inputs: InsuranceInputs): {
+  low: number
+  high: number
+  avg: number
+} | null {
+  if (!inputs.inSFHA && inputs.floodRiskScore < 30) return null
 
-  const buildingCoverage = Math.min(estimatedValue * 0.8, 250_000)
-  const contentCoverage = Math.min(estimatedValue * 0.3, 100_000)
-  const base = inSFHA ? 1_400 : 600
-  const scoreMult = 1 + (floodScore / 100) * 1.5
-  const avg = Math.round(
-    base * scoreMult * (buildingCoverage / 250_000) * (contentCoverage / 100_000),
-  )
+  const buildingCoverage = Math.min(inputs.estimatedValue * 0.8, 250_000)
+  const contentCoverage = Math.min(inputs.estimatedValue * 0.3, 100_000)
+
+  // NFIP Risk Rating 2.0 considers building characteristics + flood frequency
+  let base: number
+  if (inputs.inSFHA && inputs.floodZone?.startsWith('V')) {
+    base = 3_200 // Coastal V zones are most expensive
+  } else if (inputs.inSFHA) {
+    base = 1_400
+  } else {
+    base = 600 // Preferred Risk Policy range
+  }
+
+  const scoreMult = 1 + (inputs.floodRiskScore / 100) * 1.5
+  // NFIP minimum premium is ~$611/yr (Preferred Risk) or higher; apply floor
+  const raw = base * scoreMult * (buildingCoverage / 250_000) * (contentCoverage / 100_000)
+  const avg = Math.max(Math.round(raw), inputs.inSFHA ? 611 : 285)
   return { low: Math.round(avg * 0.6), high: Math.round(avg * 1.8), avg }
 }
 
-function computeWindPremium(
-  hurricaneRisk: boolean,
-  windScore: number,
-  estimatedValue: number,
-): { low: number; high: number; avg: number } | null {
-  if (!hurricaneRisk && windScore < 50) return null
+function computeWindPremium(inputs: InsuranceInputs): {
+  low: number
+  high: number
+  avg: number
+} | null {
+  if (!inputs.hurricaneRisk && !inputs.tornadoRisk && inputs.windRiskScore < 50) return null
 
-  const dwellingValue = estimatedValue * 0.8
-  const base = hurricaneRisk ? dwellingValue * 0.005 : dwellingValue * 0.002
-  const avg = Math.round(base * (1 + windScore / 200))
+  const dwellingValue = inputs.estimatedValue * 0.8
+
+  // Different base rates for hurricane vs tornado wind coverage
+  let base: number
+  if (inputs.hurricaneRisk) {
+    base = dwellingValue * 0.005
+    // High design wind speed states
+    if (inputs.designWindSpeed && inputs.designWindSpeed > 150) base *= 1.3
+  } else if (inputs.tornadoRisk) {
+    base = dwellingValue * 0.003
+  } else {
+    base = dwellingValue * 0.002
+  }
+
+  const avg = Math.round(base * (1 + inputs.windRiskScore / 200))
   return { low: Math.round(avg * 0.7), high: Math.round(avg * 1.4), avg }
 }
 
-function computeEarthquakePremium(
-  earthquakeScore: number,
-  estimatedValue: number,
-): { low: number; high: number; avg: number } | null {
-  if (earthquakeScore < 40) return null
+function computeEarthquakePremium(inputs: InsuranceInputs): {
+  low: number
+  high: number
+  avg: number
+} | null {
+  if (inputs.earthquakeRiskScore < 40) return null
 
-  const dwellingValue = estimatedValue * 0.8
-  const base = dwellingValue * 0.003
-  const avg = Math.round(base * (1 + earthquakeScore / 150))
+  const dwellingValue = inputs.estimatedValue * 0.8
+
+  // CEA rates vary by seismic zone
+  let baseRate: number
+  if (inputs.seismicZone === 'D') baseRate = 0.005
+  else if (inputs.seismicZone === 'C') baseRate = 0.003
+  else baseRate = 0.002
+
+  const base = dwellingValue * baseRate
+  const avg = Math.round(base * (1 + inputs.earthquakeRiskScore / 150))
   return { low: Math.round(avg * 0.6), high: Math.round(avg * 1.5), avg }
 }
 
-function computeFirePremium(
-  fireScore: number,
-  estimatedValue: number,
-): { low: number; high: number; avg: number } | null {
-  if (fireScore < 55) return null
+function computeFirePremium(inputs: InsuranceInputs): {
+  low: number
+  high: number
+  avg: number
+} | null {
+  if (inputs.fireRiskScore < 55) return null
 
-  const dwellingValue = estimatedValue * 0.8
-  const base = dwellingValue * 0.004
-  const avg = Math.round(base * (1 + fireScore / 200))
+  const dwellingValue = inputs.estimatedValue * 0.8
+
+  // WUI properties face much higher fire insurance costs
+  let baseRate = 0.004
+  if (inputs.wildlandUrbanInterface) baseRate = 0.006
+  if (inputs.fireRiskScore > 80) baseRate *= 1.5
+
+  const base = dwellingValue * baseRate
+  const avg = Math.round(base * (1 + inputs.fireRiskScore / 200))
   return { low: Math.round(avg * 0.65), high: Math.round(avg * 1.4), avg }
 }
 
+// ─── Key risk factors and confidence ─────────────────────────────────────────
+
+function buildKeyRiskFactors(inputs: InsuranceInputs): string[] {
+  const factors: string[] = []
+
+  if (inputs.inSFHA) {
+    factors.push('Property is in a FEMA Special Flood Hazard Area — flood insurance required')
+  } else if (inputs.floodRiskScore > 50) {
+    factors.push('Elevated flood risk may increase insurance costs')
+  }
+
+  if (inputs.wildlandUrbanInterface) {
+    factors.push('Wildland-Urban Interface location — many carriers restricting coverage')
+  } else if (inputs.fireRiskScore > 70) {
+    factors.push('High wildfire risk zone — expect premium surcharges')
+  }
+
+  if (inputs.hurricaneRisk && inputs.windRiskScore > 60) {
+    factors.push('Hurricane exposure — wind coverage may be separate policy')
+  } else if (inputs.tornadoRisk && inputs.windRiskScore > 50) {
+    factors.push('Tornado corridor — higher wind/hail deductibles likely')
+  }
+
+  if (inputs.earthquakeRiskScore > 55) {
+    factors.push('Significant seismic risk — separate earthquake policy recommended')
+  }
+
+  if (inputs.crimeRiskScore > 60) {
+    factors.push('Above-average crime rate may affect theft/liability premiums')
+  }
+
+  if (inputs.yearBuilt < 1970) {
+    factors.push('Older construction (pre-1970) increases replacement cost estimates')
+  }
+
+  if (inputs.overallRiskScore > 70) {
+    factors.push('High overall risk profile — limited carrier availability expected')
+  }
+
+  return factors
+}
+
+function determineConfidence(inputs: InsuranceInputs): ConfidenceLevel {
+  // Higher confidence when we have more data points
+  let score = 0
+
+  // Good property data
+  if (inputs.estimatedValue > 0) score++
+  if (inputs.yearBuilt > 0) score++
+  if (inputs.squareFeet > 0) score++
+
+  // Risk data available
+  if (inputs.floodRiskScore > 0) score++
+  if (inputs.fireRiskScore > 0) score++
+  if (inputs.windRiskScore > 0) score++
+  if (inputs.earthquakeRiskScore > 0) score++
+  if (inputs.crimeRiskScore > 0) score++
+
+  if (score >= 7) return ConfidenceLevel.HIGH
+  if (score >= 4) return ConfidenceLevel.MEDIUM
+  return ConfidenceLevel.LOW
+}
+
+// ─── Main service function ───────────────────────────────────────────────────
+
 export async function getOrComputeInsuranceEstimate(
   propertyId: string,
+  forceRefresh = false,
 ): Promise<InsuranceCostEstimate> {
   // L1 cache hit
-  const l1 = insuranceCache.get(propertyId)
-  if (l1) return l1
+  if (!forceRefresh) {
+    const l1 = insuranceCache.get(propertyId)
+    if (l1) return l1
+  }
 
   // Deduplicate concurrent requests
-  return insuranceDeduplicator.dedupe(propertyId, async () => {
+  const dedupeKey = forceRefresh ? `${propertyId}:refresh` : propertyId
+  return insuranceDeduplicator.dedupe(dedupeKey, async () => {
     // Single query: fetch property + riskProfile + existing estimate together
     const property = await prisma.property.findUniqueOrThrow({
       where: { id: propertyId },
@@ -115,7 +255,7 @@ export async function getOrComputeInsuranceEstimate(
 
     // Return DB-cached estimate if still valid
     const cached = property.insuranceEstimate
-    if (cached && cached.expiresAt > new Date()) {
+    if (!forceRefresh && cached && cached.expiresAt > new Date()) {
       const dto = prismaEstimateToDto(cached, propertyId)
       insuranceCache.set(propertyId, dto, cached.expiresAt.getTime() - Date.now())
       return dto
@@ -132,23 +272,32 @@ export async function getOrComputeInsuranceEstimate(
       fireRiskScore: risk?.fireRiskScore ?? 20,
       windRiskScore: risk?.windRiskScore ?? 20,
       earthquakeRiskScore: risk?.earthquakeRiskScore ?? 10,
+      crimeRiskScore: risk?.crimeRiskScore ?? 0,
       hurricaneRisk: risk?.hurricaneRisk ?? false,
+      tornadoRisk: risk?.tornadoRisk ?? false,
+      hailRisk: risk?.hailRisk ?? false,
       inSFHA: risk?.inSFHA ?? false,
+      wildlandUrbanInterface: risk?.wildlandUrbanInterface ?? false,
+      floodZone: risk?.floodZone ?? null,
+      seismicZone: risk?.seismicZone ?? null,
+      designWindSpeed: risk?.designWindSpeed ?? null,
+      overallRiskScore: risk?.overallRiskScore ?? 25,
     }
 
     const homeowners = computeHomeownersPremium(inputs)
-    const flood = computeFloodPremium(inputs.inSFHA, inputs.floodRiskScore, inputs.estimatedValue)
-    const wind = computeWindPremium(inputs.hurricaneRisk, inputs.windRiskScore, inputs.estimatedValue)
-    const earthquake = computeEarthquakePremium(inputs.earthquakeRiskScore, inputs.estimatedValue)
-    const fire = computeFirePremium(inputs.fireRiskScore, inputs.estimatedValue)
+    const flood = computeFloodPremium(inputs)
+    const wind = computeWindPremium(inputs)
+    const earthquake = computeEarthquakePremium(inputs)
+    const fire = computeFirePremium(inputs)
 
     const annualTotal = homeowners.avg + (flood?.avg ?? 0) + (wind?.avg ?? 0) + (earthquake?.avg ?? 0) + (fire?.avg ?? 0)
     const expiresAt = new Date(Date.now() + INSURANCE_ESTIMATE_CACHE_TTL_SECONDS * 1000)
+    const confidenceLevel = determineConfidence(inputs)
 
     const estimateData = {
       estimatedAnnualTotal: annualTotal,
       estimatedMonthlyTotal: Math.round(annualTotal / 12),
-      confidenceLevel: ConfidenceLevel.MEDIUM,
+      confidenceLevel,
       homeownersLow: homeowners.low,
       homeownersHigh: homeowners.high,
       homeownersAvg: homeowners.avg,
@@ -177,7 +326,7 @@ export async function getOrComputeInsuranceEstimate(
       create: { propertyId, ...estimateData },
     })
 
-    const dto = prismaEstimateToDto(estimate, propertyId)
+    const dto = prismaEstimateToDto(estimate, propertyId, buildKeyRiskFactors(inputs))
     insuranceCache.set(propertyId, dto, INSURANCE_ESTIMATE_CACHE_TTL_SECONDS * 1000)
     return dto
   })
@@ -186,7 +335,27 @@ export async function getOrComputeInsuranceEstimate(
 function prismaEstimateToDto(
   e: Awaited<ReturnType<typeof prisma.insuranceEstimate.findUniqueOrThrow>>,
   propertyId: string,
+  riskFactors?: string[],
 ): InsuranceCostEstimate {
+  const recommendations: string[] = [
+    'Get quotes from at least 3 insurers for the most competitive rates',
+    'Ask about bundling home and auto insurance for potential discounts',
+  ]
+  if (e.floodRequired) {
+    recommendations.push('Compare NFIP flood insurance with private flood carriers (e.g., Neptune, Wright)')
+  }
+  if (e.fireRequired) {
+    recommendations.push('Contact a surplus lines broker if admitted carriers decline fire coverage')
+    recommendations.push('Consider FAIR Plan as a last-resort option for fire coverage')
+  }
+  if (e.windRequired) {
+    recommendations.push('Evaluate separate wind/hurricane policy vs. all-perils coverage')
+  }
+  if (e.earthquakeRequired) {
+    recommendations.push('Compare CEA earthquake insurance with private earthquake carriers')
+  }
+  recommendations.push('Review policy exclusions carefully — standard policies often exclude flood, earthquake, and wind')
+
   return {
     propertyId,
     estimatedAnnualTotal: e.estimatedAnnualTotal,
@@ -199,7 +368,7 @@ function prismaEstimateToDto(
         averageAnnualPremium: e.homeownersAvg,
         lowEstimate: e.homeownersLow,
         highEstimate: e.homeownersHigh,
-        notes: ['Required by most mortgage lenders'],
+        notes: ['Required by most mortgage lenders', 'Covers dwelling, personal property, and liability'],
       },
       ...(e.floodRequired && e.floodAvg != null
         ? [
@@ -212,6 +381,7 @@ function prismaEstimateToDto(
               notes: [
                 'Required for federally backed mortgages in SFHA',
                 'Available through NFIP or private insurers',
+                'NFIP Risk Rating 2.0 pricing considers property-level flood risk',
               ],
             },
           ]
@@ -226,6 +396,7 @@ function prismaEstimateToDto(
               highEstimate: e.windHigh!,
               notes: [
                 'May be excluded from standard homeowners policy in high-risk areas',
+                'Hurricane deductibles are typically 2-5% of dwelling coverage',
               ],
             },
           ]
@@ -241,6 +412,7 @@ function prismaEstimateToDto(
               notes: [
                 'Not included in standard homeowners policy',
                 'Available through CEA (California) or private insurers',
+                'Typical deductibles: 10-20% of dwelling coverage',
               ],
             },
           ]
@@ -254,23 +426,21 @@ function prismaEstimateToDto(
               lowEstimate: e.fireLow!,
               highEstimate: e.fireHigh!,
               notes: [
-                'Separate fire/wildfire policy may be required in high-risk zones',
+                'Separate wildfire policy may be required in high-risk zones',
                 'FAIR Plan available as insurer of last resort',
+                'Defensible space improvements may reduce premiums',
               ],
             },
           ]
         : []),
     ],
-    keyRiskFactors: [],
-    recommendations: [
-      'Get quotes from at least 3 insurers',
-      'Ask about bundling discounts',
-      e.floodRequired ? 'Consider private flood insurance as NFIP alternative' : '',
-    ].filter(Boolean),
+    keyRiskFactors: riskFactors ?? [],
+    recommendations,
     disclaimers: [
       'Estimates are based on publicly available risk data and may not reflect actual premium quotes.',
       'Actual insurance costs depend on property condition, claims history, credit score, and insurer pricing.',
-      'This is not a binding insurance quote.',
+      'This is not a binding insurance quote. Contact a licensed insurance agent for accurate pricing.',
+      'Premium estimates reflect current market conditions and may change based on carrier availability.',
     ],
     generatedAt: e.generatedAt.toISOString(),
   }

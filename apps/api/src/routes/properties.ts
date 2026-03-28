@@ -5,6 +5,7 @@ import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
+import { insuranceCache, carriersCache, insurabilityCache } from '../utils/cache'
 import { requireAuth } from '../middleware/auth'
 import { requireSubscription } from '../middleware/subscription'
 import { prisma } from '../utils/prisma'
@@ -36,6 +37,11 @@ function setCacheHeaders(res: Response, sMaxAge: number, staleWhileRevalidate = 
     'Cache-Control',
     `public, s-maxage=${sMaxAge}, stale-while-revalidate=${staleWhileRevalidate}`,
   )
+}
+
+/** Prevent CDN and browser from caching a force-refreshed response */
+function setNoCacheHeaders(res: Response): void {
+  res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate')
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────
@@ -130,9 +136,19 @@ propertiesRouter.get('/:id', async (req, res, next) => {
 
 propertiesRouter.get('/:id/risk', async (req, res, next) => {
   try {
-    const profile = await getOrComputeRiskProfile(req.params.id)
-    // Risk profiles change infrequently — 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    const profile = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    // When risk is refreshed, invalidate dependent caches so they recompute with new scores
+    if (forceRefresh) {
+      setNoCacheHeaders(res)
+      try {
+        insuranceCache.delete(req.params.id)
+        carriersCache.delete(req.params.id)
+        insurabilityCache.delete(req.params.id)
+      } catch { /* cache invalidation is best-effort */ }
+    } else {
+      setCacheHeaders(res, 7200, 600)
+    }
     res.json({ success: true, data: profile })
   } catch (err) {
     next(err)
@@ -143,9 +159,12 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
 
 propertiesRouter.get('/:id/insurance', async (req, res, next) => {
   try {
-    const estimate = await getOrComputeInsuranceEstimate(req.params.id)
-    // Insurance estimates: 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    // Ensure risk profile exists and is fresh (insurance depends on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const estimate = await getOrComputeInsuranceEstimate(req.params.id, forceRefresh)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: estimate })
   } catch (err) {
     next(err)
@@ -156,11 +175,8 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
 
 propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
-    const [property, risk, insurance] = await Promise.all([
-      getPropertyById(req.params.id),
-      getOrComputeRiskProfile(req.params.id),
-      getOrComputeInsuranceEstimate(req.params.id),
-    ])
+    const forceRefresh = req.query.refresh === 'true'
+    const property = await getPropertyById(req.params.id)
     if (!property) {
       res.status(404).json({
         success: false,
@@ -168,8 +184,16 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       })
       return
     }
-    setCacheHeaders(res, 3600, 300)
-    res.json({ success: true, data: { property, risk, insurance } })
+    // Risk must be computed first since insurance depends on it
+    const risk = await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const [insurance, insurability, carriers] = await Promise.all([
+      getOrComputeInsuranceEstimate(req.params.id, forceRefresh),
+      getInsurabilityStatus(req.params.id, forceRefresh),
+      getCarriersForProperty(req.params.id, forceRefresh),
+    ])
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 3600, 300)
+    res.json({ success: true, data: { property, risk, insurance, insurability, carriers } })
   } catch (err) {
     next(err)
   }
@@ -260,9 +284,12 @@ propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (re
 
 propertiesRouter.get('/:id/insurability', async (req, res, next) => {
   try {
-    const status = await getInsurabilityStatus(req.params.id)
-    // Insurability is derived from risk — same 2 hour CDN cache
-    setCacheHeaders(res, 7200, 600)
+    const forceRefresh = req.query.refresh === 'true'
+    // Ensure risk profile exists and is fresh (insurability depends on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const status = await getInsurabilityStatus(req.params.id, forceRefresh)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 7200, 600)
     res.json({ success: true, data: status })
   } catch (err) {
     next(err)
@@ -273,9 +300,12 @@ propertiesRouter.get('/:id/insurability', async (req, res, next) => {
 
 propertiesRouter.get('/:id/carriers', async (req, res, next) => {
   try {
-    const carriers = await getCarriersForProperty(req.params.id)
-    // Carrier availability: 1 hour CDN cache
-    setCacheHeaders(res, 3600, 300)
+    const forceRefresh = req.query.refresh === 'true'
+    // Ensure risk profile exists and is fresh (carrier decisions depend on risk scores)
+    await getOrComputeRiskProfile(req.params.id, forceRefresh)
+    const carriers = await getCarriersForProperty(req.params.id, forceRefresh)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: carriers })
   } catch (err) {
     next(err)
