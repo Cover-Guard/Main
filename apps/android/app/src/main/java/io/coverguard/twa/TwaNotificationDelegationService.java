@@ -1,11 +1,7 @@
 package io.coverguard.twa;
 
-import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.content.pm.ServiceInfo;
-import android.os.Build;
-import android.os.Bundle;
 
 import androidx.browser.trusted.TrustedWebActivityService;
 

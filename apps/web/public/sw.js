@@ -86,8 +86,9 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Network failed — return cached version if available
-          return cachedResponse;
+          // Network failed — return cached version or offline fallback
+          if (cachedResponse) return cachedResponse;
+          return caches.match(OFFLINE_URL);
         });
 
       // Return cached version immediately if available, otherwise wait for network
@@ -119,7 +120,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'CoverGuard', options)
+    self.registration.showNotification(data.title || 'CoverGuard', options).catch(() => {})
   );
 });
 

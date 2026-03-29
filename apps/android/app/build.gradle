@@ -96,8 +96,9 @@ android {
 }
 
 dependencies {
-    // AndroidX Browser — provides TrustedWebActivityIntentBuilder and TWA support
-    implementation 'androidx.browser:browser:1.8.0'
+    // Android Browser Helper — provides LauncherActivity and TWA plumbing
+    // This is Google's official library for building TWA wrappers
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
 
     // Core AndroidX libraries
     implementation 'androidx.core:core:1.15.0'
