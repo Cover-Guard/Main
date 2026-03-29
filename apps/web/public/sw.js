@@ -110,7 +110,7 @@ self.addEventListener('push', (event) => {
   let data;
   try {
     data = event.data.json();
-  } catch (e) {
+  } catch {
     // Invalid JSON payload — skip notification
     return;
   }
