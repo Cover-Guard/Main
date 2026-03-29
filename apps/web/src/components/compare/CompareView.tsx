@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import type { Property, PropertyRiskProfile, InsuranceCostEstimate, InsurabilityStatus } from '@coverguard/shared'
-import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyInsurability } from '@/lib/api'
+import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyInsurability, searchProperties } from '@/lib/api'
 import { formatCurrency } from '@coverguard/shared'
 import {
   Search, X, Plus, Droplets, Flame, Wind, Mountain, ShieldAlert,
@@ -123,24 +123,18 @@ export function CompareView() {
     searchDebounce.current = setTimeout(async () => {
       setSearchLoading(true)
       try {
-        const res = await fetch(`/api/properties/search?address=${encodeURIComponent(query)}`)
-        if (!res.ok) {
-          setSearchResults([])
-          setSearchError(res.status >= 500 ? 'Service temporarily unavailable.' : 'Search failed. Please try again.')
-          return
-        }
-        const contentType = res.headers.get('content-type') ?? ''
-        if (!contentType.includes('application/json')) {
-          setSearchResults([])
-          setSearchError('Service temporarily unavailable.')
-          return
-        }
-        const json = await res.json()
-        const properties = json.data?.properties
-        setSearchResults(Array.isArray(properties) ? properties.slice(0, 5) : [])
-      } catch {
+        const result = await searchProperties({ address: query, limit: 5 })
+        setSearchResults(result.properties.slice(0, 5))
+      } catch (err) {
         setSearchResults([])
-        setSearchError('Network error. Check your connection.')
+        const msg = err instanceof Error ? err.message : ''
+        if (msg.includes('Network error')) {
+          setSearchError('Network error. Check your connection.')
+        } else if (msg.includes('Service temporarily') || msg.includes('unavailable')) {
+          setSearchError('Service temporarily unavailable.')
+        } else {
+          setSearchError('Search failed. Please try again.')
+        }
       } finally {
         setSearchLoading(false)
       }
