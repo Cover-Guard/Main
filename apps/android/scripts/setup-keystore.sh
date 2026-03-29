@@ -26,6 +26,18 @@ echo ""
 if [ -f "$KEYSTORE_FILE" ]; then
     echo "Keystore already exists: $KEYSTORE_FILE"
     echo "To regenerate, delete the existing keystore first."
+    echo ""
+    # Load passwords from existing keystore.properties, or prompt the user.
+    if [ -f "keystore.properties" ]; then
+        STORE_PASS=$(grep "^storePassword=" keystore.properties | cut -d= -f2-)
+        KEY_PASS=$(grep "^keyPassword=" keystore.properties | cut -d= -f2-)
+        echo "Using passwords from existing keystore.properties."
+    else
+        read -rsp "Keystore password: " STORE_PASS
+        echo ""
+        read -rsp "Key password: " KEY_PASS
+        echo ""
+    fi
 else
     echo "Generating new release keystore..."
     echo ""
@@ -51,7 +63,7 @@ else
     echo "Keystore created: $KEYSTORE_FILE"
 fi
 
-# Create keystore.properties
+# Create / update keystore.properties
 cat > keystore.properties <<EOF
 storeFile=$KEYSTORE_FILE
 storePassword=$STORE_PASS
