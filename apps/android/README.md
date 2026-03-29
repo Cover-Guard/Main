@@ -1,6 +1,6 @@
 # CoverGuard Android — Play Store TWA
 
-Android app wrapper for CoverGuard using [Trusted Web Activities (TWA)](https://developer.chrome.com/docs/android/trusted-web-activities) via Google's [Android Browser Helper](https://github.com/nicholaswilliams/nickreport-twa) library. The PWA at `coverguard.io` runs fullscreen inside Chrome without browser UI — indistinguishable from a native app.
+Android app wrapper for CoverGuard using [Trusted Web Activities (TWA)](https://developer.chrome.com/docs/android/trusted-web-activities) via Google's [Android Browser Helper](https://github.com/GoogleChrome/android-browser-helper) library. The PWA at `coverguard.io` runs fullscreen inside Chrome without browser UI — indistinguishable from a native app.
 
 ## Architecture
 

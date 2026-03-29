@@ -65,7 +65,7 @@ echo "Created: keystore.properties"
 echo ""
 echo "=== SHA-256 Certificate Fingerprint ==="
 echo ""
-FINGERPRINT=$(keytool -list -v -keystore "$KEYSTORE_FILE" -alias "$ALIAS" -storepass "${STORE_PASS:-changeit}" 2>/dev/null | grep "SHA256:" | sed 's/.*SHA256: //')
+FINGERPRINT=$(keytool -list -v -keystore "$KEYSTORE_FILE" -alias "$ALIAS" -storepass "$STORE_PASS" 2>/dev/null | grep "SHA256:" | sed 's/.*SHA256: //')
 
 if [ -n "$FINGERPRINT" ]; then
     echo "  $FINGERPRINT"
