@@ -8,5 +8,5 @@
 -keep class androidx.browser.customtabs.** { *; }
 -keep class androidx.browser.trusted.** { *; }
 
-# Keep the TrustedWebActivityService for push notifications
--keep class io.coverguard.twa.NotificationPermissionRequestActivity { *; }
+# Keep the TWA notification delegation service
+-keep class io.coverguard.twa.TwaNotificationDelegationService { *; }

@@ -59,7 +59,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
 
   // Supabase auth calls: network only
-  if (url.hostname.includes('supabase')) return;
+  if (url.hostname.endsWith('.supabase.co')) return;
 
   // Navigation requests: network-first with offline fallback
   if (request.mode === 'navigate') {
@@ -74,21 +74,23 @@ self.addEventListener('fetch', (event) => {
   // Static assets: stale-while-revalidate
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request).then((networkResponse) => {
-        // Cache successful responses
-        if (networkResponse && networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        // Network failed, return cached version if available
-        return cachedResponse;
-      });
+      const fetchPromise = fetch(request)
+        .then((networkResponse) => {
+          // Cache successful responses
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone).catch(() => {});
+            }).catch(() => {});
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // Network failed — return cached version if available
+          return cachedResponse;
+        });
 
-      // Return cached version immediately, update in background
+      // Return cached version immediately if available, otherwise wait for network
       return cachedResponse || fetchPromise;
     })
   );
@@ -98,7 +100,14 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
-  const data = event.data.json();
+  let data;
+  try {
+    data = event.data.json();
+  } catch (e) {
+    // Invalid JSON payload — skip notification
+    return;
+  }
+
   const options = {
     body: data.body || 'You have a new update from CoverGuard.',
     icon: '/icons/icon-192.png',

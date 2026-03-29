@@ -3,6 +3,7 @@ package io.coverguard.twa;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.trusted.TrustedWebActivityIntentBuilder;
@@ -19,7 +20,7 @@ import androidx.core.splashscreen.SplashScreen;
  */
 public class LauncherActivity extends androidx.appcompat.app.AppCompatActivity {
 
-    private static final String CHROME_PACKAGE = "com.android.chrome";
+    private static final String TAG = "LauncherActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,9 +29,7 @@ public class LauncherActivity extends androidx.appcompat.app.AppCompatActivity {
 
         super.onCreate(savedInstanceState);
 
-        String host = getString(R.string.hostName);
-        String launchPath = getString(R.string.launchUrl);
-        Uri launchUri = Uri.parse("https://" + host + launchPath);
+        Uri launchUri = Uri.parse(getString(R.string.default_url));
 
         // Check if incoming intent has a deep link
         Uri intentData = getIntent().getData();
@@ -60,6 +59,7 @@ public class LauncherActivity extends androidx.appcompat.app.AppCompatActivity {
             twaIntent.launchTrustedWebActivity(this);
 
         } catch (Exception e) {
+            Log.w(TAG, "TWA launch failed, falling back to Custom Tab", e);
             // Fallback: open in Chrome Custom Tab if TWA fails
             CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder()
                     .setShowTitle(true)

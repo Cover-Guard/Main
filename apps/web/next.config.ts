@@ -33,7 +33,7 @@ const nextConfig: NextConfig = {
       {
         source: '/sw.js',
         headers: [
-          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
           { key: 'Service-Worker-Allowed', value: '/' },
         ],
       },
@@ -66,6 +66,9 @@ const nextConfig: NextConfig = {
               "font-src 'self' fonts.gstatic.com",
               "connect-src 'self' *.supabase.co maps.googleapis.com *.googleapis.com hazards.fema.gov apps.fs.usda.gov coast.noaa.gov",
               "frame-src 'self' accounts.google.com *.supabase.co",
+              "worker-src 'self'",
+              "manifest-src 'self'",
+              "form-action 'self'",
               "object-src 'none'",
               "base-uri 'self'",
             ].join('; '),

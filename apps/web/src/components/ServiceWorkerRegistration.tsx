@@ -13,8 +13,10 @@ export function ServiceWorkerRegistration() {
 
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
-      .catch(() => {
-        // Service worker registration failed — non-critical for app functionality
+      .catch((err) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Service Worker registration failed:', err)
+        }
       })
   }, [])
 

@@ -30,7 +30,7 @@ Set environment:
 ```bash
 export ANDROID_HOME=$HOME/Library/Android/sdk   # macOS
 export ANDROID_HOME=$HOME/Android/Sdk           # Linux
-export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
+export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin
 ```
 
 ## Quick Start

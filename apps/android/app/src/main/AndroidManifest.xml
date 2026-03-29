@@ -57,7 +57,7 @@
             <!-- TWA metadata -->
             <meta-data
                 android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="https://@string/hostName@string/launchUrl" />
+                android:value="@string/default_url" />
             <meta-data
                 android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
                 android:resource="@color/colorPrimary" />
