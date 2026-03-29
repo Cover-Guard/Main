@@ -26,18 +26,20 @@
     "clean": "npx turbo run clean",
     "qa:env": "npx tsx scripts/qa/env-validate.ts",
     "qa:health": "npx tsx scripts/qa/health-check.ts",
-    "qa:smoke": "npx tsx scripts/qa/smoke-test.ts"
+    "qa:smoke": "npx tsx scripts/qa/smoke-test.ts",
+    "postinstall": "npx patch-package"
   },
   "devDependencies": {
-    "next": "^15.1.3",
+    "dotenv": "^16.4.7",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.1",
+    "next": "^15.1.3",
+    "patch-package": "^8.0.1",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.10",
-    "turbo": "^2.3.0",
-    "typescript": "^5.7.2",
     "tsx": "^4.19.2",
-    "dotenv": "^16.4.7"
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.2"
   },
   "engines": {
     "node": ">=20.0.0",
