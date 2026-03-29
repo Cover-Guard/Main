@@ -95,6 +95,21 @@ android {
     }
 }
 
+// Fail fast on release builds without signing config — prevents unsigned AAB uploads
+afterEvaluate {
+    ['bundleRelease', 'assembleRelease'].each { taskName ->
+        tasks.findByName(taskName)?.doFirst {
+            if (!rootProject.file("keystore.properties").exists()) {
+                throw new GradleException(
+                    "keystore.properties not found. Release builds must be signed.\n" +
+                    "Run ./scripts/setup-keystore.sh to generate a signing key.\n" +
+                    "See README.md for full setup instructions."
+                )
+            }
+        }
+    }
+}
+
 dependencies {
     // Android Browser Helper — provides LauncherActivity and TWA plumbing
     // This is Google's official library for building TWA wrappers
