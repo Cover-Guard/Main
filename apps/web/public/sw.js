@@ -9,7 +9,9 @@
 const CACHE_NAME = 'coverguard-v1';
 const OFFLINE_URL = '/offline.html';
 
-// Static assets to pre-cache on install
+// Static assets to pre-cache on install.
+// Uses individual cache.add() calls so a missing icon doesn't block
+// the entire service worker from activating (icons are generated separately).
 const PRECACHE_ASSETS = [
   '/',
   '/offline.html',
@@ -18,11 +20,13 @@ const PRECACHE_ASSETS = [
   '/icons/icon-512.png',
 ];
 
-// Install: pre-cache essential assets
+// Install: pre-cache essential assets individually so one failure doesn't block activation
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
+      return Promise.allSettled(
+        PRECACHE_ASSETS.map((url) => cache.add(url).catch(() => {}))
+      );
     })
   );
   // Activate immediately without waiting for existing tabs to close
@@ -65,7 +69,9 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(() => {
-        return caches.match(OFFLINE_URL);
+        return caches.match(OFFLINE_URL).then((cached) => {
+          return cached || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        });
       })
     );
     return;
@@ -88,7 +94,9 @@ self.addEventListener('fetch', (event) => {
         .catch(() => {
           // Network failed — return cached version or offline fallback
           if (cachedResponse) return cachedResponse;
-          return caches.match(OFFLINE_URL);
+          return caches.match(OFFLINE_URL).then((offline) => {
+            return offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+          });
         });
 
       // Return cached version immediately if available, otherwise wait for network
