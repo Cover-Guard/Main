@@ -4,9 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "io.coverguard.twa",
-      "sha256_cert_fingerprints": [
-        "INSERT_YOUR_SHA256_FINGERPRINT_HERE"
-      ]
+      "sha256_cert_fingerprints": []
     }
   }
 ]
