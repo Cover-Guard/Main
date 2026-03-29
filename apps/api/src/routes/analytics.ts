@@ -256,6 +256,7 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
     const byMonth = new Map<string, number>()
     for (let i = 11; i >= 0; i--) {
       const d = new Date()
+      d.setDate(1) // Use 1st of month to avoid day-overflow when subtracting months
       d.setMonth(d.getMonth() - i)
       byMonth.set(d.toISOString().slice(0, 7), 0)
     }
