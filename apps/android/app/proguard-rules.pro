@@ -13,3 +13,7 @@
 -keep class androidx.browser.** { *; }
 -keep class androidx.browser.customtabs.** { *; }
 -keep class androidx.browser.trusted.** { *; }
+
+# AndroidX Core / Splash Screen
+-keep class androidx.core.** { *; }
+-keep class androidx.core.splashscreen.** { *; }

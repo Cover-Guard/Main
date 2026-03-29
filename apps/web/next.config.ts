@@ -71,6 +71,7 @@ const nextConfig: NextConfig = {
               "form-action 'self'",
               "object-src 'none'",
               "base-uri 'self'",
+              "upgrade-insecure-requests",
             ].join('; '),
           },
         ],
