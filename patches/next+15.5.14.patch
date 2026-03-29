@@ -1,0 +1,109 @@
+diff --git a/node_modules/next/dist/lib/try-to-parse-path.js b/node_modules/next/dist/lib/try-to-parse-path.js
+index 139ca81..63c875b 100644
+--- a/node_modules/next/dist/lib/try-to-parse-path.js
++++ b/node_modules/next/dist/lib/try-to-parse-path.js
+@@ -9,8 +9,22 @@ Object.defineProperty(exports, "tryToParsePath", {
+     }
+ });
+ const _pathtoregexp = require("next/dist/compiled/path-to-regexp");
+-const _url = require("url");
+ const _iserror = /*#__PURE__*/ _interop_require_default(require("./is-error"));
++// PATCH: WHATWG-based replacement for url.parse() to avoid DEP0169
++const _url = { parse: function(urlStr, parseQuery) {
++    try {
++        const p = new URL(urlStr, 'http://n');
++        const search = p.search || null;
++        return {
++            pathname: p.pathname,
++            hash: p.hash || null,
++            search: search,
++            query: parseQuery ? Object.fromEntries(p.searchParams) : (search ? search.substring(1) : null),
++            path: p.pathname + (search || ''),
++            href: urlStr
++        };
++    } catch (_) { return { pathname: urlStr, path: urlStr, href: urlStr, search: null, query: parseQuery ? {} : null, hash: null }; }
++}};
+ const _routepatternnormalizer = require("./route-pattern-normalizer");
+ function _interop_require_default(obj) {
+     return obj && obj.__esModule ? obj : {
+diff --git a/node_modules/next/dist/server/base-server.js b/node_modules/next/dist/server/base-server.js
+index 74eef89..26af4fe 100644
+--- a/node_modules/next/dist/server/base-server.js
++++ b/node_modules/next/dist/server/base-server.js
+@@ -22,6 +22,31 @@ _export(exports, {
+ });
+ const _utils = require("../shared/lib/utils");
+ const _url = require("url");
++// PATCH: WHATWG-based replacement for url.parse() to avoid DEP0169
++function _safeUrlParse(urlStr, parseQuery) {
++    try {
++        const parsed = new URL(urlStr, 'http://n');
++        const search = parsed.search || null;
++        const hash = parsed.hash || null;
++        const result = {
++            protocol: parsed.protocol === 'http:' && urlStr.startsWith('/') ? null : parsed.protocol || null,
++            slashes: null,
++            auth: null,
++            host: parsed.host === 'n' ? null : parsed.host,
++            port: parsed.port || null,
++            hostname: parsed.hostname === 'n' ? null : parsed.hostname,
++            hash: hash,
++            search: search,
++            query: parseQuery ? Object.fromEntries(parsed.searchParams) : (search ? search.substring(1) : null),
++            pathname: parsed.pathname,
++            path: parsed.pathname + (search || ''),
++            href: urlStr
++        };
++        return result;
++    } catch (_) {
++        return { pathname: urlStr, path: urlStr, href: urlStr, search: null, query: parseQuery ? {} : null };
++    }
++}
+ const _formathostname = require("./lib/format-hostname");
+ const _constants = require("../shared/lib/constants");
+ const _utils1 = require("../shared/lib/router/utils");
+@@ -190,7 +215,7 @@ class Server {
+                 return false;
+             }
+             if (req.url) {
+-                const parsed = (0, _url.parse)(req.url);
++                const parsed = _safeUrlParse(req.url);
+                 parsed.pathname = parsedUrl.pathname;
+                 req.url = (0, _url.format)(parsed);
+             }
+@@ -544,7 +569,7 @@ class Server {
+                         configurable: true
+                     });
+                 }
+-                parsedUrl = (0, _url.parse)(req.url, true);
++                parsedUrl = _safeUrlParse(req.url, true);
+             }
+             if (!parsedUrl.pathname) {
+                 throw Object.defineProperty(new Error("Invariant: pathname can't be empty"), "__NEXT_ERROR_CODE", {
+@@ -1206,7 +1231,7 @@ class Server {
+         // Compute the iSSG cache key. We use the rewroteUrl since
+         // pages with fallback: false are allowed to be rewritten to
+         // and we need to look up the path by the rewritten path
+-        let urlPathname = (0, _url.parse)(req.url || '').pathname || '/';
++        let urlPathname = _safeUrlParse(req.url || '').pathname || '/';
+         let resolvedUrlPathname = (0, _requestmeta.getRequestMeta)(req, 'rewroteURL') || urlPathname;
+         this.setVaryHeader(req, res, isAppPath, resolvedUrlPathname);
+         let staticPaths;
+@@ -1371,7 +1396,7 @@ class Server {
+         }
+         const request = (0, _helpers.isNodeNextRequest)(req) ? req.originalRequest : req;
+         const response = (0, _helpers.isNodeNextResponse)(res) ? res.originalResponse : res;
+-        const parsedInitUrl = (0, _url.parse)((0, _requestmeta.getRequestMeta)(req, 'initURL') || req.url);
++        const parsedInitUrl = _safeUrlParse((0, _requestmeta.getRequestMeta)(req, 'initURL') || req.url);
+         let initPathname = parsedInitUrl.pathname || '/';
+         for (const normalizer of [
+             this.normalizers.segmentPrefetchRSC,
+@@ -1800,7 +1825,7 @@ class Server {
+         });
+     }
+     async render404(req, res, parsedUrl, setHeaders = true) {
+-        const { pathname, query } = parsedUrl ? parsedUrl : (0, _url.parse)(req.url, true);
++        const { pathname, query } = parsedUrl ? parsedUrl : _safeUrlParse(req.url, true);
+         // Ensure the locales are provided on the request meta.
+         if (this.nextConfig.i18n) {
+             if (!(0, _requestmeta.getRequestMeta)(req, 'locale')) {
