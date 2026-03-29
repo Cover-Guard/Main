@@ -10,6 +10,16 @@ import type {
   AnalyticsSummary,
   ApiResponse,
   User,
+  QuoteRequest,
+  PropertyActivityLogEntry,
+  ClientPropertyRecommendation,
+  SavedComparison,
+  RiskWatchlistEntry,
+  RiskChangeEvent,
+  PaginatedResponse,
+  ActivityType,
+  RecommendationPriority,
+  QuoteRequestStatus,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -148,4 +158,145 @@ export async function deleteClient(id: string): Promise<void> {
 
 export async function getAnalytics(): Promise<AnalyticsSummary> {
   return apiFetch('/api/analytics')
+}
+
+// ─── Quote Requests (Enhancement 1) ─────────────────────────────────────────
+
+export async function getQuoteRequests(params?: {
+  status?: QuoteRequestStatus
+  page?: number
+  limit?: number
+}): Promise<PaginatedResponse<QuoteRequest>> {
+  const query = new URLSearchParams()
+  if (params?.status) query.set('status', params.status)
+  if (params?.page) query.set('page', String(params.page))
+  if (params?.limit) query.set('limit', String(params.limit))
+  return apiFetch(`/api/quote-requests?${query}`)
+}
+
+export async function updateQuoteRequestStatus(
+  id: string,
+  status: QuoteRequestStatus,
+  statusNote?: string,
+): Promise<QuoteRequest> {
+  return apiFetch(`/api/quote-requests/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, statusNote }),
+  })
+}
+
+// ─── Activity Log (Enhancement 2) ───────────────────────────────────────────
+
+export async function getActivityLog(params?: {
+  propertyId?: string
+  clientId?: string
+  activityType?: ActivityType
+  page?: number
+  limit?: number
+}): Promise<PaginatedResponse<PropertyActivityLogEntry>> {
+  const query = new URLSearchParams()
+  if (params?.propertyId) query.set('propertyId', params.propertyId)
+  if (params?.clientId) query.set('clientId', params.clientId)
+  if (params?.activityType) query.set('activityType', params.activityType)
+  if (params?.page) query.set('page', String(params.page))
+  if (params?.limit) query.set('limit', String(params.limit))
+  return apiFetch(`/api/activity-log?${query}`)
+}
+
+export async function createActivityLogEntry(data: {
+  propertyId: string
+  clientId?: string
+  activityType?: ActivityType
+  title: string
+  description?: string
+}): Promise<PropertyActivityLogEntry> {
+  return apiFetch('/api/activity-log', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export async function deleteActivityLogEntry(id: string): Promise<void> {
+  await apiFetch(`/api/activity-log/${id}`, { method: 'DELETE' })
+}
+
+// ─── Recommendations (Enhancement 3) ────────────────────────────────────────
+
+export async function getRecommendations(params?: {
+  clientId?: string
+  status?: string
+  page?: number
+  limit?: number
+}): Promise<PaginatedResponse<ClientPropertyRecommendation>> {
+  const query = new URLSearchParams()
+  if (params?.clientId) query.set('clientId', params.clientId)
+  if (params?.status) query.set('status', params.status)
+  if (params?.page) query.set('page', String(params.page))
+  if (params?.limit) query.set('limit', String(params.limit))
+  return apiFetch(`/api/recommendations?${query}`)
+}
+
+export async function createRecommendation(data: {
+  clientId: string
+  propertyId: string
+  priority?: RecommendationPriority
+  notes?: string
+}): Promise<ClientPropertyRecommendation> {
+  return apiFetch('/api/recommendations', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export async function updateRecommendation(
+  id: string,
+  data: { priority?: RecommendationPriority; status?: string; notes?: string },
+): Promise<ClientPropertyRecommendation> {
+  return apiFetch(`/api/recommendations/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+}
+
+export async function deleteRecommendation(id: string): Promise<void> {
+  await apiFetch(`/api/recommendations/${id}`, { method: 'DELETE' })
+}
+
+// ─── Saved Comparisons (Enhancement 4) ──────────────────────────────────────
+
+export async function getSavedComparisons(): Promise<SavedComparison[]> {
+  return apiFetch('/api/comparisons')
+}
+
+export async function createSavedComparison(data: {
+  name: string
+  propertyIds: string[]
+  notes?: string
+}): Promise<SavedComparison> {
+  return apiFetch('/api/comparisons', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export async function deleteSavedComparison(id: string): Promise<void> {
+  await apiFetch(`/api/comparisons/${id}`, { method: 'DELETE' })
+}
+
+// ─── Risk Watchlist (Enhancement 5) ─────────────────────────────────────────
+
+export async function getRiskWatchlist(): Promise<RiskWatchlistEntry[]> {
+  return apiFetch('/api/risk-watchlist')
+}
+
+export async function addToRiskWatchlist(propertyId: string): Promise<RiskWatchlistEntry> {
+  return apiFetch('/api/risk-watchlist', { method: 'POST', body: JSON.stringify({ propertyId }) })
+}
+
+export async function checkRiskChanges(watchlistId: string): Promise<{
+  changes: Array<{
+    riskDimension: string
+    previousScore: number
+    newScore: number
+    previousLevel: string
+    newLevel: string
+  }>
+}> {
+  return apiFetch(`/api/risk-watchlist/${watchlistId}/check`, { method: 'POST' })
+}
+
+export async function getRiskChangeEvents(): Promise<RiskChangeEvent[]> {
+  return apiFetch('/api/risk-watchlist/changes')
+}
+
+export async function removeFromRiskWatchlist(id: string): Promise<void> {
+  await apiFetch(`/api/risk-watchlist/${id}`, { method: 'DELETE' })
 }

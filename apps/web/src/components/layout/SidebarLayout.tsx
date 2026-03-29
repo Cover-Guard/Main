@@ -18,6 +18,11 @@ import {
   X,
   Menu,
   LogOut,
+  FileText,
+  ClipboardList,
+  Star,
+  Bookmark,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AIAdvisor } from './AIAdvisor'
@@ -27,13 +32,18 @@ import { createClient } from '@/lib/supabase/client'
 import type { User } from '@coverguard/shared'
 
 const navItems = [
-  { href: '/',          label: 'New Check',  icon: Search,          exact: true },
-  { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
-  { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
-  { href: '/compare',   label: 'Compare',    icon: GitCompare,      exact: false },
-  { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
-  { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },
-  { href: '/account',   label: 'Settings',   icon: Settings,        exact: false },
+  { href: '/',                label: 'New Check',      icon: Search,          exact: true },
+  { href: '/dashboard',      label: 'Dashboard',      icon: LayoutDashboard, exact: false },
+  { href: '/clients',        label: 'Clients',        icon: Users,           exact: false },
+  { href: '/quotes',         label: 'Quotes',         icon: FileText,        exact: false },
+  { href: '/activity',       label: 'Activity',       icon: ClipboardList,   exact: false },
+  { href: '/recommendations',label: 'Recommend',      icon: Star,            exact: false },
+  { href: '/compare',        label: 'Compare',        icon: GitCompare,      exact: false },
+  { href: '/comparisons',    label: 'Saved Compares',  icon: Bookmark,        exact: false },
+  { href: '/watchlist',      label: 'Watchlist',      icon: Eye,             exact: false },
+  { href: '/toolkit',        label: 'Toolkit',        icon: Wrench,          exact: false },
+  { href: '/analytics',      label: 'Analytics',      icon: BarChart2,       exact: false },
+  { href: '/account',        label: 'Settings',       icon: Settings,        exact: false },
 ]
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {

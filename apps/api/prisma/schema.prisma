@@ -30,11 +30,16 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  savedProperties SavedProperty[]
-  reports         PropertyReport[]
-  clients         Client[]
-  quoteRequests   QuoteRequest[]
-  searchHistories SearchHistory[]
+  savedProperties  SavedProperty[]
+  reports          PropertyReport[]
+  clients          Client[]
+  quoteRequests    QuoteRequest[]
+  searchHistories  SearchHistory[]
+  activityLog      PropertyActivityLog[]
+  recommendations  ClientPropertyRecommendation[]
+  savedComparisons SavedComparison[]
+  riskWatchlist    RiskWatchlist[]
+  riskChangeEvents RiskChangeEvent[]
 
   @@index([role])
   @@map("users")
@@ -77,6 +82,10 @@ model Property {
   savedBy           SavedProperty[]
   reports           PropertyReport[]
   quoteRequests     QuoteRequest[]
+  activityLog       PropertyActivityLog[]
+  recommendations   ClientPropertyRecommendation[]
+  riskWatchlist     RiskWatchlist[]
+  riskChangeEvents  RiskChangeEvent[]
 
   @@index([zip])
   @@index([state, city])
@@ -255,7 +264,9 @@ model Client {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  agent User @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agent           User                          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  recommendations ClientPropertyRecommendation[]
+  activityLog     PropertyActivityLog[]
 
   @@index([agentId])
   @@map("clients")
@@ -280,6 +291,9 @@ model QuoteRequest {
   status        QuoteRequestStatus @default(PENDING)
   submittedAt   DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+
+  statusNote  String?
+  carrierName String?
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -311,4 +325,136 @@ model SearchHistory {
   @@index([userId, searchedAt(sort: Desc)])
   @@index([searchedAt(sort: Desc)])
   @@map("search_history")
+}
+
+// ─── Property Activity Log (Enhancement 2) ───────────────────────────────────
+
+model PropertyActivityLog {
+  id           String       @id @default(uuid())
+  userId       String
+  propertyId   String
+  clientId     String?
+  activityType ActivityType @default(NOTE)
+  title        String
+  description  String?
+  createdAt    DateTime     @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  client   Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([propertyId, createdAt(sort: Desc)])
+  @@index([clientId])
+  @@map("property_activity_log")
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  VIEWING
+  QUOTE_SENT
+  FOLLOW_UP
+  STATUS_CHANGE
+}
+
+// ─── Client Property Recommendations (Enhancement 3) ─────────────────────────
+
+model ClientPropertyRecommendation {
+  id         String                 @id @default(uuid())
+  agentId    String
+  clientId   String
+  propertyId String
+  priority   RecommendationPriority @default(MEDIUM)
+  status     RecommendationStatus   @default(PENDING)
+  notes      String?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  agent    User     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, propertyId])
+  @@index([agentId])
+  @@index([clientId, status])
+  @@map("client_property_recommendations")
+}
+
+enum RecommendationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RecommendationStatus {
+  PENDING
+  VIEWED
+  INTERESTED
+  NOT_INTERESTED
+  QUOTE_REQUESTED
+}
+
+// ─── Saved Comparisons (Enhancement 4) ───────────────────────────────────────
+
+model SavedComparison {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  propertyIds String[] @default([])
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("saved_comparisons")
+}
+
+// ─── Risk Watchlist (Enhancement 5) ──────────────────────────────────────────
+
+model RiskWatchlist {
+  id                      String    @id @default(uuid())
+  userId                  String
+  propertyId              String
+  lastKnownOverallScore   Int?
+  lastKnownFloodScore     Int?
+  lastKnownFireScore      Int?
+  lastKnownWindScore      Int?
+  lastKnownEarthquakeScore Int?
+  lastKnownCrimeScore     Int?
+  addedAt                 DateTime  @default(now())
+  lastCheckedAt           DateTime?
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property     Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  changeEvents RiskChangeEvent[]
+
+  @@unique([userId, propertyId])
+  @@index([userId, addedAt(sort: Desc)])
+  @@map("risk_watchlist")
+}
+
+model RiskChangeEvent {
+  id             String    @id @default(uuid())
+  watchlistId    String
+  propertyId     String
+  userId         String
+  riskDimension  String
+  previousScore  Int
+  newScore       Int
+  previousLevel  RiskLevel
+  newLevel       RiskLevel
+  detectedAt     DateTime  @default(now())
+
+  watchlist RiskWatchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  property  Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, detectedAt(sort: Desc)])
+  @@index([propertyId])
+  @@map("risk_change_events")
 }

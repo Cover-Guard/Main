@@ -207,6 +207,7 @@ propertiesRouter.get('/:id/carriers', async (req, res, next) => {
 
 const quoteRequestSchema = z.object({
   carrierId: z.string().min(1),
+  carrierName: z.string().max(200).optional(),
   coverageTypes: z.array(z.string()).min(1).max(6),
   notes: z.string().max(1000).optional(),
 })
@@ -221,6 +222,7 @@ propertiesRouter.post('/:id/quote-request', requireAuth, async (req: Request, re
         userId,
         propertyId: String(req.params.id),
         carrierId: body.carrierId,
+        carrierName: body.carrierName ?? null,
         coverageTypes: body.coverageTypes,
         notes: body.notes ?? null,
       },

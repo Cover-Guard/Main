@@ -13,6 +13,11 @@ import { propertiesRouter } from './routes/properties'
 import { authRouter } from './routes/auth'
 import { clientsRouter } from './routes/clients'
 import { analyticsRouter } from './routes/analytics'
+import { quoteRequestsRouter } from './routes/quoteRequests'
+import { activityLogRouter } from './routes/activityLog'
+import { recommendationsRouter } from './routes/recommendations'
+import { comparisonsRouter } from './routes/comparisons'
+import { riskWatchlistRouter } from './routes/riskWatchlist'
 
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '4000', 10)
@@ -136,6 +141,11 @@ app.use(
 app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
 app.use('/api/clients', requestTimeout(15_000), clientsRouter)
 app.use('/api/analytics', requestTimeout(20_000), analyticsRouter)
+app.use('/api/quote-requests', requestTimeout(15_000), quoteRequestsRouter)
+app.use('/api/activity-log', requestTimeout(15_000), activityLogRouter)
+app.use('/api/recommendations', requestTimeout(15_000), recommendationsRouter)
+app.use('/api/comparisons', requestTimeout(15_000), comparisonsRouter)
+app.use('/api/risk-watchlist', requestTimeout(15_000), riskWatchlistRouter)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 

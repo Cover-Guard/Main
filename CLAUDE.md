@@ -147,6 +147,11 @@ Main-Branch/
 | `QuoteRequest` | Binding quote request to a carrier |
 | `PropertyReport` | Generated PDF reports |
 | `SearchHistory` | Search audit trail |
+| `PropertyActivityLog` | Timestamped property interaction log (calls, notes, meetings) |
+| `ClientPropertyRecommendation` | Agent → client property recommendations with priority/status |
+| `SavedComparison` | Saved property comparison sets (2-3 properties) |
+| `RiskWatchlist` | Properties monitored for risk score changes |
+| `RiskChangeEvent` | Detected risk score changes for watchlisted properties |
 
 ---
 
@@ -189,6 +194,30 @@ PATCH /api/clients/:id                      Update client [auth]
 DEL  /api/clients/:id                       Delete client [auth]
 
 GET  /api/analytics                         Analytics summary [auth]
+
+GET  /api/quote-requests                    List user's quote requests [auth]
+GET  /api/quote-requests/:id                Get single quote request [auth]
+PATCH /api/quote-requests/:id               Update quote request status [auth]
+
+GET  /api/activity-log                      List activity log entries [auth]
+POST /api/activity-log                      Create activity log entry [auth]
+DEL  /api/activity-log/:id                  Delete activity log entry [auth]
+
+GET  /api/recommendations                   List client recommendations [auth]
+POST /api/recommendations                   Create recommendation [auth]
+PATCH /api/recommendations/:id              Update recommendation [auth]
+DEL  /api/recommendations/:id               Delete recommendation [auth]
+
+GET  /api/comparisons                       List saved comparisons [auth]
+POST /api/comparisons                       Save a comparison [auth]
+GET  /api/comparisons/:id                   Get saved comparison [auth]
+DEL  /api/comparisons/:id                   Delete saved comparison [auth]
+
+GET  /api/risk-watchlist                    List watchlist entries [auth]
+POST /api/risk-watchlist                    Add property to watchlist [auth]
+POST /api/risk-watchlist/:id/check          Check for risk changes [auth]
+GET  /api/risk-watchlist/changes            List risk change events [auth]
+DEL  /api/risk-watchlist/:id                Remove from watchlist [auth]
 ```
 
 ---

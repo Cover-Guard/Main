@@ -10,6 +10,7 @@ import { PropertyDetails } from '@/components/property/PropertyDetails'
 import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
+import { WatchlistButton } from '@/components/watchlist/WatchlistButton'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
@@ -132,6 +133,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                   <GitCompare className="h-4 w-4" />
                   Compare
                 </Link>
+                <WatchlistButton propertyId={prop.id} />
                 <SavePropertyButton propertyId={prop.id} />
               </div>
             </div>
