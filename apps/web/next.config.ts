@@ -29,6 +29,22 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Service worker must be served from root scope with correct headers
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      // Digital Asset Links for Android TWA verification
+      {
+        source: '/.well-known/assetlinks.json',
+        headers: [
+          { key: 'Content-Type', value: 'application/json' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [

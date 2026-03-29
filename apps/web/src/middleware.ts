@@ -21,6 +21,6 @@ export const config = {
      *  - /api/* routes (proxied to Express API which has its own auth)
      *  - manifest.json, robots.txt, sitemap.xml (public static assets)
      */
-    '/((?!_next/static|_next/image|favicon\\.ico|api/|manifest\\.json|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|api/|manifest\\.json|robots\\.txt|sitemap\\.xml|sw\\.js|offline\\.html|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json)$).*)',
   ],
 }

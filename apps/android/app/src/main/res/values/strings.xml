@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CoverGuard</string>
+
+    <!-- Digital Asset Links statement — links the Android app to coverguard.io
+         This MUST match the /.well-known/assetlinks.json on the web server -->
+    <string name="asset_statements">
+        [{
+            \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+            \"target\": {
+                \"namespace\": \"web\",
+                \"site\": \"https://coverguard.io\"
+            }
+        }]
+    </string>
+
+    <!-- Fallback / offline messaging -->
+    <string name="offline_title">You\'re offline</string>
+    <string name="offline_message">Check your internet connection and try again.</string>
+</resources>

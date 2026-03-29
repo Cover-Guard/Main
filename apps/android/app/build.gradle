@@ -1,0 +1,108 @@
+plugins {
+    id 'com.android.application'
+}
+
+def twaManifest = [
+    applicationId:        'io.coverguard.twa',
+    hostName:             'coverguard.io',
+    launchUrl:            '/',
+    name:                 'CoverGuard',
+    shortName:            'CoverGuard',
+    themeColor:           '#0d1929',
+    navigationColor:      '#0d1929',
+    navigationColorDark:  '#0d1929',
+    navigationDividerColor:     '#0d1929',
+    navigationDividerColorDark: '#0d1929',
+    backgroundColor:      '#0d1929',
+    enableNotifications:  true,
+    // SHA-256 fingerprint of your signing key — REPLACE before production build
+    // Generate with: keytool -list -v -keystore your-keystore.jks -alias your-alias
+    signingCertFingerprint: 'INSERT_YOUR_SHA256_FINGERPRINT_HERE',
+    splashScreenFadeOutDuration: 300,
+    enableSiteSettingsShortcut: 'true',
+    orientation:          'portrait',
+]
+
+android {
+    namespace 'io.coverguard.twa'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId twaManifest.applicationId
+        minSdk 24          // Chrome Custom Tabs TWA support
+        targetSdk 35       // Google Play requirement — target latest SDK
+        versionCode 1
+        versionName "1.0.0"
+
+        // TWA metadata injected into AndroidManifest.xml
+        resValue "string", "hostName", twaManifest.hostName
+        resValue "string", "launchUrl", twaManifest.launchUrl
+        resValue "string", "name", twaManifest.name
+        resValue "string", "shortName", twaManifest.shortName
+        resValue "color", "colorPrimary", twaManifest.themeColor
+        resValue "color", "colorPrimaryDark", twaManifest.navigationColor
+        resValue "color", "navigationColor", twaManifest.navigationColor
+        resValue "color", "navigationColorDark", twaManifest.navigationColorDark
+        resValue "color", "navigationDividerColor", twaManifest.navigationDividerColor
+        resValue "color", "navigationDividerColorDark", twaManifest.navigationDividerColorDark
+        resValue "color", "backgroundColor", twaManifest.backgroundColor
+        resValue "string", "signingCertFingerprint", twaManifest.signingCertFingerprint
+        resValue "bool", "enableNotifications", twaManifest.enableNotifications.toString()
+        resValue "string", "splashScreenFadeOutDuration", twaManifest.splashScreenFadeOutDuration.toString()
+        resValue "string", "enableSiteSettingsShortcut", twaManifest.enableSiteSettingsShortcut
+        resValue "string", "orientation", twaManifest.orientation
+    }
+
+    signingConfigs {
+        release {
+            // Configure via environment variables or local keystore.properties
+            // DO NOT commit keystore credentials to version control
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                def keystoreProperties = new Properties()
+                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            debuggable true
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (rootProject.file("keystore.properties").exists()) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+    }
+}
+
+dependencies {
+    // AndroidX Browser — provides TrustedWebActivityIntentBuilder and TWA support
+    implementation 'androidx.browser:browser:1.8.0'
+
+    // Core AndroidX libraries
+    implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+
+    // Splash screen API (Android 12+ requirement)
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+}

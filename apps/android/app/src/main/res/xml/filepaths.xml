@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Required by TWA for splash screen image sharing -->
+    <files-path name="twa_splash" path="/splashscreens/" />
+</paths>
