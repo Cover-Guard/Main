@@ -1,8 +1,8 @@
 diff --git a/node_modules/next/dist/lib/try-to-parse-path.js b/node_modules/next/dist/lib/try-to-parse-path.js
-index 139ca81..63c875b 100644
+index 139ca81..44c59c2 100644
 --- a/node_modules/next/dist/lib/try-to-parse-path.js
 +++ b/node_modules/next/dist/lib/try-to-parse-path.js
-@@ -9,8 +9,22 @@ Object.defineProperty(exports, "tryToParsePath", {
+@@ -9,8 +9,28 @@ Object.defineProperty(exports, "tryToParsePath", {
      }
  });
  const _pathtoregexp = require("next/dist/compiled/path-to-regexp");
@@ -10,36 +10,66 @@ index 139ca81..63c875b 100644
  const _iserror = /*#__PURE__*/ _interop_require_default(require("./is-error"));
 +// PATCH: WHATWG-based replacement for url.parse() to avoid DEP0169
 +const _url = { parse: function(urlStr, parseQuery) {
++    if (!urlStr) return { pathname: null, path: null, href: '', search: null, query: parseQuery ? {} : null, hash: null };
 +    try {
-+        const p = new URL(urlStr, 'http://n');
-+        const search = p.search || null;
-+        return {
-+            pathname: p.pathname,
-+            hash: p.hash || null,
-+            search: search,
-+            query: parseQuery ? Object.fromEntries(p.searchParams) : (search ? search.substring(1) : null),
-+            path: p.pathname + (search || ''),
-+            href: urlStr
-+        };
++        const isProtocolRelative = urlStr.length > 1 && urlStr.charCodeAt(0) === 47 && urlStr.charCodeAt(1) === 47;
++        const effectiveStr = isProtocolRelative ? ('/' + urlStr.replace(/^\/+/, '')) : urlStr;
++        const p = new URL(effectiveStr, 'http://n');
++        const hasQMark = urlStr.indexOf('?') !== -1;
++        const search = p.search ? p.search : (hasQMark ? '?' : null);
++        const pathname = isProtocolRelative ? urlStr.replace(/\?.*$/, '').replace(/#.*$/, '') : p.pathname;
++        let query = null;
++        if (parseQuery) {
++            query = {};
++            for (const key of p.searchParams.keys()) {
++                const values = p.searchParams.getAll(key);
++                query[key] = values.length > 1 ? values : values[0];
++            }
++        } else { query = search ? search.substring(1) : null; }
++        return { pathname: pathname, hash: p.hash || null, search: search, query: query, path: pathname + (search || ''), href: urlStr };
 +    } catch (_) { return { pathname: urlStr, path: urlStr, href: urlStr, search: null, query: parseQuery ? {} : null, hash: null }; }
 +}};
  const _routepatternnormalizer = require("./route-pattern-normalizer");
  function _interop_require_default(obj) {
      return obj && obj.__esModule ? obj : {
 diff --git a/node_modules/next/dist/server/base-server.js b/node_modules/next/dist/server/base-server.js
-index 74eef89..26af4fe 100644
+index 74eef89..60d8b57 100644
 --- a/node_modules/next/dist/server/base-server.js
 +++ b/node_modules/next/dist/server/base-server.js
-@@ -22,6 +22,31 @@ _export(exports, {
+@@ -22,6 +22,55 @@ _export(exports, {
  });
  const _utils = require("../shared/lib/utils");
  const _url = require("url");
 +// PATCH: WHATWG-based replacement for url.parse() to avoid DEP0169
 +function _safeUrlParse(urlStr, parseQuery) {
++    if (!urlStr) {
++        return { pathname: null, path: null, href: '', search: null, query: parseQuery ? {} : null };
++    }
++    // Protocol-relative URLs (//host/path) — treat the whole string as a path,
++    // matching legacy url.parse() behaviour for request URLs.
++    const isProtocolRelative = urlStr.length > 1 && urlStr.charCodeAt(0) === 47 && urlStr.charCodeAt(1) === 47;
 +    try {
-+        const parsed = new URL(urlStr, 'http://n');
-+        const search = parsed.search || null;
++        const effectiveStr = isProtocolRelative ? ('/' + urlStr.replace(/^\/+/, '')) : urlStr;
++        const parsed = new URL(effectiveStr, 'http://n');
++        // Preserve bare '?' — WHATWG normalises '/?' to search:'' but
++        // legacy url.parse returns search:'?'. Detect by checking whether
++        // the original string contains '?'.
++        const hasQMark = urlStr.indexOf('?') !== -1;
++        const search = parsed.search ? parsed.search : (hasQMark ? '?' : null);
 +        const hash = parsed.hash || null;
++        // Build query object that preserves arrays for repeated keys,
++        // matching querystring.parse() behaviour used by legacy url.parse(str, true).
++        let query = null;
++        if (parseQuery) {
++            query = {};
++            for (const key of parsed.searchParams.keys()) {
++                const values = parsed.searchParams.getAll(key);
++                query[key] = values.length > 1 ? values : values[0];
++            }
++        } else {
++            query = search ? search.substring(1) : null;
++        }
++        const pathname = isProtocolRelative ? urlStr.replace(/\?.*$/, '').replace(/#.*$/, '') : parsed.pathname;
 +        const result = {
 +            protocol: parsed.protocol === 'http:' && urlStr.startsWith('/') ? null : parsed.protocol || null,
 +            slashes: null,
@@ -49,9 +79,9 @@ index 74eef89..26af4fe 100644
 +            hostname: parsed.hostname === 'n' ? null : parsed.hostname,
 +            hash: hash,
 +            search: search,
-+            query: parseQuery ? Object.fromEntries(parsed.searchParams) : (search ? search.substring(1) : null),
-+            pathname: parsed.pathname,
-+            path: parsed.pathname + (search || ''),
++            query: query,
++            pathname: pathname,
++            path: pathname + (search || ''),
 +            href: urlStr
 +        };
 +        return result;
@@ -62,7 +92,7 @@ index 74eef89..26af4fe 100644
  const _formathostname = require("./lib/format-hostname");
  const _constants = require("../shared/lib/constants");
  const _utils1 = require("../shared/lib/router/utils");
-@@ -190,7 +215,7 @@ class Server {
+@@ -190,7 +239,7 @@ class Server {
                  return false;
              }
              if (req.url) {
@@ -71,7 +101,7 @@ index 74eef89..26af4fe 100644
                  parsed.pathname = parsedUrl.pathname;
                  req.url = (0, _url.format)(parsed);
              }
-@@ -544,7 +569,7 @@ class Server {
+@@ -544,7 +593,7 @@ class Server {
                          configurable: true
                      });
                  }
@@ -80,7 +110,7 @@ index 74eef89..26af4fe 100644
              }
              if (!parsedUrl.pathname) {
                  throw Object.defineProperty(new Error("Invariant: pathname can't be empty"), "__NEXT_ERROR_CODE", {
-@@ -1206,7 +1231,7 @@ class Server {
+@@ -1206,7 +1255,7 @@ class Server {
          // Compute the iSSG cache key. We use the rewroteUrl since
          // pages with fallback: false are allowed to be rewritten to
          // and we need to look up the path by the rewritten path
@@ -89,7 +119,7 @@ index 74eef89..26af4fe 100644
          let resolvedUrlPathname = (0, _requestmeta.getRequestMeta)(req, 'rewroteURL') || urlPathname;
          this.setVaryHeader(req, res, isAppPath, resolvedUrlPathname);
          let staticPaths;
-@@ -1371,7 +1396,7 @@ class Server {
+@@ -1371,7 +1420,7 @@ class Server {
          }
          const request = (0, _helpers.isNodeNextRequest)(req) ? req.originalRequest : req;
          const response = (0, _helpers.isNodeNextResponse)(res) ? res.originalResponse : res;
@@ -98,7 +128,7 @@ index 74eef89..26af4fe 100644
          let initPathname = parsedInitUrl.pathname || '/';
          for (const normalizer of [
              this.normalizers.segmentPrefetchRSC,
-@@ -1800,7 +1825,7 @@ class Server {
+@@ -1800,7 +1849,7 @@ class Server {
          });
      }
      async render404(req, res, parsedUrl, setHeaders = true) {
