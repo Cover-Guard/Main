@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { SearchBar } from '@/components/search/SearchBar'
 import { SearchResults } from '@/components/search/SearchResults'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
@@ -84,12 +85,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     searchError ? (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
         <p>Unable to search properties. Please try again.</p>
-        <a
+        <Link
           href="/properties/sample"
           className="mt-3 inline-block rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
         >
           View a sample property report
-        </a>
+        </Link>
       </div>
     ) : (
       <SearchResults properties={properties} query={q} />
