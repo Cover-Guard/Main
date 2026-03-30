@@ -134,7 +134,9 @@ export function PropertyMap({
   }, [riskProfile])
 
   const activeLayersRef = useRef(activeLayers)
-  activeLayersRef.current = activeLayers
+  useEffect(() => {
+    activeLayersRef.current = activeLayers
+  }, [activeLayers])
 
   const toggleLayer = useCallback((layer: RiskLayer) => {
     const wasActive = activeLayersRef.current.has(layer)
