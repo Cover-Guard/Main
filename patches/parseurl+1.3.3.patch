@@ -31,7 +31,7 @@ index ece7223..6b0d711 100644
 +    return { pathname: str, path: str, href: str, search: null, query: null }
 +  }
 +
-+  var search = parsed.search || null
++  var search = parsed.href.includes('?') ? (parsed.search || '?') : null
 +  var query  = search ? search.substring(1) : null
 +  var path   = parsed.pathname + (search || '')
 +
