@@ -10,9 +10,11 @@ export default defineConfig({
   // This eliminates runtime require() calls for pure-JS packages (express,
   // dotenv, winston, etc.) so the Vercel serverless function doesn't depend
   // on node_modules for them.
-  noExternal: [/^(?!(@prisma|pg|prisma|fsevents))/],
-  // Keep native/binary deps external — they need real node_modules
-  external: ['@prisma/client', '@prisma/adapter-pg', 'pg', 'prisma', 'fsevents'],
+  noExternal: [/^(?!(@prisma\/client|pg|prisma|fsevents))/],
+  // Keep native/binary deps external — they need real node_modules.
+  // @prisma/adapter-pg and @prisma/driver-adapter-utils are pure JS and
+  // are intentionally bundled so they don't need node_modules at runtime.
+  external: ['@prisma/client', 'pg', 'prisma', 'fsevents'],
   clean: true,
   sourcemap: true,
 })
