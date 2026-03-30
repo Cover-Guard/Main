@@ -621,7 +621,7 @@ async function fetchSloshHurricaneSurge(lat: number, lng: number, result: WindRi
     // Query Cat1, Cat3, Cat5 in parallel to determine the minimum hurricane category
     // that produces storm surge at this location. Each CFEM service covers a different
     // worst-case scenario: Cat1 = smallest surge footprint, Cat5 = largest.
-    const categories = [1, 3, 5] as const
+    const categories: number[] = [1, 3, 5]
     const checks = await Promise.allSettled(
       categories.map(async (cat) => {
         const url = `https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat${cat}/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json`
