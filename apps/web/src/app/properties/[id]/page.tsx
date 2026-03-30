@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft, GitCompare } from 'lucide-react'
-import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyCarriers, getPropertyInsurability } from '@/lib/api'
+import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyCarriers, getPropertyInsurability, getPropertyPublicData } from '@/lib/api'
 import { RiskSummary } from '@/components/property/RiskSummary'
 import { RiskBreakdown } from '@/components/property/RiskBreakdown'
 import { InsuranceCostEstimate } from '@/components/property/InsuranceCostEstimate'
@@ -11,6 +11,8 @@ import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
 import { PropertyChecklists } from '@/components/property/PropertyChecklists'
+import { PropertyImages } from '@/components/property/PropertyImages'
+import { PropertyPublicInfo } from '@/components/property/PropertyPublicInfo'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
@@ -33,12 +35,13 @@ export async function generateMetadata({ params }: PropertyPageProps): Promise<M
 export default async function PropertyPage({ params }: PropertyPageProps) {
   const { id } = await params
 
-  const [property, risk, insurance, carriers, insurability] = await Promise.allSettled([
+  const [property, risk, insurance, carriers, insurability, publicData] = await Promise.allSettled([
     getProperty(id),
     getPropertyRisk(id),
     getPropertyInsurance(id),
     getPropertyCarriers(id),
     getPropertyInsurability(id),
+    getPropertyPublicData(id),
   ])
 
   if (property.status === 'rejected') notFound()
@@ -48,12 +51,16 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const insuranceEstimate = insurance.status === 'fulfilled' ? insurance.value : null
   const carriersData = carriers.status === 'fulfilled' ? carriers.value : null
   const insurabilityStatus = insurability.status === 'fulfilled' ? insurability.value : null
+  const publicInfo = publicData.status === 'fulfilled' ? publicData.value : null
 
   const fullAddress = `${prop.address}, ${prop.city}, ${prop.state} ${prop.zip}`
 
   // ── Mobile tab content ─────────────────────────────────────────────────
   const overviewPanel = (
     <div className="space-y-4 p-4">
+      {publicInfo?.images && publicInfo.images.length > 0 && (
+        <PropertyImages images={publicInfo.images} address={fullAddress} />
+      )}
       <PropertyMapInline property={prop} riskProfile={riskProfile} />
       {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
     </div>
@@ -84,8 +91,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   )
 
   const detailsPanel = (
-    <div className="p-4">
+    <div className="space-y-4 p-4">
       <PropertyDetails property={prop} />
+      {publicInfo && <PropertyPublicInfo data={publicInfo} />}
     </div>
   )
 
@@ -168,6 +176,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Left / main column */}
             <div className="space-y-8 lg:col-span-2">
+              {publicInfo?.images && publicInfo.images.length > 0 && (
+                <PropertyImages images={publicInfo.images} address={fullAddress} />
+              )}
               <PropertyMapInline property={prop} riskProfile={riskProfile} />
               {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
               {riskProfile && (
@@ -177,6 +188,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                 </>
               )}
               <PropertyDetails property={prop} />
+              {publicInfo && <PropertyPublicInfo data={publicInfo} />}
               <PropertyChecklists propertyId={prop.id} />
             </div>
 

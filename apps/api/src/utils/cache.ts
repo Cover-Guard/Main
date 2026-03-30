@@ -1,4 +1,4 @@
-import type { Property, PropertyRiskProfile, InsuranceCostEstimate, InsurabilityStatus, CarriersResult } from '@coverguard/shared'
+import type { Property, PropertyRiskProfile, InsuranceCostEstimate, InsurabilityStatus, CarriersResult, PropertyPublicData } from '@coverguard/shared'
 
 /**
  * Lightweight LRU cache for hot in-process data.
@@ -79,6 +79,9 @@ export const carriersCache = new LRUCache<CarriersResult>(100_000, 60 * 60 * 100
 /** Insurability status — 6 hour TTL, 200k entries */
 export const insurabilityCache = new LRUCache<InsurabilityStatus>(200_000, 6 * 60 * 60 * 1000)
 
+/** Public property data — 24 hour TTL, 50k entries */
+export const publicDataCache = new LRUCache<PropertyPublicData>(50_000, 24 * 60 * 60 * 1000)
+
 // ── Request deduplication ─────────────────────────────────────────────────────
 
 /**
@@ -105,3 +108,4 @@ export const riskDeduplicator = new RequestDeduplicator<PropertyRiskProfile>()
 export const insuranceDeduplicator = new RequestDeduplicator<InsuranceCostEstimate>()
 export const insurabilityDeduplicator = new RequestDeduplicator<InsurabilityStatus>()
 export const carriersDeduplicator = new RequestDeduplicator<CarriersResult>()
+export const publicDataDeduplicator = new RequestDeduplicator<PropertyPublicData>()
