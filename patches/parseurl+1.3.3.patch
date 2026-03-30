@@ -2,13 +2,15 @@ diff --git a/node_modules/parseurl/index.js b/node_modules/parseurl/index.js
 index ece7223..6b0d711 100644
 --- a/node_modules/parseurl/index.js
 +++ b/node_modules/parseurl/index.js
-@@ -12,9 +12,47 @@
+@@ -12,9 +12,51 @@
   * @private
   */
  
 -var url = require('url')
 -var parse = url.parse
 -var Url = url.Url
++var Url = undefined
++
 +/**
 + * Parse a URL string using the WHATWG URL API instead of the deprecated
 + * `url.parse()`.  Returns a plain object whose shape matches the legacy
@@ -27,7 +29,7 @@ index ece7223..6b0d711 100644
 +  try {
 +    parsed = new URL(str, 'http://localhost')
 +  } catch (_) {
-+    // Malformed — return a minimal object so callers don't crash.
++    // Malformed -- return a minimal object so callers don't crash.
 +    return { pathname: str, path: str, href: str, search: null, query: null }
 +  }
 +
@@ -55,7 +57,7 @@ index ece7223..6b0d711 100644
  
  /**
   * Module exports.
-@@ -125,9 +163,7 @@ function fastparse (str) {
+@@ -125,9 +167,7 @@ function fastparse (str) {
      }
    }
  
@@ -66,11 +68,11 @@ index ece7223..6b0d711 100644
  
    url.path = str
    url.href = str
-@@ -153,6 +189,5 @@ function fastparse (str) {
+@@ -153,6 +193,6 @@ function fastparse (str) {
  function fresh (url, parsedUrl) {
    return typeof parsedUrl === 'object' &&
      parsedUrl !== null &&
 -    (Url === undefined || parsedUrl instanceof Url) &&
-+    (Url === undefined || parsedUrl instanceof Url || typeof parsedUrl.pathname === 'string') &&
++    (Url === undefined || typeof parsedUrl.pathname === 'string') &&
      parsedUrl._raw === url
  }
