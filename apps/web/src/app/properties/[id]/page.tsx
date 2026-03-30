@@ -18,7 +18,7 @@ import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
-import type { Property, PropertyRiskProfile, InsuranceCostEstimate as InsuranceCostEstimateType, CarriersResult, InsurabilityStatus } from '@coverguard/shared'
+import type { Property } from '@coverguard/shared'
 
 interface PropertyPageProps {
   params: Promise<{ id: string }>
