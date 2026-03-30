@@ -279,11 +279,12 @@ export async function getOrComputeRiskProfile(
     // and poor drainage regardless of FEMA zone designation
     let elevationBoost = 0
     if (elevation != null && elevation < 15) {
+      // Graduated boost: lower elevation = higher boost (0-15ft range → 1-8 or 1-12 points)
       const baseBoost = Math.round((15 - elevation) / 2)
-      // Higher boost for SFHA properties (compounding risk)
+      // SFHA properties get a higher multiplier (compounding risk)
       elevationBoost = floodData.inSpecialFloodHazardArea
-        ? Math.max(12, baseBoost)
-        : Math.max(8, baseBoost)
+        ? Math.min(12, Math.max(1, baseBoost))
+        : Math.min(8, Math.max(1, baseBoost))
     }
     // Boost flood from dam hazard data
     let damBoost = 0
@@ -528,8 +529,8 @@ function prismaProfileToDto(
   if (enrichment?.earthquakeData?.soilType) {
     earthquakeDetails.push(`Soil classification: ${enrichment.earthquakeData.soilType}`)
   }
-  if (enrichment?.earthquakeData?.liquidationPotential) {
-    earthquakeDetails.push(`Liquefaction potential: ${enrichment.earthquakeData.liquidationPotential}`)
+  if (enrichment?.earthquakeData?.liquefactionPotential) {
+    earthquakeDetails.push(`Liquefaction potential: ${enrichment.earthquakeData.liquefactionPotential}`)
   }
   if (enrichment?.historicalEq && enrichment.historicalEq.count > 0) {
     earthquakeDetails.push(`${enrichment.historicalEq.count} earthquakes (M2.5+) within 50km in last 20 years`)
@@ -624,7 +625,7 @@ function prismaProfileToDto(
       seismicZone: p.seismicZone,
       nearestFaultLine: p.nearestFaultLine,
       soilType: enrichment?.earthquakeData?.soilType ?? null,
-      liquidationPotential: (enrichment?.earthquakeData?.liquidationPotential as RiskLevel) ?? null,
+      liquefactionPotential: (enrichment?.earthquakeData?.liquefactionPotential as RiskLevel) ?? null,
     },
     crime: {
       level: p.crimeRiskLevel as RiskLevel,

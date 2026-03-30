@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -15,6 +16,7 @@ import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
+import type { Property, PropertyRiskProfile, InsuranceCostEstimate as InsuranceCostEstimateType, CarriersResult, InsurabilityStatus } from '@coverguard/shared'
 
 interface PropertyPageProps {
   params: Promise<{ id: string }>
@@ -30,56 +32,94 @@ export async function generateMetadata({ params }: PropertyPageProps): Promise<M
   }
 }
 
+// ── Skeleton loaders for streaming sections ─────────────────────────────────
+
+function SectionSkeleton({ className = '' }: { className?: string }) {
+  return (
+    <div className={`animate-pulse rounded-xl bg-gray-200 ${className}`}>
+      <div className="p-6 space-y-3">
+        <div className="h-4 bg-gray-300 rounded w-1/3" />
+        <div className="h-3 bg-gray-300 rounded w-2/3" />
+        <div className="h-3 bg-gray-300 rounded w-1/2" />
+      </div>
+    </div>
+  )
+}
+
+// ── Async data components (streamed via Suspense) ───────────────────────────
+
+async function RiskSection({ id }: { id: string }) {
+  const riskProfile = await getPropertyRisk(id).catch(() => null)
+  if (!riskProfile) return <p className="text-sm text-gray-500">Risk data unavailable.</p>
+  return (
+    <>
+      <RiskSummary profile={riskProfile} />
+      <RiskBreakdown profile={riskProfile} />
+    </>
+  )
+}
+
+async function InsurabilitySection({ id }: { id: string }) {
+  const status = await getPropertyInsurability(id).catch(() => null)
+  if (!status) return null
+  return <InsurabilityPanel status={status} />
+}
+
+async function CarriersSection({ id, address }: { id: string; address: string }) {
+  const [carriersData, insuranceEstimate] = await Promise.all([
+    getPropertyCarriers(id).catch(() => null),
+    getPropertyInsurance(id).catch(() => null),
+  ])
+  return (
+    <>
+      {carriersData && <ActiveCarriers data={carriersData} propertyId={id} propertyAddress={address} />}
+      {insuranceEstimate && <InsuranceCostEstimate estimate={insuranceEstimate} />}
+    </>
+  )
+}
+
+async function MapWithRisk({ property }: { property: Property }) {
+  const riskProfile = await getPropertyRisk(property.id).catch(() => null)
+  return <PropertyMapInline property={property} riskProfile={riskProfile} />
+}
+
 export default async function PropertyPage({ params }: PropertyPageProps) {
   const { id } = await params
 
-  const [property, risk, insurance, carriers, insurability] = await Promise.allSettled([
-    getProperty(id),
-    getPropertyRisk(id),
-    getPropertyInsurance(id),
-    getPropertyCarriers(id),
-    getPropertyInsurability(id),
-  ])
-
-  if (property.status === 'rejected') notFound()
-
-  const prop = property.value
-  const riskProfile = risk.status === 'fulfilled' ? risk.value : null
-  const insuranceEstimate = insurance.status === 'fulfilled' ? insurance.value : null
-  const carriersData = carriers.status === 'fulfilled' ? carriers.value : null
-  const insurabilityStatus = insurability.status === 'fulfilled' ? insurability.value : null
+  let prop: Property
+  try {
+    prop = await getProperty(id)
+  } catch {
+    notFound()
+  }
 
   const fullAddress = `${prop.address}, ${prop.city}, ${prop.state} ${prop.zip}`
 
   // ── Mobile tab content ─────────────────────────────────────────────────
   const overviewPanel = (
     <div className="space-y-4 p-4">
-      <PropertyMapInline property={prop} riskProfile={riskProfile} />
-      {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
+      <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
+        <MapWithRisk property={prop} />
+      </Suspense>
+      <Suspense fallback={<SectionSkeleton />}>
+        <InsurabilitySection id={id} />
+      </Suspense>
     </div>
   )
 
   const riskPanel = (
     <div className="space-y-4 p-4">
-      {riskProfile ? (
-        <>
-          <RiskSummary profile={riskProfile} />
-          <RiskBreakdown profile={riskProfile} />
-        </>
-      ) : (
-        <p className="text-sm text-gray-500">Risk data unavailable.</p>
-      )}
+      <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
+        <RiskSection id={id} />
+      </Suspense>
     </div>
   )
 
   const carriersPanel = (
     <div className="space-y-4 p-4">
-      {carriersData ? (
-        <ActiveCarriers data={carriersData} propertyId={prop.id} propertyAddress={fullAddress} />
-      ) : (
-        <p className="text-sm text-gray-500">Carrier data unavailable.</p>
-      )}
-      {insuranceEstimate && <InsuranceCostEstimate estimate={insuranceEstimate} />}
+      <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
+        <CarriersSection id={id} address={fullAddress} />
+      </Suspense>
     </div>
   )
 
@@ -168,28 +208,24 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Left / main column */}
             <div className="space-y-8 lg:col-span-2">
-              <PropertyMapInline property={prop} riskProfile={riskProfile} />
-              {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
-              {riskProfile && (
-                <>
-                  <RiskSummary profile={riskProfile} />
-                  <RiskBreakdown profile={riskProfile} />
-                </>
-              )}
+              <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
+                <MapWithRisk property={prop} />
+              </Suspense>
+              <Suspense fallback={<SectionSkeleton />}>
+                <InsurabilitySection id={id} />
+              </Suspense>
+              <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
+                <RiskSection id={id} />
+              </Suspense>
               <PropertyDetails property={prop} />
               <PropertyChecklists propertyId={prop.id} />
             </div>
 
             {/* Right sidebar */}
             <div className="space-y-6">
-              {carriersData && (
-                <ActiveCarriers
-                  data={carriersData}
-                  propertyId={prop.id}
-                  propertyAddress={fullAddress}
-                />
-              )}
-              {insuranceEstimate && <InsuranceCostEstimate estimate={insuranceEstimate} />}
+              <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
+                <CarriersSection id={id} address={fullAddress} />
+              </Suspense>
             </div>
           </div>
         </div>

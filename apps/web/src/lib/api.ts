@@ -134,6 +134,8 @@ export async function getPropertyReport(id: string): Promise<{
   property: Property
   risk: PropertyRiskProfile
   insurance: InsuranceCostEstimate
+  insurability: InsurabilityStatus
+  carriers: CarriersResult
 }> {
   return apiFetch(`/api/properties/${id}/report`)
 }

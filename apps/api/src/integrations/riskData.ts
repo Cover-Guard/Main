@@ -45,6 +45,40 @@
 import { logger } from '../utils/logger'
 import type { FloodRisk, FireRisk, EarthquakeRisk, CrimeRisk, WindRisk } from '@coverguard/shared'
 
+// ─── Concurrency limiter for external API calls ─────────────────────────────
+// Prevents overwhelming external government APIs during traffic bursts.
+// Each property risk computation fans out to 12+ APIs in parallel;
+// this limits total concurrent outbound requests across all properties.
+
+class ConcurrencyLimiter {
+  private running = 0
+  private readonly queue: Array<() => void> = []
+
+  constructor(private readonly maxConcurrent: number) {}
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.running >= this.maxConcurrent) {
+      await new Promise<void>((resolve) => this.queue.push(resolve))
+    }
+    this.running++
+    try {
+      return await fn()
+    } finally {
+      this.running--
+      const next = this.queue.shift()
+      if (next) next()
+    }
+  }
+}
+
+/** Limits concurrent outbound requests to external GIS/API services */
+const externalApiLimiter = new ConcurrencyLimiter(20)
+
+/** Wraps fetch with the concurrency limiter */
+function limitedFetch(url: string, options?: RequestInit): Promise<Response> {
+  return externalApiLimiter.run(() => fetch(url, options))
+}
+
 // ─── Shared ArcGIS response type ─────────────────────────────────────────────
 
 interface ArcGISFeatureResult {
@@ -192,7 +226,7 @@ async function fetchNoaaSeaLevelRise(lat: number, lng: number, floodZoneData: Pa
   try {
     // NOAA SLR inundation layer: 3-foot scenario (moderate projection by 2100)
     const url = `https://coast.noaa.gov/arcgis/rest/services/dc_slr/slr_3ft/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=OBJECTID&returnGeometry=false&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       if (data.features?.length) {
@@ -250,7 +284,7 @@ async function fetchCalFireFHSZ(lat: number, lng: number, state: string, result:
   if (state !== 'CA') return
   try {
     const url = `https://services1.arcgis.com/jUJYIo9tSA7EHvfZ/arcgis/rest/services/FHSZ/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=HAZ_CLASS,AGENCY&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const hazClass = data.features?.[0]?.attributes?.HAZ_CLASS as string | undefined
@@ -268,7 +302,7 @@ async function fetchCalFireFHSZ(lat: number, lng: number, state: string, result:
 async function fetchUsfsWui(lat: number, lng: number, result: FireRiskExtended): Promise<void> {
   try {
     const url = `https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=WUICLASS10&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const wuiClass = data.features?.[0]?.attributes?.WUICLASS10 as string | undefined
@@ -292,7 +326,7 @@ async function fetchNifcHistoricalFires(lat: number, lng: number, result: FireRi
     const bufferDeg = 0.075 // ~5 miles at mid-latitudes
     const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
     const url = `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters/FeatureServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=poly_IncidentName,irwin_FireDiscoveryDateTime,poly_GISAcres&where=poly_GISAcres>100&orderByFields=irwin_FireDiscoveryDateTime DESC&resultRecordCount=20&returnGeometry=false&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const fires = data.features ?? []
@@ -330,7 +364,7 @@ async function fetchNearestFireStation(lat: number, lng: number, result: FireRis
     const bufferDeg = 0.15 // ~10 miles
     const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
     const url = `https://services1.arcgis.com/Hp6G80Pky0om6HgQ/arcgis/rest/services/Fire_Stations/FeatureServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=LATITUDE,LONGITUDE,NAME&resultRecordCount=10&returnGeometry=false&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const stations = data.features ?? []
@@ -359,7 +393,7 @@ async function fetchVegetationDensity(lat: number, lng: number, result: FireRisk
   try {
     // MRLC (Multi-Resolution Land Characteristics) NLCD 2021 Land Cover
     const url = `https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/ows?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=NLCD_2021_Land_Cover_L48&query_layers=NLCD_2021_Land_Cover_L48&info_format=application/json&x=1&y=1&width=3&height=3&srs=EPSG:4326&bbox=${lng - 0.0005},${lat - 0.0005},${lng + 0.0005},${lat + 0.0005}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = await res.json() as { features?: Array<{ properties?: { GRAY_INDEX?: number } }> }
       const nlcdCode = data.features?.[0]?.properties?.GRAY_INDEX
@@ -419,7 +453,7 @@ async function fetchUsgsDesignMaps(lat: number, lng: number, result: EarthquakeR
   // 1. Primary: USGS Design Maps
   try {
     const url = `https://earthquake.usgs.gov/ws/designmaps/asce7-22.json?latitude=${lat}&longitude=${lng}&riskCategory=II&siteClass=C&title=CoverGuard`
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(10000) })
     if (res.ok) {
       const data = (await res.json()) as UsgsDesignMapResponse
       const ss = data?.response?.data?.ss
@@ -434,13 +468,13 @@ async function fetchUsgsDesignMaps(lat: number, lng: number, result: EarthquakeR
 
         // Determine soil liquefaction potential from PGA + seismic zone
         if (pga != null && pga > 0.3) {
-          result.liquidationPotential = 'HIGH'
+          result.liquefactionPotential = 'HIGH'
           result.soilType = 'Soft soil (Site Class D-E assumed)'
         } else if (pga != null && pga > 0.15) {
-          result.liquidationPotential = 'MODERATE'
+          result.liquefactionPotential = 'MODERATE'
           result.soilType = 'Stiff soil (Site Class C)'
         } else if (pga != null) {
-          result.liquidationPotential = 'LOW'
+          result.liquefactionPotential = 'LOW'
           result.soilType = 'Rock/stiff soil (Site Class B-C)'
         }
         return
@@ -450,18 +484,22 @@ async function fetchUsgsDesignMaps(lat: number, lng: number, result: EarthquakeR
     logger.warn('USGS Design Maps API unavailable', { err })
   }
 
-  // 2. Fallback: USGS Hazard Curves API
-  try {
-    const url = `https://earthquake.usgs.gov/hazws/staticcurve/1/E2003/WUS/760/${lat}/${lng}/PGA/2P50`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
-    if (res.ok) {
-      const data = await res.json() as { hazardCurves?: unknown[] }
-      if (data.hazardCurves?.length) {
-        result.seismicZone = 'C'
+  // 2. Fallback: USGS Hazard Curves API — try WUS (Western US) first, then EUS (Eastern US)
+  const regions = lng < -100 ? ['WUS', 'EUS'] : ['EUS', 'WUS']
+  for (const region of regions) {
+    try {
+      const url = `https://earthquake.usgs.gov/hazws/staticcurve/1/E2003/${region}/760/${lat}/${lng}/PGA/2P50`
+      const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
+      if (res.ok) {
+        const data = await res.json() as { hazardCurves?: unknown[] }
+        if (data.hazardCurves?.length) {
+          result.seismicZone = result.seismicZone ?? 'C'
+          break
+        }
       }
+    } catch (err) {
+      logger.warn(`USGS Hazard Curves (${region}) API unavailable`, { err })
     }
-  } catch (err) {
-    logger.warn('USGS Hazard Curves API unavailable', { err })
   }
 }
 
@@ -472,7 +510,7 @@ async function fetchNearestQuaternaryFault(lat: number, lng: number, result: Ear
     const bufferDeg = 0.45 // ~30 miles
     const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
     const url = `https://earthquake.usgs.gov/arcgis/rest/services/eq/QFaults/MapServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=fault_name,slip_rate,age&returnGeometry=true&resultRecordCount=5&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = await res.json() as {
         features?: Array<{
@@ -587,7 +625,7 @@ async function fetchSloshHurricaneSurge(lat: number, lng: number, result: WindRi
     const checks = await Promise.allSettled(
       categories.map(async (cat) => {
         const url = `https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat${cat}/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json`
-        const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+        const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
         if (!res.ok) return null
         const data = (await res.json()) as { count?: number }
         return (data.count ?? 0) > 0 ? cat : null
@@ -669,15 +707,16 @@ async function fetchSpcStormEvents(lat: number, lng: number, result: WindRiskExt
   }
 }
 
-/** NOAA Historical Hurricane Tracks (ArcGIS service) — historical hurricanes near property */
+/** NOAA Historical Hurricane Tracks — IBTrACS data via Gulf Data Atlas + USGS earthquake catalog approach.
+ *  Uses NOAA NCEI Gulf Data Atlas service for Gulf/Atlantic hurricane tracks. */
 async function fetchHistoricalHurricaneTracks(lat: number, lng: number, result: WindRiskExtended): Promise<void> {
   if (!result.hurricaneRisk) return
   try {
-    // NOAA AllHurricanes MapServer — query for tracks within ~75 miles (~120km)
+    // NOAA Gulf Data Atlas — IBTrACS tropical storm/hurricane tracks (1851-2012)
     const bufferDeg = 1.1 // ~75 miles
     const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
-    const url = `https://coast.noaa.gov/arcgis/rest/services/Hurricanes/AllHurricanes/MapServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=YEAR_,MAX_WIND,NAME&where=MAX_WIND>=64&resultRecordCount=100&returnGeometry=false&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const url = `https://gis.ngdc.noaa.gov/arcgis/rest/services/GulfDataAtlas/TropicalStorms_Hurricanes/MapServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=YEAR_,MAX_WIND,NAME&where=MAX_WIND>=64&resultRecordCount=100&returnGeometry=false&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const tracks = data.features ?? []
@@ -794,7 +833,7 @@ async function fetchCensusAcsCrimeProxy(zip: string): Promise<Partial<CrimeRisk>
     // B23025_005E = unemployed, B23025_002E = in labor force
     const censusKey = process.env.CENSUS_API_KEY ? `&key=${process.env.CENSUS_API_KEY}` : ''
     const url = `https://api.census.gov/data/2022/acs/acs5?get=B17001_002E,B17001_001E,B19013_001E,B23025_005E,B23025_002E&for=zip%20code%20tabulation%20area:${encodeURIComponent(zip)}${censusKey}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (!res.ok) return null
 
     const data = (await res.json()) as string[][]
@@ -855,7 +894,7 @@ async function fetchCensusAcsCrimeProxy(zip: string): Promise<Partial<CrimeRisk>
 export async function fetchElevation(lat: number, lng: number): Promise<number | null> {
   try {
     const url = `https://epqs.nationalmap.gov/v1/json?x=${lng}&y=${lat}&wkid=4326&units=Feet&includeDate=false`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = await res.json() as { value?: number }
       if (data.value != null && data.value > -1000) {
@@ -882,7 +921,7 @@ export async function fetchHistoricalEarthquakes(lat: number, lng: number): Prom
     startDate.setFullYear(startDate.getFullYear() - 20)
     const startStr = startDate.toISOString().split('T')[0]
     const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lng}&maxradiuskm=50&minmagnitude=2.5&starttime=${startStr}&limit=500`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = await res.json() as {
         metadata?: { count?: number }
@@ -918,7 +957,7 @@ export async function fetchLandfireFuelModel(lat: number, lng: number): Promise<
   try {
     // LANDFIRE FBFM40 (Scott & Burgan 40 fuel models)
     const url = `https://lfps.usgs.gov/arcgis/rest/services/Landfire/US_200/MapServer/identify?geometry=${lng},${lat}&geometryType=esriGeometryPoint&sr=4326&layers=all:10&tolerance=1&mapExtent=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&imageDisplay=100,100,96&returnGeometry=false&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = await res.json() as {
         results?: Array<{
@@ -958,7 +997,7 @@ export async function fetchFemaNri(lat: number, lng: number): Promise<NriResult 
   try {
     // Use outFields=* because NRI field names vary between service versions
     const url = `https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/NRI_Census_Tracts/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&resultRecordCount=1&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const attrs = data.features?.[0]?.attributes
@@ -1000,7 +1039,7 @@ export async function fetchSinkholeRisk(lat: number, lng: number): Promise<{
 } | null> {
   try {
     const url = `https://mrdata.usgs.gov/services/karst?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=karst&query_layers=karst&info_format=application/json&x=1&y=1&width=3&height=3&srs=EPSG:4326&bbox=${lng - 0.001},${lat - 0.001},${lng + 0.001},${lat + 0.001}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = await res.json() as { features?: Array<{ properties?: { ROCKTYPE1?: string } }> }
       const feature = data.features?.[0]
@@ -1030,7 +1069,7 @@ export async function fetchDamHazard(lat: number, lng: number): Promise<{
 } | null> {
   try {
     const url = `https://nid.sec.usace.army.mil/api/nation/dams?latitude=${lat}&longitude=${lng}&radius=25&hazard=H&limit=10`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const dams = await res.json() as Array<{
         name?: string
@@ -1077,7 +1116,7 @@ export async function fetchSuperfundProximity(lat: number, lng: number): Promise
 } | null> {
   try {
     const url = `https://ofmpub.epa.gov/enviro/frs_rest_services.get_facilities?latitude83=${lat}&longitude83=${lng}&search_radius=3&pgm_sys_acrnm=SEMS&output=JSON`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = await res.json() as {
         Results?: {
