@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { AgentDashboard } from '@/components/dashboard/AgentDashboard'
 import { ConsumerDashboard } from '@/components/dashboard/ConsumerDashboard'
+import { LenderDashboard } from '@/components/dashboard/LenderDashboard'
 import { DashboardWithTabs } from '@/components/dashboard/DashboardWithTabs'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -24,12 +25,13 @@ export default async function DashboardPage() {
     ? metadataRole as Role
     : 'BUYER'
 
-  const isAgent = userRole === 'AGENT' || userRole === 'LENDER' || userRole === 'ADMIN'
+  const isLender = userRole === 'LENDER'
+  const isAgent = userRole === 'AGENT' || userRole === 'ADMIN'
 
   return (
     <SidebarLayout>
       <DashboardWithTabs>
-        {isAgent ? <AgentDashboard /> : <ConsumerDashboard />}
+        {isLender ? <LenderDashboard /> : isAgent ? <AgentDashboard /> : <ConsumerDashboard />}
       </DashboardWithTabs>
     </SidebarLayout>
   )

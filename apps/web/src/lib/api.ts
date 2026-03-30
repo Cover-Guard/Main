@@ -14,8 +14,13 @@ import type {
   PropertyChecklist,
   ChecklistType,
   ChecklistItem,
+  LenderPortfolioSummary,
+  LenderPropertyRow,
+  RiskAlert,
+  RiskAlertPreferences,
+  SharedPropertyLink,
 } from '@coverguard/shared'
-import type { CoverageType } from '@coverguard/shared'
+import type { CoverageType, QuoteRequestDetail } from '@coverguard/shared'
 import { createClient } from './supabase/client'
 
 // Always use same-origin (relative) paths. In production, Next.js rewrites
@@ -167,6 +172,16 @@ export async function requestBindingQuote(
   })
 }
 
+export async function getMyQuoteRequests(
+  page = 1,
+  limit = 20,
+  status?: string,
+): Promise<{ requests: QuoteRequestDetail[]; total: number; page: number; limit: number }> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (status) params.set('status', status)
+  return apiFetch(`/api/auth/me/quote-requests?${params}`)
+}
+
 // ─── Auth / User ─────────────────────────────────────────────────────────────
 
 export async function getMe(): Promise<User> {
@@ -177,8 +192,15 @@ export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName'
   return apiFetch('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) })
 }
 
-export async function getSavedProperties(): Promise<unknown[]> {
-  return apiFetch<unknown[]>('/api/auth/me/saved')
+export async function getSavedProperties(tag?: string): Promise<unknown[]> {
+  const params = new URLSearchParams()
+  if (tag) params.set('tag', tag)
+  const qs = params.toString()
+  return apiFetch<unknown[]>(`/api/auth/me/saved${qs ? `?${qs}` : ''}`)
+}
+
+export async function getSavedPropertyTags(): Promise<string[]> {
+  return apiFetch<string[]>('/api/auth/me/saved/tags')
 }
 
 export async function deleteAccount(): Promise<void> {
@@ -251,6 +273,16 @@ export async function deletePropertyChecklist(propertyId: string, checklistId: s
   await apiFetch(`/api/properties/${propertyId}/checklists/${checklistId}`, { method: 'DELETE' })
 }
 
+// ─── Lender ─────────────────────────────────────────────────────────────────
+
+export async function getLenderPortfolio(): Promise<LenderPortfolioSummary> {
+  return apiFetch('/api/lender/portfolio')
+}
+
+export async function getLenderProperties(): Promise<LenderPropertyRow[]> {
+  return apiFetch('/api/lender/properties')
+}
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export async function getAnalytics(): Promise<AnalyticsSummary> {
@@ -279,4 +311,64 @@ export async function createPortalSession(): Promise<{ url: string }> {
     method: 'POST',
     body: JSON.stringify({ returnUrl: `${window.location.origin}/account` }),
   })
+}
+
+// ─── Risk Alerts ────────────────────────────────────────────────────────────
+
+export async function getRiskAlerts(page = 1, limit = 20, unreadOnly = false): Promise<{ alerts: RiskAlert[]; total: number }> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (unreadOnly) params.set('unreadOnly', 'true')
+  return apiFetch(`/api/alerts?${params}`)
+}
+
+export async function getUnreadAlertCount(): Promise<{ count: number }> {
+  return apiFetch('/api/alerts/unread-count')
+}
+
+export async function markAlertRead(id: string): Promise<void> {
+  await apiFetch(`/api/alerts/${id}/read`, { method: 'PATCH' })
+}
+
+export async function markAllAlertsRead(): Promise<void> {
+  await apiFetch('/api/alerts/read-all', { method: 'PATCH' })
+}
+
+export async function getAlertPreferences(): Promise<RiskAlertPreferences> {
+  return apiFetch('/api/alerts/preferences')
+}
+
+export async function updateAlertPreferences(prefs: Partial<RiskAlertPreferences>): Promise<RiskAlertPreferences> {
+  return apiFetch('/api/alerts/preferences', { method: 'PATCH', body: JSON.stringify(prefs) })
+}
+
+// ─── Shared Property Links ──────────────────────────────────────────────────
+
+export async function createSharedLink(data: {
+  propertyId: string
+  clientId?: string
+  includeRisk?: boolean
+  includeInsurance?: boolean
+  includeCarriers?: boolean
+  expiresInDays?: number
+  maxViews?: number
+}): Promise<SharedPropertyLink & { shareUrl: string }> {
+  return apiFetch('/api/sharing/links', { method: 'POST', body: JSON.stringify(data) })
+}
+
+export async function getSharedLinks(): Promise<SharedPropertyLink[]> {
+  return apiFetch('/api/sharing/links')
+}
+
+export async function deactivateSharedLink(id: string): Promise<void> {
+  await apiFetch(`/api/sharing/links/${id}`, { method: 'DELETE' })
+}
+
+export async function viewSharedProperty(token: string): Promise<{
+  property: Property
+  risk?: PropertyRiskProfile
+  insurance?: InsuranceCostEstimate
+  carriers?: CarriersResult
+  sharedBy: { firstName: string; lastName: string; company: string | null }
+}> {
+  return apiFetch(`/api/sharing/view/${token}`)
 }

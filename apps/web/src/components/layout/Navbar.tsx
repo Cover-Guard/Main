@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Search, LayoutDashboard, BarChart2, User, LogOut, ChevronDown } from 'lucide-react'
+import { Search, LayoutDashboard, BarChart2, FileText, User, LogOut, ChevronDown, Bell } from 'lucide-react'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -12,6 +12,8 @@ const navLinks = [
   { href: '/search',    label: 'Search',    icon: Search },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/quotes',    label: 'Quotes',    icon: FileText },
+  { href: '/alerts',    label: 'Alerts',    icon: Bell },
 ]
 
 export function Navbar() {

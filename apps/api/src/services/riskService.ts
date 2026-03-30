@@ -25,6 +25,8 @@ import type { PropertyRiskProfile, RiskLevel, RiskTrend } from '@coverguard/shar
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
 import { RiskLevel as PrismaRiskLevel } from '../generated/prisma/client'
 import { logger } from '../utils/logger'
+import { checkAndCreateAlerts } from './riskAlertService'
+import type { RiskProfileData } from './riskAlertService'
 
 function scoreToLevel(score: number): PrismaRiskLevel {
   if (score <= RISK_SCORE_THRESHOLDS.LOW) return 'LOW'
@@ -345,6 +347,24 @@ export async function getOrComputeRiskProfile(
 
     const expiresAt = new Date(Date.now() + RISK_CACHE_TTL_SECONDS * 1000)
 
+    // Capture old profile data for alert comparison before overwriting
+    const oldProfileForAlerts: RiskProfileData | null = cached
+      ? {
+          overallRiskLevel: cached.overallRiskLevel,
+          overallRiskScore: cached.overallRiskScore,
+          floodRiskScore: cached.floodRiskScore,
+          fireRiskScore: cached.fireRiskScore,
+          windRiskScore: cached.windRiskScore,
+          earthquakeRiskScore: cached.earthquakeRiskScore,
+          crimeRiskScore: cached.crimeRiskScore,
+          floodRiskLevel: cached.floodRiskLevel,
+          fireRiskLevel: cached.fireRiskLevel,
+          windRiskLevel: cached.windRiskLevel,
+          earthquakeRiskLevel: cached.earthquakeRiskLevel,
+          crimeRiskLevel: cached.crimeRiskLevel,
+        }
+      : null
+
     const profileData = {
       overallRiskLevel: scoreToLevel(overallScore),
       overallRiskScore: overallScore,
@@ -383,6 +403,25 @@ export async function getOrComputeRiskProfile(
       update: { ...profileData, generatedAt: new Date() },
       create: { propertyId, ...profileData },
     })
+
+    // Fire-and-forget: check for risk changes and create alerts for saved property users
+    if (oldProfileForAlerts) {
+      const newProfileForAlerts: RiskProfileData = {
+        overallRiskLevel: profileData.overallRiskLevel,
+        overallRiskScore: profileData.overallRiskScore,
+        floodRiskScore: profileData.floodRiskScore,
+        fireRiskScore: profileData.fireRiskScore,
+        windRiskScore: profileData.windRiskScore,
+        earthquakeRiskScore: profileData.earthquakeRiskScore,
+        crimeRiskScore: profileData.crimeRiskScore,
+        floodRiskLevel: profileData.floodRiskLevel,
+        fireRiskLevel: profileData.fireRiskLevel,
+        windRiskLevel: profileData.windRiskLevel,
+        earthquakeRiskLevel: profileData.earthquakeRiskLevel,
+        crimeRiskLevel: profileData.crimeRiskLevel,
+      }
+      checkAndCreateAlerts(propertyId, oldProfileForAlerts, newProfileForAlerts).catch(() => {})
+    }
 
     const dto = prismaProfileToDto(profile, propertyId, {
       fireData: fireData2,

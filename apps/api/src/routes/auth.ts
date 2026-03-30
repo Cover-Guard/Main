@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { supabaseAdmin } from '../utils/supabaseAdmin'
 import { prisma } from '../utils/prisma'
 import { requireAuth } from '../middleware/auth'
+import { requireSubscription } from '../middleware/subscription'
 import { logger } from '../utils/logger'
 import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
 import type { Request } from 'express'
@@ -200,8 +201,12 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const page = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
+    const tag = typeof req.query.tag === 'string' ? req.query.tag.trim() : undefined
     const saved = await prisma.savedProperty.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(tag ? { tags: { has: tag } } : {}),
+      },
       select: {
         id: true, notes: true, tags: true, savedAt: true, clientId: true,
         property: { select: PROPERTY_PUBLIC_SELECT },
@@ -211,6 +216,29 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
       skip: (page - 1) * limit,
     })
     res.json({ success: true, data: saved })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Saved property tags ─────────────────────────────────────────────────────
+
+authRouter.get('/me/saved/tags', requireAuth, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const saved = await prisma.savedProperty.findMany({
+      where: { userId },
+      select: { tags: true },
+    })
+    // Flatten and deduplicate all tags
+    const tagSet = new Set<string>()
+    for (const row of saved) {
+      for (const tag of row.tags) {
+        tagSet.add(tag)
+      }
+    }
+    const tags = Array.from(tagSet).sort()
+    res.json({ success: true, data: tags })
   } catch (err) {
     next(err)
   }
@@ -351,6 +379,43 @@ authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
       skip: (rPage - 1) * rLimit,
     })
     res.json({ success: true, data: reports })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Quote requests ──────────────────────────────────────────────────────────
+
+authRouter.get('/me/quote-requests', requireAuth, requireSubscription, async (req: Request, res, next) => {
+  try {
+    const { userId } = req as AuthenticatedRequest
+    const page = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 20))
+    const status = req.query.status as string | undefined
+
+    const where: Record<string, unknown> = { userId }
+    if (status && ['PENDING', 'SENT', 'RESPONDED', 'DECLINED'].includes(status)) {
+      where.status = status
+    }
+
+    const [requests, total] = await Promise.all([
+      prisma.quoteRequest.findMany({
+        where,
+        orderBy: { submittedAt: 'desc' },
+        take: limit,
+        skip: (page - 1) * limit,
+        select: {
+          id: true, carrierId: true, coverageTypes: true, status: true,
+          notes: true, submittedAt: true, updatedAt: true, propertyId: true,
+          property: {
+            select: { address: true, city: true, state: true, zip: true, estimatedValue: true }
+          },
+        },
+      }),
+      prisma.quoteRequest.count({ where }),
+    ])
+
+    res.json({ success: true, data: { requests, total, page, limit } })
   } catch (err) {
     next(err)
   }

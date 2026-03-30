@@ -14,6 +14,9 @@ import { authRouter } from './routes/auth'
 import { clientsRouter } from './routes/clients'
 import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
+import { alertsRouter } from './routes/alerts'
+import { lenderRouter } from './routes/lender'
+import { sharingRouter } from './routes/sharing'
 import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
 // ─── Runtime env var normalization ───────────────────────────────────────────
@@ -236,6 +239,9 @@ app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
 app.use('/api/clients', requestTimeout(40_000), clientsRouter)
 app.use('/api/analytics', requestTimeout(40_000), analyticsRouter)
 app.use('/api/advisor', requestTimeout(40_000), advisorRouter)
+app.use('/api/alerts', requestTimeout(40_000), alertsRouter)
+app.use('/api/lender', requestTimeout(40_000), lenderRouter)
+app.use('/api/sharing', requestTimeout(45_000), sharingRouter)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 

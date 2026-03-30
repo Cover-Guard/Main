@@ -7,9 +7,10 @@ import {
   Search,
   LayoutDashboard,
   Users,
-
+  FileText,
   Wrench,
   BarChart2,
+  Bell,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -30,7 +31,9 @@ const navItems = [
   { href: '/check',     label: 'New Check',  icon: Search,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
+  { href: '/quotes',    label: 'Quotes',     icon: FileText,        exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
+  { href: '/alerts',    label: 'Alerts',     icon: Bell,            exact: false },
   { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },
   { href: '/account',   label: 'Settings',   icon: Settings,        exact: false },
 ]

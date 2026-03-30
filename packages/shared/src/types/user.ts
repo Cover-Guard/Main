@@ -75,6 +75,118 @@ export interface Client {
 
 export type ClientStatus = 'ACTIVE' | 'PROSPECT' | 'CLOSED' | 'INACTIVE'
 
+// ─── Risk Alerts ────────────────────────────────────────────────────────────
+
+export type RiskAlertType = 'RISK_INCREASED' | 'RISK_DECREASED' | 'NEW_RISK_FACTOR' | 'ZONE_CHANGE'
+export type RiskAlertSeverity = 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
+export type RiskCategory = 'OVERALL' | 'FLOOD' | 'FIRE' | 'WIND' | 'EARTHQUAKE' | 'CRIME'
+
+export interface RiskAlert {
+  id: string
+  userId: string
+  propertyId: string
+  alertType: RiskAlertType
+  severity: RiskAlertSeverity
+  title: string
+  message: string
+  previousRiskLevel: string | null
+  newRiskLevel: string | null
+  riskCategory: RiskCategory | null
+  isRead: boolean
+  createdAt: string
+  property?: {
+    address: string
+    city: string
+    state: string
+  }
+}
+
+export interface RiskAlertPreferences {
+  riskAlertEnabled: boolean
+  riskAlertThreshold: string
+}
+
+// ─── Shared Property Links ──────────────────────────────────────────────────
+
+export interface SharedPropertyLink {
+  id: string
+  agentId: string
+  propertyId: string
+  clientId: string | null
+  accessToken: string
+  includeRisk: boolean
+  includeInsurance: boolean
+  includeCarriers: boolean
+  expiresAt: string
+  viewCount: number
+  maxViews: number | null
+  isActive: boolean
+  createdAt: string
+  property?: {
+    address: string
+    city: string
+    state: string
+    zip: string
+  }
+}
+
+// ─── Quote Request (enhanced for tracking) ──────────────────────────────────
+
+export interface QuoteRequestDetail {
+  id: string
+  userId: string
+  propertyId: string
+  carrierId: string
+  coverageTypes: string[]
+  notes: string | null
+  status: QuoteRequestStatus
+  submittedAt: string
+  updatedAt: string
+  property?: {
+    address: string
+    city: string
+    state: string
+    zip: string
+    estimatedValue: number | null
+  }
+}
+
+export type QuoteRequestStatus = 'PENDING' | 'SENT' | 'RESPONDED' | 'DECLINED'
+
+// ─── Lender Types ───────────────────────────────────────────────────────────
+
+export interface LenderPortfolioSummary {
+  totalProperties: number
+  avgRiskScore: number
+  highRiskCount: number
+  totalEstimatedValue: number
+  avgInsuranceCost: number | null
+  riskDistribution: Array<{ level: string; count: number }>
+  propertiesByState: Array<{ state: string; count: number; avgRisk: number }>
+  loanEligibility: {
+    eligible: number
+    conditional: number
+    ineligible: number
+  }
+}
+
+export interface LenderPropertyRow {
+  propertyId: string
+  address: string
+  city: string
+  state: string
+  zip: string
+  estimatedValue: number | null
+  overallRiskLevel: string | null
+  overallRiskScore: number | null
+  floodZone: string | null
+  inSFHA: boolean
+  insuranceRequired: boolean
+  loanEligibility: 'ELIGIBLE' | 'CONDITIONAL' | 'INELIGIBLE'
+  flags: string[]
+  savedAt: string
+}
+
 export interface AnalyticsSummary {
   totalSearches: number
   totalSavedProperties: number
