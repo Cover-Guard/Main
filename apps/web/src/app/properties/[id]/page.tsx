@@ -50,13 +50,27 @@ function SectionSkeleton({ className = '' }: { className?: string }) {
 
 // ── Async data components (streamed via Suspense) ───────────────────────────
 
-  const [property, risk, insurance, carriers, insurability, publicData] = await Promise.allSettled([
-    getProperty(id),
-    getPropertyRisk(id),
-    getPropertyInsurance(id),
-    getPropertyCarriers(id),
-    getPropertyInsurability(id),
-    getPropertyPublicData(id),
+async function RiskSection({ id }: { id: string }) {
+  const riskProfile = await getPropertyRisk(id).catch(() => null)
+  if (!riskProfile) return <p className="text-sm text-gray-500">Risk data unavailable.</p>
+  return (
+    <>
+      <RiskSummary profile={riskProfile} />
+      <RiskBreakdown profile={riskProfile} />
+    </>
+  )
+}
+
+async function InsurabilitySection({ id }: { id: string }) {
+  const status = await getPropertyInsurability(id).catch(() => null)
+  if (!status) return null
+  return <InsurabilityPanel status={status} />
+}
+
+async function CarriersSection({ id, address }: { id: string; address: string }) {
+  const [carriersData, insuranceEstimate] = await Promise.all([
+    getPropertyCarriers(id).catch(() => null),
+    getPropertyInsurance(id).catch(() => null),
   ])
   return (
     <>
@@ -71,23 +85,43 @@ async function MapWithRisk({ property }: { property: Property }) {
   return <PropertyMapInline property={property} riskProfile={riskProfile} />
 }
 
-  const prop = property.value
-  const riskProfile = risk.status === 'fulfilled' ? risk.value : null
-  const insuranceEstimate = insurance.status === 'fulfilled' ? insurance.value : null
-  const carriersData = carriers.status === 'fulfilled' ? carriers.value : null
-  const insurabilityStatus = insurability.status === 'fulfilled' ? insurability.value : null
-  const publicInfo = publicData.status === 'fulfilled' ? publicData.value : null
+async function PublicDataSection({ id, address }: { id: string; address: string }) {
+  const publicInfo = await getPropertyPublicData(id).catch(() => null)
+  if (!publicInfo) return null
+  return (
+    <>
+      {publicInfo.images && publicInfo.images.length > 0 && (
+        <PropertyImages images={publicInfo.images} address={address} />
+      )}
+      <PropertyPublicInfo data={publicInfo} />
+    </>
+  )
+}
+
+export default async function PropertyPage({ params }: PropertyPageProps) {
+  const { id } = await params
+
+  let prop: Property
+  try {
+    prop = await getProperty(id)
+  } catch {
+    notFound()
+  }
 
   const fullAddress = `${prop.address}, ${prop.city}, ${prop.state} ${prop.zip}`
 
   // ── Mobile tab content ─────────────────────────────────────────────────
   const overviewPanel = (
     <div className="space-y-4 p-4">
-      {publicInfo?.images && publicInfo.images.length > 0 && (
-        <PropertyImages images={publicInfo.images} address={fullAddress} />
-      )}
-      <PropertyMapInline property={prop} riskProfile={riskProfile} />
-      {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
+      <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
+        <PublicDataSection id={id} address={fullAddress} />
+      </Suspense>
+      <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
+        <MapWithRisk property={prop} />
+      </Suspense>
+      <Suspense fallback={<SectionSkeleton />}>
+        <InsurabilitySection id={id} />
+      </Suspense>
     </div>
   )
 
@@ -110,7 +144,6 @@ async function MapWithRisk({ property }: { property: Property }) {
   const detailsPanel = (
     <div className="space-y-4 p-4">
       <PropertyDetails property={prop} />
-      {publicInfo && <PropertyPublicInfo data={publicInfo} />}
     </div>
   )
 
@@ -193,19 +226,19 @@ async function MapWithRisk({ property }: { property: Property }) {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Left / main column */}
             <div className="space-y-8 lg:col-span-2">
-              {publicInfo?.images && publicInfo.images.length > 0 && (
-                <PropertyImages images={publicInfo.images} address={fullAddress} />
-              )}
-              <PropertyMapInline property={prop} riskProfile={riskProfile} />
-              {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
-              {riskProfile && (
-                <>
-                  <RiskSummary profile={riskProfile} />
-                  <RiskBreakdown profile={riskProfile} />
-                </>
-              )}
+              <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
+                <PublicDataSection id={id} address={fullAddress} />
+              </Suspense>
+              <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
+                <MapWithRisk property={prop} />
+              </Suspense>
+              <Suspense fallback={<SectionSkeleton />}>
+                <InsurabilitySection id={id} />
+              </Suspense>
+              <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
+                <RiskSection id={id} />
+              </Suspense>
               <PropertyDetails property={prop} />
-              {publicInfo && <PropertyPublicInfo data={publicInfo} />}
               <PropertyChecklists propertyId={prop.id} />
             </div>
 
