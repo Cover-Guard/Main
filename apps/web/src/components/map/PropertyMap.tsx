@@ -73,6 +73,18 @@ const ARCGIS_TILE_SERVICES: Partial<Record<RiskLayer, { url: string; layers: str
     url: 'https://coast.noaa.gov/arcgis/rest/services/HurricaneEvacuation/SLOSH/MapServer',
     layers: 'show:0',   // Layer 0 = SLOSH zones
   },
+  earthquake: {
+    url: 'https://earthquake.usgs.gov/arcgis/rest/services/haz/BC2018_2secSA0p2/MapServer',
+    layers: 'show:0',   // 2018 NSHM — 2% in 50yr spectral acceleration
+  },
+}
+
+// Coverage notes shown when a layer may not have visible data in some areas
+const LAYER_COVERAGE_NOTES: Partial<Record<RiskLayer, string>> = {
+  flood: 'FEMA flood maps may not cover all areas. No overlay = unmapped zone.',
+  wind: 'Hurricane surge data covers coastal zones only. Inland areas will show no overlay.',
+  earthquake: 'Seismic hazard shading is subtle in low-risk regions.',
+  crime: 'Crime data is shown as a risk circle — no geographic overlay available.',
 }
 
 function riskLevelBadgeColor(level: RiskLevel): string {
@@ -96,6 +108,8 @@ export function PropertyMap({
 }: PropertyMapProps) {
   const [activeLayers, setActiveLayers] = useState<Set<RiskLayer>>(new Set())
   const [popupInfo, setPopupInfo] = useState<Property | null>(null)
+  const [layerToast, setLayerToast] = useState<{ layer: RiskLayer; action: 'on' | 'off' } | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const mapCenter = center ??
     (selectedProperty ? { lat: selectedProperty.lat, lng: selectedProperty.lng } : null) ??
@@ -114,8 +128,15 @@ export function PropertyMap({
   const toggleLayer = useCallback((layer: RiskLayer) => {
     setActiveLayers((prev) => {
       const next = new Set(prev)
-      if (next.has(layer)) next.delete(layer)
+      const turning = next.has(layer) ? 'off' : 'on'
+      if (turning === 'off') next.delete(layer)
       else next.add(layer)
+
+      // Show activation toast
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+      setLayerToast({ layer, action: turning })
+      toastTimerRef.current = setTimeout(() => setLayerToast(null), 2500)
+
       return next
     })
   }, [])
@@ -165,7 +186,7 @@ export function PropertyMap({
               <RiskCircleOverlay
                 key={`circle-${layer}`}
                 center={{ lat: riskCenter.lat, lng: riskCenter.lng }}
-                radius={300 + score * 25}
+                radius={500 + score * 30}
                 color={RISK_LAYER_CONFIG[layer].color}
                 score={score}
               />
@@ -306,12 +327,23 @@ export function PropertyMap({
 
           {/* Legend note */}
           {activeLayers.size > 0 && (
-            <div className="mt-2.5 border-t border-gray-100 pt-2">
+            <div className="mt-2.5 border-t border-gray-100 pt-2 flex flex-col gap-1">
               <p className="text-[10px] text-gray-400 leading-relaxed">
                 {Array.from(activeLayers).some((l) => ARCGIS_TILE_SERVICES[l])
                   ? 'Map overlays show real geographic risk zones from public data sources.'
                   : 'Circles indicate risk intensity centered on the property.'}
               </p>
+              {/* Coverage notes for active layers with limited data */}
+              {Array.from(activeLayers).map((l) => {
+                const note = LAYER_COVERAGE_NOTES[l]
+                if (!note) return null
+                return (
+                  <p key={`note-${l}`} className="text-[10px] text-amber-500/80 leading-relaxed flex items-start gap-1">
+                    <AlertTriangle className="h-2.5 w-2.5 shrink-0 mt-0.5" />
+                    {note}
+                  </p>
+                )
+              })}
             </div>
           )}
         </div>
@@ -322,6 +354,42 @@ export function PropertyMap({
         <div className="absolute top-4 right-4 z-10">
           <div className={`rounded-lg px-3 py-1.5 text-xs font-bold shadow-md ${riskLevelBadgeColor(riskProfile.overallRiskLevel)}`}>
             Overall: {riskProfile.overallRiskScore}/100 — {riskProfile.overallRiskLevel.replace('_', ' ')}
+          </div>
+        </div>
+      )}
+
+      {/* ── Layer activation toast ───────────────────────────────── */}
+      {layerToast && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 animate-fade-in">
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-sm"
+            style={{
+              backgroundColor: layerToast.action === 'on'
+                ? `${RISK_LAYER_CONFIG[layerToast.layer].color}18`
+                : '#f9fafb',
+              color: layerToast.action === 'on'
+                ? RISK_LAYER_CONFIG[layerToast.layer].color
+                : '#6b7280',
+              border: `1px solid ${layerToast.action === 'on'
+                ? `${RISK_LAYER_CONFIG[layerToast.layer].color}40`
+                : '#e5e7eb'}`,
+            }}
+          >
+            {layerToast.action === 'on' ? (
+              <Eye className="h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="h-3.5 w-3.5" />
+            )}
+            <span>
+              {RISK_LAYER_CONFIG[layerToast.layer].label}
+              {layerToast.action === 'on' ? ' enabled' : ' disabled'}
+            </span>
+            {/* Coverage note for layers with limited geographic data */}
+            {layerToast.action === 'on' && LAYER_COVERAGE_NOTES[layerToast.layer] && (
+              <span className="ml-1 opacity-70">
+                — {LAYER_COVERAGE_NOTES[layerToast.layer]}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -437,9 +505,9 @@ function RiskCircleOverlay({
   const map = useMap()
   const circleRef = useRef<google.maps.Circle | null>(null)
 
-  // Opacity scales with score: low risk = faint, high risk = bold
-  const fillOpacity = 0.08 + (score / 100) * 0.22
-  const strokeOpacity = 0.3 + (score / 100) * 0.5
+  // Opacity scales with score: low risk = visible, high risk = bold
+  const fillOpacity = 0.15 + (score / 100) * 0.25
+  const strokeOpacity = 0.4 + (score / 100) * 0.45
 
   useEffect(() => {
     if (!map) return
