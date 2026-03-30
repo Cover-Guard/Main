@@ -36,7 +36,7 @@ diff --git a/node_modules/next/dist/server/base-server.js b/node_modules/next/di
 index 74eef89..60d8b57 100644
 --- a/node_modules/next/dist/server/base-server.js
 +++ b/node_modules/next/dist/server/base-server.js
-@@ -22,6 +22,55 @@ _export(exports, {
+@@ -22,6 +22,56 @@ _export(exports, {
  });
  const _utils = require("../shared/lib/utils");
  const _url = require("url");
@@ -70,13 +70,14 @@ index 74eef89..60d8b57 100644
 +            query = search ? search.substring(1) : null;
 +        }
 +        const pathname = isProtocolRelative ? urlStr.replace(/\?.*$/, '').replace(/#.*$/, '') : parsed.pathname;
++        const isPathOnly = urlStr.startsWith('/');
 +        const result = {
-+            protocol: parsed.protocol === 'http:' && urlStr.startsWith('/') ? null : parsed.protocol || null,
++            protocol: isPathOnly ? null : parsed.protocol || null,
 +            slashes: null,
 +            auth: null,
-+            host: parsed.host === 'n' ? null : parsed.host,
-+            port: parsed.port || null,
-+            hostname: parsed.hostname === 'n' ? null : parsed.hostname,
++            host: isPathOnly ? null : (parsed.host === 'n' ? null : parsed.host),
++            port: isPathOnly ? null : (parsed.port || null),
++            hostname: isPathOnly ? null : (parsed.hostname === 'n' ? null : parsed.hostname),
 +            hash: hash,
 +            search: search,
 +            query: query,
