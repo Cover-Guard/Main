@@ -71,3 +71,70 @@ export interface PropertySearchResult {
   page: number
   limit: number
 }
+
+// ─── Public Property Data (enriched from public sources) ────────────────────
+
+export interface PropertyImage {
+  url: string
+  source: string
+  caption: string
+  type: 'street_view' | 'satellite' | 'listing' | 'exterior' | 'interior'
+}
+
+export interface PropertyTaxRecord {
+  assessedValue: number | null
+  taxAmount: number | null
+  taxYear: number | null
+  landValue: number | null
+  improvementValue: number | null
+  taxRate: number | null
+}
+
+export interface PropertySaleHistory {
+  date: string
+  price: number
+  pricePerSqFt: number | null
+  seller: string | null
+  buyer: string | null
+}
+
+export interface NearbyAmenity {
+  name: string
+  type: 'school' | 'hospital' | 'fire_station' | 'police' | 'park' | 'grocery' | 'transit'
+  distance: number // miles
+  rating: number | null
+}
+
+export interface PropertyListingData {
+  zestimate: number | null
+  rentEstimate: number | null
+  daysOnMarket: number | null
+  listingStatus: 'for_sale' | 'recently_sold' | 'off_market' | 'for_rent' | null
+  listPrice: number | null
+  pricePerSqFt: number | null
+  description: string | null
+  features: string[]
+  yearRenovated: number | null
+  stories: number | null
+  garage: string | null
+  heating: string | null
+  cooling: string | null
+  roofType: string | null
+  foundation: string | null
+  exteriorMaterial: string | null
+  hoaFee: number | null
+}
+
+export interface PropertyPublicData {
+  propertyId: string
+  images: PropertyImage[]
+  taxRecords: PropertyTaxRecord | null
+  saleHistory: PropertySaleHistory[]
+  nearbyAmenities: NearbyAmenity[]
+  listingData: PropertyListingData | null
+  walkScore: number | null
+  transitScore: number | null
+  neighborhoodMedianValue: number | null
+  neighborhoodMedianRent: number | null
+  lastUpdated: string
+}

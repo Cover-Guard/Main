@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft, GitCompare } from 'lucide-react'
-import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyCarriers, getPropertyInsurability } from '@/lib/api'
+import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyCarriers, getPropertyInsurability, getPropertyPublicData } from '@/lib/api'
 import { RiskSummary } from '@/components/property/RiskSummary'
 import { RiskBreakdown } from '@/components/property/RiskBreakdown'
 import { InsuranceCostEstimate } from '@/components/property/InsuranceCostEstimate'
@@ -12,6 +12,8 @@ import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
 import { PropertyChecklists } from '@/components/property/PropertyChecklists'
+import { PropertyImages } from '@/components/property/PropertyImages'
+import { PropertyPublicInfo } from '@/components/property/PropertyPublicInfo'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
@@ -48,27 +50,13 @@ function SectionSkeleton({ className = '' }: { className?: string }) {
 
 // ── Async data components (streamed via Suspense) ───────────────────────────
 
-async function RiskSection({ id }: { id: string }) {
-  const riskProfile = await getPropertyRisk(id).catch(() => null)
-  if (!riskProfile) return <p className="text-sm text-gray-500">Risk data unavailable.</p>
-  return (
-    <>
-      <RiskSummary profile={riskProfile} />
-      <RiskBreakdown profile={riskProfile} />
-    </>
-  )
-}
-
-async function InsurabilitySection({ id }: { id: string }) {
-  const status = await getPropertyInsurability(id).catch(() => null)
-  if (!status) return null
-  return <InsurabilityPanel status={status} />
-}
-
-async function CarriersSection({ id, address }: { id: string; address: string }) {
-  const [carriersData, insuranceEstimate] = await Promise.all([
-    getPropertyCarriers(id).catch(() => null),
-    getPropertyInsurance(id).catch(() => null),
+  const [property, risk, insurance, carriers, insurability, publicData] = await Promise.allSettled([
+    getProperty(id),
+    getPropertyRisk(id),
+    getPropertyInsurance(id),
+    getPropertyCarriers(id),
+    getPropertyInsurability(id),
+    getPropertyPublicData(id),
   ])
   return (
     <>
@@ -83,27 +71,23 @@ async function MapWithRisk({ property }: { property: Property }) {
   return <PropertyMapInline property={property} riskProfile={riskProfile} />
 }
 
-export default async function PropertyPage({ params }: PropertyPageProps) {
-  const { id } = await params
-
-  let prop: Property
-  try {
-    prop = await getProperty(id)
-  } catch {
-    notFound()
-  }
+  const prop = property.value
+  const riskProfile = risk.status === 'fulfilled' ? risk.value : null
+  const insuranceEstimate = insurance.status === 'fulfilled' ? insurance.value : null
+  const carriersData = carriers.status === 'fulfilled' ? carriers.value : null
+  const insurabilityStatus = insurability.status === 'fulfilled' ? insurability.value : null
+  const publicInfo = publicData.status === 'fulfilled' ? publicData.value : null
 
   const fullAddress = `${prop.address}, ${prop.city}, ${prop.state} ${prop.zip}`
 
   // ── Mobile tab content ─────────────────────────────────────────────────
   const overviewPanel = (
     <div className="space-y-4 p-4">
-      <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
-        <MapWithRisk property={prop} />
-      </Suspense>
-      <Suspense fallback={<SectionSkeleton />}>
-        <InsurabilitySection id={id} />
-      </Suspense>
+      {publicInfo?.images && publicInfo.images.length > 0 && (
+        <PropertyImages images={publicInfo.images} address={fullAddress} />
+      )}
+      <PropertyMapInline property={prop} riskProfile={riskProfile} />
+      {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
     </div>
   )
 
@@ -124,8 +108,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   )
 
   const detailsPanel = (
-    <div className="p-4">
+    <div className="space-y-4 p-4">
       <PropertyDetails property={prop} />
+      {publicInfo && <PropertyPublicInfo data={publicInfo} />}
     </div>
   )
 
@@ -208,16 +193,19 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Left / main column */}
             <div className="space-y-8 lg:col-span-2">
-              <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
-                <MapWithRisk property={prop} />
-              </Suspense>
-              <Suspense fallback={<SectionSkeleton />}>
-                <InsurabilitySection id={id} />
-              </Suspense>
-              <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
-                <RiskSection id={id} />
-              </Suspense>
+              {publicInfo?.images && publicInfo.images.length > 0 && (
+                <PropertyImages images={publicInfo.images} address={fullAddress} />
+              )}
+              <PropertyMapInline property={prop} riskProfile={riskProfile} />
+              {insurabilityStatus && <InsurabilityPanel status={insurabilityStatus} />}
+              {riskProfile && (
+                <>
+                  <RiskSummary profile={riskProfile} />
+                  <RiskBreakdown profile={riskProfile} />
+                </>
+              )}
               <PropertyDetails property={prop} />
+              {publicInfo && <PropertyPublicInfo data={publicInfo} />}
               <PropertyChecklists propertyId={prop.id} />
             </div>
 

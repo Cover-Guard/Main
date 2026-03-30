@@ -5,7 +5,9 @@ import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
-import { insuranceCache, carriersCache, insurabilityCache } from '../utils/cache'
+import { getPropertyPublicData } from '../services/publicPropertyDataService'
+import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } from '../utils/cache'
+import { logger } from '../utils/logger'
 import { requireAuth } from '../middleware/auth'
 import { requireSubscription } from '../middleware/subscription'
 import { prisma } from '../utils/prisma'
@@ -171,6 +173,7 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
         insuranceCache.delete(req.params.id)
         carriersCache.delete(req.params.id)
         insurabilityCache.delete(req.params.id)
+        publicDataCache.delete(req.params.id)
       } catch { /* cache invalidation is best-effort */ }
     } else {
       setCacheHeaders(res, 7200, 600)
@@ -203,10 +206,14 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
     const id = req.params.id
-    // Fetch property + compute risk in parallel (risk doesn't need the property DTO)
-    const [property, risk] = await Promise.all([
+    // Fetch property + compute risk + public data in parallel
+    const [property, risk, publicData] = await Promise.all([
       getPropertyById(id),
       getOrComputeRiskProfile(id, forceRefresh),
+      getPropertyPublicData(id, forceRefresh).catch((err) => {
+        logger.warn('Public data fetch failed for report', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
     ])
     if (!property) {
       res.status(404).json({
@@ -223,7 +230,21 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
     ])
     if (forceRefresh) setNoCacheHeaders(res)
     else setCacheHeaders(res, 3600, 300)
-    res.json({ success: true, data: { property, risk, insurance, insurability, carriers } })
+    res.json({ success: true, data: { property, risk, insurance, insurability, carriers, publicData } })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Public property data (images, tax, listings, amenities) ────────────────
+
+propertiesRouter.get('/:id/public-data', async (req, res, next) => {
+  try {
+    const forceRefresh = req.query.refresh === 'true'
+    const publicData = await getPropertyPublicData(req.params.id, forceRefresh)
+    if (forceRefresh) setNoCacheHeaders(res)
+    else setCacheHeaders(res, 86400, 3600) // 24h CDN cache
+    res.json({ success: true, data: publicData })
   } catch (err) {
     next(err)
   }

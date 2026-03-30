@@ -1,6 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+/**
+ * Returns true if the Supabase env vars are configured.
+ * Useful for pages that should degrade gracefully (e.g. the landing page)
+ * rather than crash when env vars are absent.
+ */
+export function isSupabaseConfigured(): boolean {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
+
 export async function createClient() {
   // cookies() MUST be called first — it signals to Next.js that this route is
   // dynamic (request-time only) and must not be statically pre-rendered at

@@ -6,6 +6,7 @@ import type {
   InsuranceCostEstimate,
   InsurabilityStatus,
   CarriersResult,
+  PropertyPublicData,
   Client,
   AnalyticsSummary,
   ApiResponse,
@@ -136,8 +137,13 @@ export async function getPropertyReport(id: string): Promise<{
   insurance: InsuranceCostEstimate
   insurability: InsurabilityStatus
   carriers: CarriersResult
+  publicData: PropertyPublicData | null
 }> {
   return apiFetch(`/api/properties/${id}/report`)
+}
+
+export async function getPropertyPublicData(id: string): Promise<PropertyPublicData> {
+  return apiFetch<PropertyPublicData>(`/api/properties/${id}/public-data`)
 }
 
 export async function saveProperty(id: string, notes?: string, tags?: string[], clientId?: string | null): Promise<void> {
