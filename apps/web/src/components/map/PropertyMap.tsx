@@ -108,8 +108,16 @@ export function PropertyMap({
 }: PropertyMapProps) {
   const [activeLayers, setActiveLayers] = useState<Set<RiskLayer>>(new Set())
   const [popupInfo, setPopupInfo] = useState<Property | null>(null)
-  const [layerToast, setLayerToast] = useState<{ layer: RiskLayer; action: 'on' | 'off' } | null>(null)
+  const [layerToast, setLayerToast] = useState<{ layer: RiskLayer; action: 'on' | 'off'; key: number } | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const toastKeyRef = useRef(0)
+
+  // Clean up toast timer on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    }
+  }, [])
 
   const mapCenter = center ??
     (selectedProperty ? { lat: selectedProperty.lat, lng: selectedProperty.lng } : null) ??
@@ -125,20 +133,24 @@ export function PropertyMap({
     return riskProfile[layer].level
   }, [riskProfile])
 
+  const activeLayersRef = useRef(activeLayers)
+  activeLayersRef.current = activeLayers
+
   const toggleLayer = useCallback((layer: RiskLayer) => {
+    const wasActive = activeLayersRef.current.has(layer)
+
     setActiveLayers((prev) => {
       const next = new Set(prev)
-      const turning = next.has(layer) ? 'off' : 'on'
-      if (turning === 'off') next.delete(layer)
+      if (next.has(layer)) next.delete(layer)
       else next.add(layer)
-
-      // Show activation toast
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-      setLayerToast({ layer, action: turning })
-      toastTimerRef.current = setTimeout(() => setLayerToast(null), 2500)
-
       return next
     })
+
+    // Show activation toast (outside the updater to avoid side effects)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastKeyRef.current += 1
+    setLayerToast({ layer, action: wasActive ? 'off' : 'on', key: toastKeyRef.current })
+    toastTimerRef.current = setTimeout(() => setLayerToast(null), 2500)
   }, [])
 
   const riskCenter = selectedProperty ?? properties[0] ?? null
@@ -360,9 +372,10 @@ export function PropertyMap({
 
       {/* ── Layer activation toast ───────────────────────────────── */}
       {layerToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 animate-fade-in">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
           <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-sm"
+            key={layerToast.key}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-sm animate-fade-in-down"
             style={{
               backgroundColor: layerToast.action === 'on'
                 ? `${RISK_LAYER_CONFIG[layerToast.layer].color}18`
