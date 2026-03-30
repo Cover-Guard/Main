@@ -42,7 +42,7 @@ export async function updateSession(request: NextRequest) {
   // so /api/auth/callback does not need to be listed here.
   // /onboarding is NOT public — it requires authentication. The onboarding gate
   // (below) redirects authenticated users without termsAcceptedAt to /onboarding.
-  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/pricing', '/search', '/get-started']
+  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/nda', '/pricing', '/search', '/get-started']
   const isPublic = pathname === '/' || publicPrefixes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   const SUB_COOKIE = 'cg_sub_active'
