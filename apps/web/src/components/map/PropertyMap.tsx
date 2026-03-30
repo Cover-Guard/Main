@@ -372,10 +372,10 @@ export function PropertyMap({
 
       {/* ── Layer activation toast ───────────────────────────────── */}
       {layerToast && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]" role="status" aria-live="polite">
           <div
             key={layerToast.key}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-sm animate-fade-in-down"
+            className="rounded-lg px-3 py-2 text-xs font-medium shadow-lg backdrop-blur-sm animate-fade-in-down"
             style={{
               backgroundColor: layerToast.action === 'on'
                 ? `${RISK_LAYER_CONFIG[layerToast.layer].color}18`
@@ -388,20 +388,22 @@ export function PropertyMap({
                 : '#e5e7eb'}`,
             }}
           >
-            {layerToast.action === 'on' ? (
-              <Eye className="h-3.5 w-3.5" />
-            ) : (
-              <EyeOff className="h-3.5 w-3.5" />
-            )}
-            <span>
-              {RISK_LAYER_CONFIG[layerToast.layer].label}
-              {layerToast.action === 'on' ? ' enabled' : ' disabled'}
-            </span>
+            <div className="flex items-center gap-2">
+              {layerToast.action === 'on' ? (
+                <Eye className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5 shrink-0" />
+              )}
+              <span>
+                {RISK_LAYER_CONFIG[layerToast.layer].label}
+                {layerToast.action === 'on' ? ' enabled' : ' disabled'}
+              </span>
+            </div>
             {/* Coverage note for layers with limited geographic data */}
             {layerToast.action === 'on' && LAYER_COVERAGE_NOTES[layerToast.layer] && (
-              <span className="ml-1 opacity-70">
-                — {LAYER_COVERAGE_NOTES[layerToast.layer]}
-              </span>
+              <p className="mt-1 text-[10px] opacity-70 leading-relaxed">
+                {LAYER_COVERAGE_NOTES[layerToast.layer]}
+              </p>
             )}
           </div>
         </div>
