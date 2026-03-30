@@ -70,7 +70,7 @@ const ARCGIS_TILE_SERVICES: Partial<Record<RiskLayer, { url: string; layers: str
     layers: 'show:0',   // Layer 0 = WUI 2020
   },
   wind: {
-    url: 'https://maps1.coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer',
+    url: 'https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer',
     layers: 'show:0',   // SLOSH MOM Cat-3 hurricane storm surge
   },
   earthquake: {
