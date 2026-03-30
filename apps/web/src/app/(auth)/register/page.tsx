@@ -213,7 +213,7 @@ export default function RegisterPage() {
               On the next step you will review and accept the{' '}
               <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>,{' '}
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>,
-              and Non-Disclosure Agreement before accessing the platform.
+              and <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Non-Disclosure Agreement</a> before accessing the platform.
             </p>
 
             <button type="submit" disabled={isSubmitting || oauthLoading} className="btn-primary w-full py-2.5">

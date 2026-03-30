@@ -166,6 +166,14 @@ function IndividualLoginForm() {
             New to CoverGuard?{' '}
             <Link href="/register" className="text-brand-600 hover:underline">Create account</Link>
           </p>
+
+          <p className="mt-6 text-center text-xs text-gray-400">
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 hover:underline">Terms of Service</a>
+            {' · '}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 hover:underline">Privacy Policy</a>
+            {' · '}
+            <a href="/nda" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600 hover:underline">NDA</a>
+          </p>
         </div>
       </div>
     </div>
