@@ -38,7 +38,7 @@ export interface EarthquakeRisk extends RiskFactor {
   seismicZone: string | null
   nearestFaultLine: number | null // miles
   soilType: string | null
-  liquidationPotential: RiskLevel | null
+  liquefactionPotential: RiskLevel | null
 }
 
 export interface CrimeRisk extends RiskFactor {

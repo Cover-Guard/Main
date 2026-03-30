@@ -36,6 +36,10 @@ const STATE_MULTIPLIERS: Record<string, number> = {
   CO: 0.90, AZ: 0.88, NM: 0.88, UT: 0.85, ID: 0.85,
   OR: 0.82, WA: 0.78, HI: 0.75, VT: 0.75, NH: 0.75, ME: 0.78,
   CA: 1.10, // CA is avg+ due to wildfire exposure
+  // Previously missing states (NAIC avg premium data)
+  AK: 1.15, WV: 1.10, NV: 0.90, IA: 1.05, IN: 1.00,
+  OH: 0.98, IL: 1.02, DE: 1.00, VA: 0.95, MD: 1.05,
+  WY: 0.90, DC: 1.10, MT: 0.92,
 }
 
 function computeHomeownersPremium(inputs: InsuranceInputs): {
@@ -100,7 +104,9 @@ function computeFloodPremium(inputs: InsuranceInputs): {
 
   const scoreMult = 1 + (inputs.floodRiskScore / 100) * 1.5
   // NFIP minimum premium is ~$611/yr (Preferred Risk) or higher; apply floor
-  const raw = base * scoreMult * (buildingCoverage / 250_000) * (contentCoverage / 100_000)
+  // Coverage factor: weighted sum of building (70%) and contents (30%) coverage ratios
+  const coverageFactor = 0.7 * (buildingCoverage / 250_000) + 0.3 * (contentCoverage / 100_000)
+  const raw = base * scoreMult * coverageFactor
   const avg = Math.max(Math.round(raw), inputs.inSFHA ? 611 : 285)
   return { low: Math.round(avg * 0.6), high: Math.round(avg * 1.8), avg }
 }
@@ -211,24 +217,24 @@ function buildKeyRiskFactors(inputs: InsuranceInputs): string[] {
   return factors
 }
 
-function determineConfidence(inputs: InsuranceInputs): ConfidenceLevel {
-  // Higher confidence when we have more data points
+function determineConfidence(inputs: InsuranceInputs, hasRealPropertyData: { estimatedValue: boolean; yearBuilt: boolean; squareFeet: boolean }): ConfidenceLevel {
+  // Higher confidence when we have real data, not defaults
   let score = 0
 
-  // Good property data
-  if (inputs.estimatedValue > 0) score++
-  if (inputs.yearBuilt > 0) score++
-  if (inputs.squareFeet > 0) score++
+  // Real property data (not defaults)
+  if (hasRealPropertyData.estimatedValue) score++
+  if (hasRealPropertyData.yearBuilt) score++
+  if (hasRealPropertyData.squareFeet) score++
 
-  // Risk data available
-  if (inputs.floodRiskScore > 0) score++
-  if (inputs.fireRiskScore > 0) score++
-  if (inputs.windRiskScore > 0) score++
-  if (inputs.earthquakeRiskScore > 0) score++
+  // Risk data available (scores above baseline defaults indicate real data)
+  if (inputs.floodRiskScore > 20) score++  // default is 20
+  if (inputs.fireRiskScore > 20) score++   // default is 20
+  if (inputs.windRiskScore > 20) score++   // default is 20
+  if (inputs.earthquakeRiskScore > 10) score++ // default is 10
   if (inputs.crimeRiskScore > 0) score++
 
-  if (score >= 7) return ConfidenceLevel.HIGH
-  if (score >= 4) return ConfidenceLevel.MEDIUM
+  if (score >= 6) return ConfidenceLevel.HIGH
+  if (score >= 3) return ConfidenceLevel.MEDIUM
   return ConfidenceLevel.LOW
 }
 
@@ -268,7 +274,30 @@ export async function getOrComputeInsuranceEstimate(
     // Return DB-cached estimate if still valid
     const cached = property.insuranceEstimate
     if (!forceRefresh && cached && cached.expiresAt > new Date()) {
-      const dto = prismaEstimateToDto(cached, propertyId)
+      // Rebuild keyRiskFactors from stored risk data so they're not empty on cache hits
+      const risk = property.riskProfile
+      const cachedInputs: InsuranceInputs = {
+        propertyId,
+        estimatedValue: property.estimatedValue ?? 400_000,
+        state: property.state,
+        yearBuilt: property.yearBuilt ?? 1990,
+        squareFeet: property.squareFeet ?? 1_800,
+        floodRiskScore: risk?.floodRiskScore ?? 20,
+        fireRiskScore: risk?.fireRiskScore ?? 20,
+        windRiskScore: risk?.windRiskScore ?? 20,
+        earthquakeRiskScore: risk?.earthquakeRiskScore ?? 10,
+        crimeRiskScore: risk?.crimeRiskScore ?? 0,
+        hurricaneRisk: risk?.hurricaneRisk ?? false,
+        tornadoRisk: risk?.tornadoRisk ?? false,
+        hailRisk: risk?.hailRisk ?? false,
+        inSFHA: risk?.inSFHA ?? false,
+        wildlandUrbanInterface: risk?.wildlandUrbanInterface ?? false,
+        floodZone: risk?.floodZone ?? null,
+        seismicZone: risk?.seismicZone ?? null,
+        designWindSpeed: risk?.designWindSpeed ?? null,
+        overallRiskScore: risk?.overallRiskScore ?? 25,
+      }
+      const dto = prismaEstimateToDto(cached, propertyId, buildKeyRiskFactors(cachedInputs))
       insuranceCache.set(propertyId, dto, cached.expiresAt.getTime() - Date.now())
       return dto
     }
@@ -304,7 +333,11 @@ export async function getOrComputeInsuranceEstimate(
 
     const annualTotal = homeowners.avg + (flood?.avg ?? 0) + (wind?.avg ?? 0) + (earthquake?.avg ?? 0) + (fire?.avg ?? 0)
     const expiresAt = new Date(Date.now() + INSURANCE_ESTIMATE_CACHE_TTL_SECONDS * 1000)
-    const confidenceLevel = determineConfidence(inputs)
+    const confidenceLevel = determineConfidence(inputs, {
+      estimatedValue: property.estimatedValue != null,
+      yearBuilt: property.yearBuilt != null,
+      squareFeet: property.squareFeet != null,
+    })
 
     const estimateData = {
       estimatedAnnualTotal: annualTotal,
@@ -313,7 +346,7 @@ export async function getOrComputeInsuranceEstimate(
       homeownersLow: homeowners.low,
       homeownersHigh: homeowners.high,
       homeownersAvg: homeowners.avg,
-      floodRequired: !!flood,
+      floodRequired: inputs.inSFHA && !!flood,
       floodLow: flood?.low ?? null,
       floodHigh: flood?.high ?? null,
       floodAvg: flood?.avg ?? null,
@@ -382,19 +415,25 @@ function prismaEstimateToDto(
         highEstimate: e.homeownersHigh,
         notes: ['Required by most mortgage lenders', 'Covers dwelling, personal property, and liability'],
       },
-      ...(e.floodRequired && e.floodAvg != null
+      ...(e.floodAvg != null
         ? [
             {
               type: 'FLOOD' as const,
-              required: true,
+              required: e.floodRequired,
               averageAnnualPremium: e.floodAvg,
               lowEstimate: e.floodLow!,
               highEstimate: e.floodHigh!,
-              notes: [
-                'Required for federally backed mortgages in SFHA',
-                'Available through NFIP or private insurers',
-                'NFIP Risk Rating 2.0 pricing considers property-level flood risk',
-              ],
+              notes: e.floodRequired
+                ? [
+                    'Required for federally backed mortgages in SFHA',
+                    'Available through NFIP or private insurers',
+                    'NFIP Risk Rating 2.0 pricing considers property-level flood risk',
+                  ]
+                : [
+                    'Recommended based on elevated flood risk score',
+                    'Available through NFIP or private insurers',
+                    'Not legally required but strongly advised',
+                  ],
             },
           ]
         : []),

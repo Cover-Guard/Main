@@ -29,7 +29,7 @@ const RISK_LAYER_CONFIG: Record<RiskLayer, {
     label: 'Flood Zones',
     color: '#3b82f6',
     icon: Droplets,
-    description: 'FEMA National Flood Hazard Layer',
+    description: 'FEMA NFHL Flood Hazard Zones',
   },
   fire: {
     label: 'Fire Hazard',
@@ -41,13 +41,13 @@ const RISK_LAYER_CONFIG: Record<RiskLayer, {
     label: 'Wind / Hurricane',
     color: '#a855f7',
     icon: Wind,
-    description: 'NOAA Hurricane Surge Zones',
+    description: 'NOAA SLOSH Cat-3 Storm Surge',
   },
   earthquake: {
     label: 'Earthquake',
     color: '#f97316',
     icon: Activity,
-    description: 'USGS Seismic Hazard',
+    description: 'USGS Seismic Hazard (2% in 50yr)',
   },
   crime: {
     label: 'Crime',
@@ -62,28 +62,28 @@ const RISK_LAYER_CONFIG: Record<RiskLayer, {
 
 const ARCGIS_TILE_SERVICES: Partial<Record<RiskLayer, { url: string; layers: string }>> = {
   flood: {
-    url: 'https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer',
-    layers: 'show:28',  // Layer 28 = Flood Hazard Zones
+    url: 'https://hazards.fema.gov/gis/nfhl/rest/services/FIRMette/NFHLREST_FIRMette/MapServer',
+    layers: 'show:20',  // Layer 20 = S_Fld_Haz_Ar (Flood Hazard Zones)
   },
   fire: {
     url: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer',
     layers: 'show:0',   // Layer 0 = WUI 2020
   },
   wind: {
-    url: 'https://coast.noaa.gov/arcgis/rest/services/HurricaneEvacuation/SLOSH/MapServer',
-    layers: 'show:0',   // Layer 0 = SLOSH zones
+    url: 'https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer',
+    layers: 'show:0',   // SLOSH MOM Cat-3 hurricane storm surge
   },
   earthquake: {
-    url: 'https://earthquake.usgs.gov/arcgis/rest/services/haz/BC2018_2secSA0p2/MapServer',
-    layers: 'show:0',   // 2018 NSHM — 2% in 50yr spectral acceleration
+    url: 'https://earthquake.usgs.gov/arcgis/rest/services/haz/US5hz250_2014/MapServer',
+    layers: 'show:0',   // 2014 NSHM — 2% in 50yr, 0.2s spectral acceleration
   },
 }
 
 // Coverage notes shown when a layer may not have visible data in some areas
 const LAYER_COVERAGE_NOTES: Partial<Record<RiskLayer, string>> = {
   flood: 'FEMA flood maps may not cover all areas. No overlay = unmapped zone.',
-  wind: 'Hurricane surge data covers coastal zones only. Inland areas will show no overlay.',
-  earthquake: 'Seismic hazard shading is subtle in low-risk regions.',
+  wind: 'Cat-3 storm surge covers coastal zones only. Inland areas will show no overlay.',
+  earthquake: 'Seismic hazard shading may be subtle in low-risk regions.',
   crime: 'Crime data is shown as a risk circle — no geographic overlay available.',
 }
 
