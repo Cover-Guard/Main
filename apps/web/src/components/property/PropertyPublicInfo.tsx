@@ -107,7 +107,7 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
       {data.taxRecords && data.taxRecords.assessedValue && (
         <div className="card p-5">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-4">
-            <Receipt className="h-5 w-5 text-gray-400" />
+            <Receipt className="h-5 w-5 text-gray-400" aria-hidden="true" />
             Tax Assessment
           </h3>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
@@ -155,7 +155,7 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
       {data.listingData && (
         <div className="card p-5">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-4">
-            <Building2 className="h-5 w-5 text-gray-400" />
+            <Building2 className="h-5 w-5 text-gray-400" aria-hidden="true" />
             Property Details & Features
           </h3>
 
@@ -256,7 +256,7 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
       {data.saleHistory.length > 0 && (
         <div className="card p-5">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-4">
-            <History className="h-5 w-5 text-gray-400" />
+            <History className="h-5 w-5 text-gray-400" aria-hidden="true" />
             Sale History
           </h3>
           <div className="space-y-3">
@@ -284,9 +284,10 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
           {data.saleHistory.length > 3 && (
             <button
               onClick={() => setShowAllSales(!showAllSales)}
+              aria-expanded={showAllSales}
               className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700"
             >
-              {showAllSales ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showAllSales ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
               {showAllSales ? 'Show less' : `Show all ${data.saleHistory.length} sales`}
             </button>
           )}
@@ -297,7 +298,7 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
       {data.nearbyAmenities.length > 0 && (
         <div className="card p-5">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-4">
-            <MapPin className="h-5 w-5 text-gray-400" />
+            <MapPin className="h-5 w-5 text-gray-400" aria-hidden="true" />
             Nearby Amenities
           </h3>
           <div className="space-y-2">
@@ -319,8 +320,8 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
                   <div className="text-right shrink-0">
                     <p className="text-sm font-medium text-gray-700">{amenity.distance} mi</p>
                     {amenity.rating && (
-                      <p className="flex items-center gap-0.5 text-xs text-amber-600">
-                        <Star className="h-3 w-3 fill-amber-500" />
+                      <p className="flex items-center gap-0.5 text-xs text-amber-600" aria-label={`${amenity.rating.toFixed(1)} out of 5 stars`}>
+                        <Star className="h-3 w-3 fill-amber-500" aria-hidden="true" />
                         {amenity.rating.toFixed(1)}
                       </p>
                     )}
@@ -332,9 +333,10 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
           {data.nearbyAmenities.length > 5 && (
             <button
               onClick={() => setShowAllAmenities(!showAllAmenities)}
+              aria-expanded={showAllAmenities}
               className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700"
             >
-              {showAllAmenities ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showAllAmenities ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
               {showAllAmenities ? 'Show less' : `Show all ${data.nearbyAmenities.length} amenities`}
             </button>
           )}

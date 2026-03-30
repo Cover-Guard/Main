@@ -45,47 +45,47 @@ function getGoogleSatelliteUrl(lat: number, lng: number, zoom = 18): string {
 function buildPropertyImages(property: Property): PropertyImage[] {
   const images: PropertyImage[] = []
 
-  if (GOOGLE_MAPS_KEY) {
-    // Front view
-    images.push({
-      url: getGoogleStreetViewUrl(property.lat, property.lng, 0),
-      source: 'Google Street View',
-      caption: `Street view of ${property.address}`,
-      type: 'street_view',
-    })
+  if (!GOOGLE_MAPS_KEY || !property.lat || !property.lng) return images
 
-    // Side angle view
-    images.push({
-      url: getGoogleStreetViewUrl(property.lat, property.lng, 90),
-      source: 'Google Street View',
-      caption: `Side view of ${property.address}`,
-      type: 'street_view',
-    })
+  // Front view
+  images.push({
+    url: getGoogleStreetViewUrl(property.lat, property.lng, 0),
+    source: 'Google Street View',
+    caption: `Street view of ${property.address}`,
+    type: 'street_view',
+  })
 
-    // Opposite angle
-    images.push({
-      url: getGoogleStreetViewUrl(property.lat, property.lng, 180),
-      source: 'Google Street View',
-      caption: `Rear street view of ${property.address}`,
-      type: 'street_view',
-    })
+  // Side angle view
+  images.push({
+    url: getGoogleStreetViewUrl(property.lat, property.lng, 90),
+    source: 'Google Street View',
+    caption: `Side view of ${property.address}`,
+    type: 'street_view',
+  })
 
-    // Satellite / aerial
-    images.push({
-      url: getGoogleSatelliteUrl(property.lat, property.lng, 19),
-      source: 'Google Maps Satellite',
-      caption: `Aerial view of ${property.address}`,
-      type: 'satellite',
-    })
+  // Opposite angle
+  images.push({
+    url: getGoogleStreetViewUrl(property.lat, property.lng, 180),
+    source: 'Google Street View',
+    caption: `Rear street view of ${property.address}`,
+    type: 'street_view',
+  })
 
-    // Wider aerial for neighborhood context
-    images.push({
-      url: getGoogleSatelliteUrl(property.lat, property.lng, 16),
-      source: 'Google Maps Satellite',
-      caption: `Neighborhood aerial of ${property.address}`,
-      type: 'satellite',
-    })
-  }
+  // Satellite / aerial
+  images.push({
+    url: getGoogleSatelliteUrl(property.lat, property.lng, 19),
+    source: 'Google Maps Satellite',
+    caption: `Aerial view of ${property.address}`,
+    type: 'satellite',
+  })
+
+  // Wider aerial for neighborhood context
+  images.push({
+    url: getGoogleSatelliteUrl(property.lat, property.lng, 16),
+    source: 'Google Maps Satellite',
+    caption: `Neighborhood aerial of ${property.address}`,
+    type: 'satellite',
+  })
 
   return images
 }
@@ -358,7 +358,7 @@ interface GooglePlaceResult {
 }
 
 async function fetchNearbyAmenities(lat: number, lng: number): Promise<NearbyAmenity[]> {
-  if (!GOOGLE_MAPS_KEY) return getEstimatedAmenities()
+  if (!GOOGLE_MAPS_KEY) return []
 
   const amenityTypes: Array<{ type: string; mapped: NearbyAmenity['type'] }> = [
     { type: 'school', mapped: 'school' },
@@ -411,16 +411,6 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 function toRad(deg: number): number {
   return deg * (Math.PI / 180)
-}
-
-function getEstimatedAmenities(): NearbyAmenity[] {
-  return [
-    { name: 'Nearest Elementary School', type: 'school', distance: 1.2, rating: null },
-    { name: 'Nearest Fire Station', type: 'fire_station', distance: 1.8, rating: null },
-    { name: 'Nearest Hospital', type: 'hospital', distance: 3.5, rating: null },
-    { name: 'Nearest Park', type: 'park', distance: 0.8, rating: null },
-    { name: 'Nearest Grocery Store', type: 'grocery', distance: 1.5, rating: null },
-  ]
 }
 
 // ─── Walk Score ──────────────────────────────────────────────────────────────

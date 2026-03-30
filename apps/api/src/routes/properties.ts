@@ -6,7 +6,7 @@ import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
 import { getPropertyPublicData } from '../services/publicPropertyDataService'
-import { insuranceCache, carriersCache, insurabilityCache } from '../utils/cache'
+import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { requireAuth } from '../middleware/auth'
 import { requireSubscription } from '../middleware/subscription'
@@ -173,6 +173,7 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
         insuranceCache.delete(req.params.id)
         carriersCache.delete(req.params.id)
         insurabilityCache.delete(req.params.id)
+        publicDataCache.delete(req.params.id)
       } catch { /* cache invalidation is best-effort */ }
     } else {
       setCacheHeaders(res, 7200, 600)
