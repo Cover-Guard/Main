@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/server'
 import {
   MarketingNav,
   Hero,
@@ -18,12 +18,15 @@ export const metadata: Metadata = {
 }
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // When Supabase is configured, redirect authenticated users to the dashboard.
+  // When env vars are missing (e.g. first deploy), just render the marketing page.
+  if (isSupabaseConfigured()) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  // Authenticated users go straight to the app
-  if (user) {
-    redirect('/dashboard')
+    if (user) {
+      redirect('/dashboard')
+    }
   }
 
   return (
