@@ -21,6 +21,8 @@ index ece7223..6b0d711 100644
 +function whatwgParse (str) {
 +  // Request URLs may be path-only (e.g. "/foo?bar=1").  The WHATWG URL
 +  // constructor requires an absolute URL, so we supply a throw-away base.
++  // Detect if this is a relative URL (no protocol prefix)
++  var isRelative = !str.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:/)
 +  var parsed
 +  try {
 +    parsed = new URL(str, 'http://localhost')
@@ -34,18 +36,18 @@ index ece7223..6b0d711 100644
 +  var path   = parsed.pathname + (search || '')
 +
 +  return {
-+    protocol: parsed.protocol || null,
-+    slashes:  parsed.protocol ? true : null,
++    protocol: isRelative ? null : parsed.protocol || null,
++    slashes:  isRelative ? null : (parsed.protocol ? true : null),
 +    auth:     null,
-+    host:     parsed.host || null,
++    host:     isRelative ? null : (parsed.host || null),
 +    port:     parsed.port || null,
-+    hostname: parsed.hostname || null,
++    hostname: isRelative ? null : (parsed.hostname || null),
 +    hash:     parsed.hash || null,
 +    search:   search,
 +    query:    query,
 +    pathname: parsed.pathname,
 +    path:     path,
-+    href:     parsed.href
++    href:     isRelative ? str : parsed.href
 +  }
 +}
 +
@@ -69,5 +71,6 @@ index ece7223..6b0d711 100644
    return typeof parsedUrl === 'object' &&
      parsedUrl !== null &&
 -    (Url === undefined || parsedUrl instanceof Url) &&
++    (Url === undefined || parsedUrl instanceof Url || typeof parsedUrl.pathname === 'string') &&
      parsedUrl._raw === url
  }
