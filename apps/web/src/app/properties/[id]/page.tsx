@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { notFound } from 'next/navigation'
+
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft, GitCompare } from 'lucide-react'
@@ -17,8 +17,17 @@ import { PropertyPublicInfo } from '@/components/property/PropertyPublicInfo'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
+import { DummyReportBanner } from '@/components/property/DummyReportBanner'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
 import type { Property } from '@coverguard/shared'
+import {
+  dummyProperty,
+  dummyRiskProfile,
+  dummyInsuranceEstimate,
+  dummyInsurability,
+  dummyCarriers,
+  dummyPublicData,
+} from '@/lib/dummyPropertyData'
 
 interface PropertyPageProps {
   params: Promise<{ id: string }>
@@ -30,7 +39,7 @@ export async function generateMetadata({ params }: PropertyPageProps): Promise<M
     const property = await getProperty(id)
     return { title: `${property.address}, ${property.city} ${property.state}` }
   } catch {
-    return { title: 'Property Not Found' }
+    return { title: 'Sample Property Report — CoverGuard' }
   }
 }
 
@@ -50,8 +59,10 @@ function SectionSkeleton({ className = '' }: { className?: string }) {
 
 // ── Async data components (streamed via Suspense) ───────────────────────────
 
-async function RiskSection({ id }: { id: string }) {
-  const riskProfile = await getPropertyRisk(id).catch(() => null)
+async function RiskSection({ id, isDummy }: { id: string; isDummy?: boolean }) {
+  const riskProfile = isDummy
+    ? dummyRiskProfile
+    : await getPropertyRisk(id).catch(() => null)
   if (!riskProfile) return <p className="text-sm text-gray-500">Risk data unavailable.</p>
   return (
     <>
@@ -61,17 +72,21 @@ async function RiskSection({ id }: { id: string }) {
   )
 }
 
-async function InsurabilitySection({ id }: { id: string }) {
-  const status = await getPropertyInsurability(id).catch(() => null)
+async function InsurabilitySection({ id, isDummy }: { id: string; isDummy?: boolean }) {
+  const status = isDummy
+    ? dummyInsurability
+    : await getPropertyInsurability(id).catch(() => null)
   if (!status) return null
   return <InsurabilityPanel status={status} />
 }
 
-async function CarriersSection({ id, address }: { id: string; address: string }) {
-  const [carriersData, insuranceEstimate] = await Promise.all([
-    getPropertyCarriers(id).catch(() => null),
-    getPropertyInsurance(id).catch(() => null),
-  ])
+async function CarriersSection({ id, address, isDummy }: { id: string; address: string; isDummy?: boolean }) {
+  const [carriersData, insuranceEstimate] = isDummy
+    ? [dummyCarriers, dummyInsuranceEstimate]
+    : await Promise.all([
+        getPropertyCarriers(id).catch(() => null),
+        getPropertyInsurance(id).catch(() => null),
+      ])
   return (
     <>
       {carriersData && <ActiveCarriers data={carriersData} propertyId={id} propertyAddress={address} />}
@@ -80,13 +95,17 @@ async function CarriersSection({ id, address }: { id: string; address: string })
   )
 }
 
-async function MapWithRisk({ property }: { property: Property }) {
-  const riskProfile = await getPropertyRisk(property.id).catch(() => null)
+async function MapWithRisk({ property, isDummy }: { property: Property; isDummy?: boolean }) {
+  const riskProfile = isDummy
+    ? dummyRiskProfile
+    : await getPropertyRisk(property.id).catch(() => null)
   return <PropertyMapInline property={property} riskProfile={riskProfile} />
 }
 
-async function PublicDataSection({ id, address }: { id: string; address: string }) {
-  const publicInfo = await getPropertyPublicData(id).catch(() => null)
+async function PublicDataSection({ id, address, isDummy }: { id: string; address: string; isDummy?: boolean }) {
+  const publicInfo = isDummy
+    ? dummyPublicData
+    : await getPropertyPublicData(id).catch(() => null)
   if (!publicInfo) return null
   return (
     <>
@@ -102,10 +121,13 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const { id } = await params
 
   let prop: Property
+  let isDummy = false
   try {
     prop = await getProperty(id)
   } catch {
-    notFound()
+    // Fall back to a dummy property report so the user can see all data points
+    prop = dummyProperty
+    isDummy = true
   }
 
   const fullAddress = `${prop.address}, ${prop.city}, ${prop.state} ${prop.zip}`
@@ -114,13 +136,13 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const overviewPanel = (
     <div className="space-y-4 p-4">
       <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
-        <PublicDataSection id={id} address={fullAddress} />
+        <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} />
       </Suspense>
       <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
-        <MapWithRisk property={prop} />
+        <MapWithRisk property={prop} isDummy={isDummy} />
       </Suspense>
       <Suspense fallback={<SectionSkeleton />}>
-        <InsurabilitySection id={id} />
+        <InsurabilitySection id={id} isDummy={isDummy} />
       </Suspense>
     </div>
   )
@@ -128,7 +150,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const riskPanel = (
     <div className="space-y-4 p-4">
       <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
-        <RiskSection id={id} />
+        <RiskSection id={id} isDummy={isDummy} />
       </Suspense>
     </div>
   )
@@ -136,7 +158,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const carriersPanel = (
     <div className="space-y-4 p-4">
       <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
-        <CarriersSection id={id} address={fullAddress} />
+        <CarriersSection id={id} address={fullAddress} isDummy={isDummy} />
       </Suspense>
     </div>
   )
@@ -157,6 +179,8 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
     <SidebarLayout>
       <div className="min-h-screen bg-[#f2f4f7]">
 
+        {isDummy && <DummyReportBanner />}
+
         {/* Header */}
         <div className="bg-white border-b border-gray-200">
           <div className="mx-auto max-w-7xl px-4 py-4 md:py-5">
@@ -172,7 +196,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
             </div>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Property Report</p>
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  {isDummy ? 'Sample Property Report' : 'Property Report'}
+                </p>
                 <h1 className="text-xl font-bold text-gray-900 md:text-2xl mt-0.5">{prop.address}</h1>
                 <p className="text-gray-600">{formatAddress(prop)}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-4">
@@ -189,16 +215,18 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                 </div>
               </div>
               {/* Actions */}
-              <div className="flex shrink-0 items-center gap-2 mt-1">
-                <Link
-                  href={`/compare?ids=${prop.id}`}
-                  className="hidden sm:flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <GitCompare className="h-4 w-4" />
-                  Compare
-                </Link>
-                <SavePropertyButton propertyId={prop.id} />
-              </div>
+              {!isDummy && (
+                <div className="flex shrink-0 items-center gap-2 mt-1">
+                  <Link
+                    href={`/compare?ids=${prop.id}`}
+                    className="hidden sm:flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <GitCompare className="h-4 w-4" />
+                    Compare
+                  </Link>
+                  <SavePropertyButton propertyId={prop.id} />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -210,14 +238,14 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
             { id: 'risk',        label: 'Risk' },
             { id: 'carriers',    label: 'Carriers' },
             { id: 'details',     label: 'Details' },
-            { id: 'checklists',  label: 'Checklists' },
+            ...(!isDummy ? [{ id: 'checklists',  label: 'Checklists' }] : []),
           ]}
           panels={{
             overview:   overviewPanel,
             risk:       riskPanel,
             carriers:   carriersPanel,
             details:    detailsPanel,
-            checklists: checklistsPanel,
+            ...(!isDummy ? { checklists: checklistsPanel } : {}),
           }}
         />
 
@@ -227,25 +255,25 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
             {/* Left / main column */}
             <div className="space-y-8 lg:col-span-2">
               <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
-                <PublicDataSection id={id} address={fullAddress} />
+                <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} />
               </Suspense>
               <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
-                <MapWithRisk property={prop} />
+                <MapWithRisk property={prop} isDummy={isDummy} />
               </Suspense>
               <Suspense fallback={<SectionSkeleton />}>
-                <InsurabilitySection id={id} />
+                <InsurabilitySection id={id} isDummy={isDummy} />
               </Suspense>
               <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
-                <RiskSection id={id} />
+                <RiskSection id={id} isDummy={isDummy} />
               </Suspense>
               <PropertyDetails property={prop} />
-              <PropertyChecklists propertyId={prop.id} />
+              {!isDummy && <PropertyChecklists propertyId={prop.id} />}
             </div>
 
             {/* Right sidebar */}
             <div className="space-y-6">
               <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
-                <CarriersSection id={id} address={fullAddress} />
+                <CarriersSection id={id} address={fullAddress} isDummy={isDummy} />
               </Suspense>
             </div>
           </div>
