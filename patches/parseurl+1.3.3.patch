@@ -1,0 +1,76 @@
+diff --git a/node_modules/parseurl/index.js b/node_modules/parseurl/index.js
+index ece7223..6b0d711 100644
+--- a/node_modules/parseurl/index.js
++++ b/node_modules/parseurl/index.js
+@@ -12,9 +12,47 @@
+  * @private
+  */
+ 
+-var url = require('url')
+-var parse = url.parse
+-var Url = url.Url
++/**
++ * Parse a URL string using the WHATWG URL API instead of the deprecated
++ * `url.parse()`.  Returns a plain object whose shape matches the legacy
++ * `url.Url` layout that Express / connect internals expect.
++ *
++ * @param {string} str
++ * @return {Object}
++ * @private
++ */
++function whatwgParse (str) {
++  // Request URLs may be path-only (e.g. "/foo?bar=1").  The WHATWG URL
++  // constructor requires an absolute URL, so we supply a throw-away base.
++  // Detect if this is a relative URL (no protocol prefix)
++  var isRelative = !str.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:/)
++  var parsed
++  try {
++    parsed = new URL(str, 'http://localhost')
++  } catch (_) {
++    // Malformed — return a minimal object so callers don't crash.
++    return { pathname: str, path: str, href: str, search: null, query: null }
++  }
++
++  var search = parsed.href.includes('?') ? (parsed.search || '?') : null
++  var query  = search ? search.substring(1) : null
++  var path   = parsed.pathname + (search || '')
++
++  return {
++    protocol: isRelative ? null : parsed.protocol || null,
++    slashes:  isRelative ? null : (parsed.protocol ? true : null),
++    auth:     null,
++    host:     isRelative ? null : (parsed.host || null),
++    port:     parsed.port || null,
++    hostname: isRelative ? null : (parsed.hostname || null),
++    hash:     parsed.hash || null,
++    search:   search,
++    query:    query,
++    pathname: parsed.pathname,
++    path:     path,
++    href:     isRelative ? str : parsed.href
++  }
++}
++
++var parse = whatwgParse
+ 
+ /**
+  * Module exports.
+@@ -125,9 +163,7 @@ function fastparse (str) {
+     }
+   }
+ 
+-  var url = Url !== undefined
+-    ? new Url()
+-    : {}
++  var url = {}
+ 
+   url.path = str
+   url.href = str
+@@ -153,6 +189,5 @@ function fastparse (str) {
+ function fresh (url, parsedUrl) {
+   return typeof parsedUrl === 'object' &&
+     parsedUrl !== null &&
+-    (Url === undefined || parsedUrl instanceof Url) &&
++    (Url === undefined || parsedUrl instanceof Url || typeof parsedUrl.pathname === 'string') &&
+     parsedUrl._raw === url
+ }
