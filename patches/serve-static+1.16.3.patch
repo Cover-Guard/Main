@@ -1,0 +1,36 @@
+diff --git a/node_modules/serve-static/index.js b/node_modules/serve-static/index.js
+index 3f3e64e..711a7fb 100644
+--- a/node_modules/serve-static/index.js
++++ b/node_modules/serve-static/index.js
+@@ -18,7 +18,21 @@ var escapeHtml = require('escape-html')
+ var parseUrl = require('parseurl')
+ var resolve = require('path').resolve
+ var send = require('send')
+-var url = require('url')
++/**
++ * Format a parsed URL object back into a string without using the deprecated
++ * `url.format()` (DEP0116).  Only the fields used by serve-static's redirect
++ * logic are considered.
++ *
++ * @param {Object} urlObj
++ * @return {string}
++ * @private
++ */
++function formatUrl (urlObj) {
++  var pathname = urlObj.pathname || '/'
++  var search = urlObj.search || ''
++  var hash = urlObj.hash || ''
++  return pathname + search + hash
++}
+ 
+ /**
+  * Module exports.
+@@ -194,7 +208,7 @@ function createRedirectDirectoryListener () {
+     originalUrl.pathname = collapseLeadingSlashes(originalUrl.pathname + '/')
+ 
+     // reformat the URL
+-    var loc = encodeUrl(url.format(originalUrl))
++    var loc = encodeUrl(formatUrl(originalUrl))
+     var doc = createHtmlDocument('Redirecting', 'Redirecting to ' + escapeHtml(loc))
+ 
+     // send redirect response
