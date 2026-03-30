@@ -15,9 +15,11 @@ export function ConsumerDashboard() {
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     getAnalytics()
-      .then(setAnalytics)
-      .catch((err) => setAnalyticsError(err instanceof Error ? err.message : 'Failed to load activity'))
+      .then((data) => { if (!cancelled) setAnalytics(data) })
+      .catch((err) => { if (!cancelled) setAnalyticsError(err instanceof Error ? err.message : 'Failed to load activity') })
+    return () => { cancelled = true }
   }, [])
 
   const totalSearches = analytics?.totalSearches ?? 0

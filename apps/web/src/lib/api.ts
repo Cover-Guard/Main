@@ -177,8 +177,17 @@ export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName'
   return apiFetch('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) })
 }
 
-export async function getSavedProperties(): Promise<unknown[]> {
-  return apiFetch<unknown[]>('/api/auth/me/saved')
+export interface SavedPropertyEntry {
+  id: string
+  notes: string | null
+  tags: string[]
+  savedAt: string
+  clientId: string | null
+  property: Property
+}
+
+export async function getSavedProperties(): Promise<SavedPropertyEntry[]> {
+  return apiFetch<SavedPropertyEntry[]>('/api/auth/me/saved')
 }
 
 export async function deleteAccount(): Promise<void> {

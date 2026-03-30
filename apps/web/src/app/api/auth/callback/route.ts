@@ -76,9 +76,10 @@ export async function GET(request: Request) {
         // Profile missing — create it via the authenticated API so the service-
         // role key is used (bypasses RLS) and all required columns are set.
         const { data: sessionData } = await supabase.auth.getSession()
-        if (sessionData.session?.access_token) {
+        const apiBase = process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL
+        if (sessionData.session?.access_token && apiBase) {
           try {
-            const syncRes = await fetch(`${process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? ''}/api/auth/sync-profile`, {
+            const syncRes = await fetch(`${apiBase}/api/auth/sync-profile`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

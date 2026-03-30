@@ -261,7 +261,7 @@ export async function geocodeAndCreateProperty(
     // Record search history
     prisma.searchHistory
       .create({ data: { userId: userId ?? null, query: geocoded.formattedAddress, resultCount: 1 } })
-      .catch(() => {})
+      .catch((err) => logger.error('Failed to record search history', { error: err instanceof Error ? err.message : err }))
     return dto
   }
 
@@ -288,7 +288,7 @@ export async function geocodeAndCreateProperty(
   // Record search history
   prisma.searchHistory
     .create({ data: { userId: userId ?? null, query: geocoded.formattedAddress, resultCount: 1 } })
-    .catch(() => {})
+    .catch((err) => logger.error('Failed to record search history', { error: err instanceof Error ? err.message : err }))
 
   return dto
 }

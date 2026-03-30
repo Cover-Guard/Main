@@ -317,15 +317,17 @@ authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
 
-    // Delete all user data from DB first (cascades via Prisma relations)
-    await prisma.user.delete({ where: { id: userId } })
-
-    // Delete the Supabase auth user
+    // Delete the Supabase auth user first — if this fails, the DB record
+    // remains intact and the user can retry. Reversing the order would
+    // orphan the auth record with no DB profile to manage it.
     const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
     if (error) {
-      // DB already deleted — log but don't fail the request
       logger.error(`Supabase auth delete failed: ${error.message}`)
+      throw new Error('Failed to delete account. Please try again.')
     }
+
+    // Now delete all user data from DB (cascades via Prisma relations)
+    await prisma.user.delete({ where: { id: userId } })
 
     res.json({ success: true, data: { deleted: true } })
   } catch (err) {

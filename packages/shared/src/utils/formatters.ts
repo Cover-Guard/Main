@@ -1,4 +1,5 @@
 import type { RiskLevel } from '../types/risk'
+import type { CoverageType } from '../types/insurance'
 
 export function formatCurrency(amount: number, options?: Intl.NumberFormatOptions): string {
   return new Intl.NumberFormat('en-US', {
@@ -40,8 +41,8 @@ export function riskLevelToColor(level: RiskLevel): string {
   return colors[level]
 }
 
-export function formatCoverageType(type: string): string {
-  const labels: Record<string, string> = {
+export function formatCoverageType(type: CoverageType): string {
+  const labels: Record<CoverageType, string> = {
     HOMEOWNERS: 'Homeowners',
     FLOOD: 'Flood',
     EARTHQUAKE: 'Earthquake',
@@ -49,7 +50,7 @@ export function formatCoverageType(type: string): string {
     UMBRELLA: 'Umbrella',
     FIRE: 'Fire',
   }
-  return labels[type] ?? type
+  return labels[type]
 }
 
 export function formatSquareFeet(sqft: number | null): string {

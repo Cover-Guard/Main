@@ -137,6 +137,13 @@ export async function requireAuth(
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthenticatedRequest
+    if (!authReq.userId || !authReq.userRole) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+      })
+      return
+    }
     if (!roles.includes(authReq.userRole)) {
       res.status(403).json({
         success: false,

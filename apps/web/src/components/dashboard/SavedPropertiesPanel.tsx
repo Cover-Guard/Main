@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
+import type { SavedPropertyEntry } from '@/lib/api'
 import { PropertyCard } from '@/components/search/PropertyCard'
 import { Building2, AlertTriangle } from 'lucide-react'
 
@@ -12,13 +12,13 @@ interface SavedPropertiesPanelProps {
 }
 
 export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelProps) {
-  const [saved, setSaved] = useState<Array<{ property: Property }>>([])
+  const [saved, setSaved] = useState<SavedPropertyEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     getSavedProperties()
-      .then((data) => setSaved(data as Array<{ property: Property }>))
+      .then((data) => setSaved(data))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load saved properties'))
       .finally(() => setLoading(false))
   }, [])
