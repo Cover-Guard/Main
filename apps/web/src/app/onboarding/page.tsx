@@ -130,7 +130,7 @@ export default function OnboardingPage() {
                   <span className="text-xs font-normal text-gray-500">(click to expand summary, or open full NDA)</span>
                 </summary>
                 <div className="max-h-48 overflow-y-auto border-t border-gray-200 px-4 py-3 text-xs leading-relaxed text-gray-600">
-                  This Non-Disclosure Agreement is entered into between CoverGuard, Inc. and the User. Confidential Information includes proprietary risk scoring methodologies, carrier availability data, underwriting intelligence, property insurability assessments, and pricing models. User agrees to hold all Confidential Information in strict confidence, not disclose it to third parties, and use it solely for lawful property research purposes. This Agreement remains in effect for 5 years following termination of access. Full NDA text is available in the Terms of Service.
+                  This Non-Disclosure Agreement is entered into between CoverGuard, Inc. and the User. Confidential Information includes proprietary risk scoring methodologies, carrier availability data, underwriting intelligence, property insurability assessments, and pricing models. User agrees to hold all Confidential Information in strict confidence, not disclose it to third parties, and use it solely for lawful property research purposes. This Agreement remains in effect for 5 years following termination of access. Full NDA text is available at <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">/nda</a>.
                 </div>
               </details>
             </div>
