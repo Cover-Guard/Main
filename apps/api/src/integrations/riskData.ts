@@ -573,25 +573,35 @@ function computeDesignWindSpeed(lat: number, state: string): number {
   return 115
 }
 
-/** NOAA SLOSH Hurricane Surge Zones — returns category (1-5) */
+/** NOAA SLOSH Hurricane Surge Zones — returns lowest category (1-5) that causes surge at this point.
+ *  Uses NOAA Coastal Flood Exposure Mapper CFEM_NHC_Surge services (Cat1, Cat3, Cat5)
+ *  queried in parallel. The lowest category where the point falls within the surge zone
+ *  is the result (Cat1 = highest risk, surge from weakest hurricanes). */
 async function fetchSloshHurricaneSurge(lat: number, lng: number, result: WindRiskExtended): Promise<void> {
   if (!result.hurricaneRisk) return
   try {
-    const url = `https://coast.noaa.gov/arcgis/rest/services/HurricaneEvacuation/SLOSH/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=CATEG&returnGeometry=false&f=json`
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
-    if (res.ok) {
-      const data = (await res.json()) as ArcGISFeatureResult
-      if (data.features?.length) {
-        result.hurricaneRisk = true
-        // CATEG field is the SLOSH hurricane category (1-5) the surge zone is modeled for
-        const categ = data.features[0]?.attributes?.CATEG
-        if (categ != null) {
-          const cat = typeof categ === 'string' ? parseInt(categ, 10) : categ as number
-          if (!isNaN(cat) && cat >= 1 && cat <= 5) {
-            result.sloshCategory = cat
-          }
-        }
-      }
+    // Query Cat1, Cat3, Cat5 in parallel to determine the minimum hurricane category
+    // that produces storm surge at this location. Each CFEM service covers a different
+    // worst-case scenario: Cat1 = smallest surge footprint, Cat5 = largest.
+    const categories = [1, 3, 5] as const
+    const checks = await Promise.allSettled(
+      categories.map(async (cat) => {
+        const url = `https://maps1.coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat${cat}/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json`
+        const res = await fetch(url, { signal: AbortSignal.timeout(6000) })
+        if (!res.ok) return null
+        const data = (await res.json()) as { count?: number }
+        return (data.count ?? 0) > 0 ? cat : null
+      }),
+    )
+
+    const foundCategories = checks
+      .filter((r): r is PromiseFulfilledResult<number | null> => r.status === 'fulfilled')
+      .map((r) => r.value)
+      .filter((v): v is number => v !== null)
+
+    if (foundCategories.length > 0) {
+      result.hurricaneRisk = true
+      result.sloshCategory = Math.min(...foundCategories)
     }
   } catch (err) {
     logger.warn('NOAA SLOSH API unavailable', { err })
