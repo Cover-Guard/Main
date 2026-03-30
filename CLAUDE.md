@@ -77,7 +77,8 @@ Main-Branch/
 │       │   │   ├── riskService.ts      # Risk scoring + caching
 │       │   │   ├── insuranceService.ts # Premium estimation + caching
 │       │   │   ├── carriersService.ts  # Active carriers by property/state/risk profile
-│       │   │   └── insurabilityService.ts # Insurability assessment from risk profile
+│       │   │   ├── insurabilityService.ts # Insurability assessment from risk profile
+│       │   │   └── publicPropertyDataService.ts # Public data: images, tax, amenities, listings
 │       │   ├── integrations/
 │       │   │   ├── propertyData.ts     # ATTOM API (with mock fallback)
 │       │   │   └── riskData.ts         # FEMA NFHL, OpenFEMA claims, Cal Fire FHSZ,
@@ -176,7 +177,8 @@ POST /api/properties/:id/save               Save property [auth]
 DEL  /api/properties/:id/save               Unsave property [auth]
 POST /api/properties/:id/quote-request      Request binding quote [auth]
 GET  /api/properties/:id/quote-requests     List quote requests [auth]
-GET  /api/properties/:id/report             Full report bundle
+GET  /api/properties/:id/public-data         Public property data (images, tax, amenities, listings)
+GET  /api/properties/:id/report             Full report bundle (includes publicData)
 
 POST /api/auth/register                     Register
 GET  /api/auth/me                           Current user [auth]
@@ -212,6 +214,11 @@ POST /api/stripe/webhook                     Stripe webhook (raw body, signature
 | NOAA SLOSH | Hurricane surge zones | `coast.noaa.gov/arcgis` — coastal only |
 | FBI CDE | Crime rates by agency/jurisdiction | `api.usa.gov/crime/fbi/cde` — needs `FBI_CDE_KEY` |
 | ASCE 7 | Design wind speed | Computed from lat/state |
+| Google Street View | Property street-level images | Uses `GOOGLE_MAPS_API_KEY` |
+| Google Static Maps | Satellite/aerial imagery | Uses `GOOGLE_MAPS_API_KEY` |
+| Google Places | Nearby amenities (schools, etc.) | Uses `GOOGLE_MAPS_API_KEY` |
+| ATTOM Expanded | Tax records, sale history, building details | Uses `ATTOM_API_KEY` |
+| Walk Score | Walk & transit scores | `walkscore.com` — needs `WALK_SCORE_API_KEY` |
 
 ---
 
@@ -223,6 +230,7 @@ All in `.env.example`. Key additions:
 |---|---|---|
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Web | Map in search and property pages |
 | `FBI_CDE_KEY` | API | FBI Crime Data Explorer (optional) |
+| `WALK_SCORE_API_KEY` | API | Walk Score walkability/transit (optional) |
 | `SUPABASE_URL` | API, Web | Supabase project URL |
 | `SUPABASE_ANON_KEY` | API, Web | Public anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | API only | Never expose to browser |
