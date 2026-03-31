@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Keyboard focus indicators (WCAG 2.4.7) ───────────────────────────────
+   Restores visible focus rings for all keyboard users.
+   NOTE: Remove any remaining focus:outline-none / focus-visible:outline-none
+   classes from JSX — they override this rule.
+   ───────────────────────────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid #14b8a6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 @layer base {
   :root {
     --font-inter: 'Inter', system-ui, sans-serif;
@@ -153,7 +164,7 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-50;
   }
 
   .btn-primary {
@@ -169,7 +180,7 @@
   }
 
   .input {
-    @apply block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:opacity-50;
+    @apply block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 disabled:opacity-50;
   }
 
   .card {
@@ -179,4 +190,25 @@
   .label {
     @apply block text-sm font-medium text-foreground;
   }
+}
+/* ── Skip-to-content link (WCAG 2.4.1) ────────────────────────────────── */
+.skip-to-content {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 9999;
+  background: #14b8a6;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top 0.1s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.skip-to-content:focus {
+  top: 16px;
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
 }
