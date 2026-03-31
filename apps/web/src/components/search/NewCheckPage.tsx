@@ -6,8 +6,6 @@ import { APIProvider } from '@vis.gl/react-google-maps'
 import {
   Shield,
   MapPin,
-  ChevronDown,
-  ChevronUp,
   Zap,
   Building2,
   TrendingUp,
@@ -79,9 +77,6 @@ function NewCheckPageInner({
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
-  const [detailsOpen, setDetailsOpen] = useState(false)
-  const [yearBuilt, setYearBuilt] = useState('')
-  const [sqft, setSqft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -109,8 +104,6 @@ function NewCheckPageInner({
     if (!address.trim()) return
     const params = new URLSearchParams({ q: address.trim() })
     if (selectedPlaceId) params.set('placeId', selectedPlaceId)
-    if (yearBuilt) params.set('yearBuilt', yearBuilt)
-    if (sqft) params.set('sqft', sqft)
     router.push(`/search?${params.toString()}`)
   }
 
@@ -235,53 +228,6 @@ function NewCheckPageInner({
                 Check Insurability
               </button>
             </form>
-
-            {/* Property details accordion */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setDetailsOpen(!detailsOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
-              >
-                <span>Property Details (Optional)</span>
-                {detailsOpen ? (
-                  <ChevronUp className="h-3.5 w-3.5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
-                )}
-              </button>
-              {detailsOpen && (
-                <div className="px-3 py-2.5 flex gap-2">
-                  <div className="flex-1">
-                    <label className="text-xs font-medium text-gray-600 block mb-1">
-                      Year Built
-                    </label>
-                    <input
-                      type="number"
-                      min="1800"
-                      max={new Date().getFullYear()}
-                      value={yearBuilt}
-                      onChange={(e) => setYearBuilt(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                      placeholder="1995"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-xs font-medium text-gray-600 block mb-1">
-                      Sq Ft
-                    </label>
-                    <input
-                      type="number"
-                      min="100"
-                      value={sqft}
-                      onChange={(e) => setSqft(e.target.value)}
-                      className="w-full text-sm border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                      placeholder="1800"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Accuracy note */}
             <p className="text-xs text-gray-400">
