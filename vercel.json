@@ -12,6 +12,27 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
+      "includeFiles": "apps/api/{dist/**,prisma/schema.prisma,src/generated/prisma/**},node_modules/{.prisma/**,@prisma/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api" },
+    { "source": "/api/(.*)", "destination": "/api" }
+  ]
+}{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": ". scripts/normalize-env.sh && npx prisma generate --schema ./apps/api/prisma/schema.prisma && npx turbo run build",
+  "outputDirectory": "apps/web/.next",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
       "memory": 1024,
       "includeFiles": "apps/api/{dist/**,prisma/schema.prisma,src/generated/prisma/**},node_modules/{.prisma/**,@prisma/**}"
     }
