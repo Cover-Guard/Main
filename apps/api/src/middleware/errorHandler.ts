@@ -73,6 +73,55 @@ export function errorHandler(
     return
   }
 
+  // Fetch timeout (AbortError) or connection errors → 504
+  if (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
+    logger.warn('Upstream request timed out: %s', err.message)
+    res.status(504).json({
+      success: false,
+      error: {
+        code: 'GATEWAY_TIMEOUT',
+        message: 'An upstream data source took too long to respond. Please try again.',
+      },
+    })
+    return
+  }
+
+  // Fetch network errors (DNS, connection refused, etc.) → 502
+  if (err instanceof TypeError && (
+    err.message.includes('fetch failed') ||
+    err.message.includes('network') ||
+    err.message.includes('ECONNREFUSED') ||
+    err.message.includes('ENOTFOUND')
+  )) {
+    logger.warn('Upstream connection error: %s', err.message)
+    res.status(502).json({
+      success: false,
+      error: {
+        code: 'BAD_GATEWAY',
+        message: 'Could not reach an upstream data source. Please try again.',
+      },
+    })
+    return
+  }
+
+  // Prisma connection / initialization errors → 503
+  if (err instanceof Error && (
+    err.name === 'PrismaClientInitializationError' ||
+    err.message.includes('Can\'t reach database server') ||
+    err.message.includes('Connection timed out') ||
+    err.message.includes('Connection refused')
+  )) {
+    logger.error('Database connection error: %s', err.message)
+    res.status(503).json({
+      success: false,
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Database temporarily unavailable. Please try again later.',
+      },
+    })
+    return
+  }
+
   // Missing configuration (DB, Supabase, etc.) → 503
   if (err instanceof Error && (
     err.message.includes('connection string is not configured') ||

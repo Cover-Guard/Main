@@ -472,7 +472,11 @@ export async function getPropertyPublicData(
   return publicDataDeduplicator.dedupe(propertyId, async () => {
     const property = await getPropertyById(propertyId)
     if (!property) {
-      throw new Error(`Property ${propertyId} not found`)
+      const err = Object.assign(new Error('Property not found'), {
+        name: 'PrismaClientKnownRequestError',
+        code: 'P2025',
+      })
+      throw err
     }
 
     // Fetch from multiple sources in parallel

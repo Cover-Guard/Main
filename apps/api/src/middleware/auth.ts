@@ -75,30 +75,51 @@ export async function requireAuth(
   }
 
   // Slow path: verify with Supabase + load user profile
-  const { data, error } = await supabaseAdmin.auth.getUser(token)
-  if (error || !data.user) {
-    // Do NOT cache invalid tokens
-    res.status(401).json({
+  let data: Awaited<ReturnType<typeof supabaseAdmin.auth.getUser>>['data']
+  try {
+    const result = await supabaseAdmin.auth.getUser(token)
+    if (result.error || !result.data.user) {
+      // Do NOT cache invalid tokens
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token' },
+      })
+      return
+    }
+    data = result.data
+  } catch (err) {
+    logger.error('Supabase auth verification failed', { error: err instanceof Error ? err.message : err })
+    res.status(503).json({
       success: false,
-      error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token' },
+      error: { code: 'SERVICE_UNAVAILABLE', message: 'Authentication service temporarily unavailable' },
     })
     return
   }
 
   // Fetch user profile + subscription status in a single query to avoid
   // a separate DB round trip in the requireSubscription middleware.
-  const user = await prisma.user.findUnique({
-    where: { id: data.user.id },
-    select: {
-      id: true,
-      role: true,
-      subscriptions: {
-        where: { status: { in: ['ACTIVE', 'TRIALING'] } },
-        select: { id: true },
-        take: 1,
+  let user: { id: string; role: string; subscriptions: { id: string }[] } | null
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: data.user.id },
+      select: {
+        id: true,
+        role: true,
+        subscriptions: {
+          where: { status: { in: ['ACTIVE', 'TRIALING'] } },
+          select: { id: true },
+          take: 1,
+        },
       },
-    },
-  })
+    })
+  } catch (err) {
+    logger.error('Database query failed during auth', { userId: data.user.id, error: err instanceof Error ? err.message : err })
+    res.status(503).json({
+      success: false,
+      error: { code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable' },
+    })
+    return
+  }
   if (!user) {
     logger.warn(`Authenticated user ${data.user.id} not found in database — possible sync issue`)
     res.status(401).json({
