@@ -48,7 +48,8 @@ function createPrismaClient(): PrismaClient {
     )
   }
 
-  const adapter = new PrismaPg({ connectionString })
+  // Supabase uses SSL certificates that need rejectUnauthorized: false for the pooler
+  const adapter = new PrismaPg({ connectionString, options: { ssl: { rejectUnauthorized: false } } })
 
   return new PrismaClient({
     adapter,
