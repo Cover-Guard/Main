@@ -17,8 +17,9 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
     const twelveMonthsAgo = new Date()
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
 
-    // Run ALL queries in a single Promise.all — Prisma queries + raw SQL UNION ALL
-    // all execute concurrently instead of in two sequential batches.
+    // Batch 1: lightweight counts + small findMany queries.
+    // Batch 2 (raw SQL) runs after batch 1 completes so we don't overwhelm
+    // the connection pool on Vercel serverless cold starts.
     const [
       savedCount,
       clientCount,
@@ -29,7 +30,6 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
       recentReports,
       quoteRequestStats,
       clientPipelineRaw,
-      combinedResults,
     ] = await Promise.all([
       prisma.savedProperty.count({ where: { userId } }),
       prisma.client.count({ where: { agentId: userId } }),
@@ -68,11 +68,11 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
         where: { agentId: userId },
         _count: { _all: true },
       }),
+    ])
 
-      // Raw SQL UNION ALL combining 6 analytical queries into 1 statement.
-      // Each SELECT with ORDER BY / LIMIT is wrapped in a subquery so the
-      // clauses apply to that SELECT only, not to the entire UNION ALL.
-      prisma.$queryRaw<Array<Record<string, unknown>>>`
+    // Batch 2: heavy raw SQL UNION ALL — runs sequentially after batch 1
+    // to avoid connection pool exhaustion on serverless cold starts.
+    const combinedResults = await prisma.$queryRaw<Array<Record<string, unknown>>>`
         -- searches_by_day
         SELECT 'searches_by_day' AS _query,
                date_trunc('day', "searchedAt")::text AS key1,
@@ -157,8 +157,7 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
         JOIN properties p ON p.id = sp."propertyId"
         JOIN insurance_estimates ie ON ie."propertyId" = p.id
         WHERE sp."userId" = ${userId}
-      `,
-    ])
+      `
 
     // Parse the combined results into separate datasets
     const searchesByDayRaw: Array<{ key1: string; val: number }> = []

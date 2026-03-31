@@ -234,7 +234,7 @@ app.use(
 
 app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
 app.use('/api/clients', requestTimeout(40_000), clientsRouter)
-app.use('/api/analytics', requestTimeout(40_000), analyticsRouter)
+app.use('/api/analytics', requestTimeout(55_000), analyticsRouter)
 app.use('/api/advisor', requestTimeout(40_000), advisorRouter)
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
