@@ -41,20 +41,25 @@ async function fetchAttom<T>(path: string, params: Record<string, string>): Prom
     return null
   }
 
-  const url = new URL(`${ATTOM_BASE_URL}${path}`)
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+  try {
+    const url = new URL(`${ATTOM_BASE_URL}${path}`)
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
 
-  const res = await fetch(url.toString(), {
-    headers: { apikey: apiKey, accept: 'application/json' },
-    signal: AbortSignal.timeout(8000),
-  })
+    const res = await fetch(url.toString(), {
+      headers: { apikey: apiKey, accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    })
 
-  if (!res.ok) {
-    logger.error(`ATTOM API error ${res.status}: ${path}`)
+    if (!res.ok) {
+      logger.error(`ATTOM API error ${res.status}: ${path}`)
+      return null
+    }
+
+    return (await res.json()) as T
+  } catch (err) {
+    logger.error('ATTOM API request failed', { path, error: err instanceof Error ? err.message : err })
     return null
   }
-
-  return res.json() as Promise<T>
 }
 
 function mapAttomToProperty(attom: AttomPropertyDetail): Omit<Property, 'id' | 'createdAt' | 'updatedAt'> {

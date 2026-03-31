@@ -170,10 +170,11 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
 
     for (const row of combinedResults) {
       const q = row._query as string
-      if (q === 'searches_by_day') searchesByDayRaw.push({ key1: row.key1 as string, val: Number(row.val) })
-      else if (q === 'searches_by_month') searchesByMonthRaw.push({ key1: row.key1 as string, val: Number(row.val) })
-      else if (q === 'risk_distribution') riskDistributionRaw.push({ key1: row.key1 as string, val: Number(row.val) })
-      else if (q === 'top_states') topStatesRaw.push({ key1: row.key1 as string, val: Number(row.val) })
+      // Skip rows with NULL keys (e.g. LEFT JOIN with no matching risk profile)
+      if (q === 'searches_by_day' && row.key1) searchesByDayRaw.push({ key1: row.key1 as string, val: Number(row.val) || 0 })
+      else if (q === 'searches_by_month' && row.key1) searchesByMonthRaw.push({ key1: row.key1 as string, val: Number(row.val) || 0 })
+      else if (q === 'risk_distribution' && row.key1) riskDistributionRaw.push({ key1: row.key1 as string, val: Number(row.val) || 0 })
+      else if (q === 'top_states' && row.key1) topStatesRaw.push({ key1: row.key1 as string, val: Number(row.val) || 0 })
       else if (q === 'regional_risk') regionalRiskRaw.push(row)
       else if (q === 'avg_insurance_cost') avgInsuranceCost = row.n1 ? Number(row.n1) : null
     }
@@ -185,8 +186,8 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
       byDay.set(d.toISOString().slice(0, 10), 0)
     }
     for (const row of searchesByDayRaw) {
-      const day = new Date(row.key1).toISOString().slice(0, 10)
-      byDay.set(day, row.val)
+      const d = new Date(row.key1)
+      if (!isNaN(d.getTime())) byDay.set(d.toISOString().slice(0, 10), row.val)
     }
     const searchesByDay = Array.from(byDay.entries()).map(([date, count]) => ({ date, count }))
 
@@ -246,17 +247,17 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
       inactive: clientStatusMap['INACTIVE'] ?? 0,
     }
 
-    // Regional risk
+    // Regional risk — use || 0 to guard against NaN from NULL SQL values
     const regionalRisk = regionalRiskRaw.map((r) => ({
       state: r.key1 as string,
-      propertyCount: Number(r.val),
-      avgOverallScore: Number(r.n1),
-      avgFloodScore: Number(r.n2),
-      avgFireScore: Number(r.n3),
-      avgWindScore: Number(r.n4),
-      avgEarthquakeScore: Number(r.n5),
-      avgCrimeScore: Number(r.n6),
-      dominantRiskLevel: r.s1 as string,
+      propertyCount: Number(r.val) || 0,
+      avgOverallScore: Number(r.n1) || 0,
+      avgFloodScore: Number(r.n2) || 0,
+      avgFireScore: Number(r.n3) || 0,
+      avgWindScore: Number(r.n4) || 0,
+      avgEarthquakeScore: Number(r.n5) || 0,
+      avgCrimeScore: Number(r.n6) || 0,
+      dominantRiskLevel: (r.s1 as string) ?? 'LOW',
     }))
 
     // Searches by month (fill gaps for 12 months)
@@ -268,8 +269,8 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
       byMonth.set(d.toISOString().slice(0, 7), 0)
     }
     for (const row of searchesByMonthRaw) {
-      const month = new Date(row.key1).toISOString().slice(0, 7)
-      byMonth.set(month, row.val)
+      const d = new Date(row.key1)
+      if (!isNaN(d.getTime())) byMonth.set(d.toISOString().slice(0, 7), row.val)
     }
     const searchesByMonth = Array.from(byMonth.entries()).map(([month, count]) => ({ month, count }))
 

@@ -138,7 +138,7 @@ export async function fetchFloodRisk(lat: number, lng: number, zip: string): Pro
   let floodZoneData: Partial<FloodRisk> = { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }
 
   try {
-    const res = await fetch(nfhlUrl.toString(), { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(nfhlUrl.toString(), { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as FemaFloodZoneResult
       const feature = data.features?.[0]?.attributes
@@ -182,7 +182,7 @@ export async function fetchFloodRisk(lat: number, lng: number, zip: string): Pro
 async function fetchOpenFemaClaims(zip: string, floodZoneData: Partial<FloodRisk>): Promise<void> {
   try {
     const claimsUrl = `https://www.fema.gov/api/open/v2/nfipClaims?$filter=reportedZipCode eq '${encodeURIComponent(zip)}'&$select=amountPaidOnBuildingClaim,dateOfLoss&$top=200&$orderby=dateOfLoss%20desc&$format=json`
-    const claimsRes = await fetch(claimsUrl, { signal: AbortSignal.timeout(8000) })
+    const claimsRes = await limitedFetch(claimsUrl, { signal: AbortSignal.timeout(8000) })
     if (claimsRes.ok) {
       const claimsData = (await claimsRes.json()) as { NfipClaims: OpenFemaFloodClaim[] }
       const claims = claimsData.NfipClaims ?? []
@@ -656,7 +656,7 @@ async function fetchSpcStormEvents(lat: number, lng: number, result: WindRiskExt
   try {
     const tornadoEnvelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
     const spcUrl = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Tornado_Tracks/FeatureServer/0/query?geometry=${encodeURIComponent(tornadoEnvelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=yr,mag&where=yr>=2004&resultRecordCount=50&returnGeometry=false&f=json`
-    const res = await fetch(spcUrl, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(spcUrl, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const tornadoes = data.features ?? []
@@ -684,7 +684,7 @@ async function fetchSpcStormEvents(lat: number, lng: number, result: WindRiskExt
   try {
     const hailEnvelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
     const hailUrl = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Hail_Reports/FeatureServer/0/query?geometry=${encodeURIComponent(hailEnvelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=yr,size&where=yr>=2004&resultRecordCount=50&returnGeometry=false&f=json`
-    const res = await fetch(hailUrl, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(hailUrl, { signal: AbortSignal.timeout(8000) })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const hailEvents = data.features ?? []
@@ -783,7 +783,7 @@ async function fetchFbiCrimeData(zip: string): Promise<Partial<CrimeRisk> | null
   try {
     // FBI CDE: get agencies near this ZIP code
     const agenciesUrl = `https://api.usa.gov/crime/fbi/cde/agencies/byZip/${encodeURIComponent(zip)}`
-    const agenciesRes = await fetch(agenciesUrl, { signal: AbortSignal.timeout(10000), headers: fbiHeaders })
+    const agenciesRes = await limitedFetch(agenciesUrl, { signal: AbortSignal.timeout(10000), headers: fbiHeaders })
     if (!agenciesRes.ok) return null
 
     const agencies = (await agenciesRes.json()) as { results?: Array<{ ori: string }> }
@@ -792,7 +792,7 @@ async function fetchFbiCrimeData(zip: string): Promise<Partial<CrimeRisk> | null
 
     // Get summary stats for this agency
     const summaryUrl = `https://api.usa.gov/crime/fbi/cde/summarized/agency/${encodeURIComponent(ori)}/offenses?from=2020&to=2023`
-    const summaryRes = await fetch(summaryUrl, { signal: AbortSignal.timeout(10000), headers: fbiHeaders })
+    const summaryRes = await limitedFetch(summaryUrl, { signal: AbortSignal.timeout(10000), headers: fbiHeaders })
     if (!summaryRes.ok) return null
 
     const summaryData = (await summaryRes.json()) as FbiAgencyData

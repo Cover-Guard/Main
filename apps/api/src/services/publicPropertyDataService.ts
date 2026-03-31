@@ -242,7 +242,7 @@ async function fetchAttomSaleHistory(address: string, zip: string): Promise<Prop
       .map((s) => ({
         date: s.salesearchdate!,
         price: s.amount!.saleamt!,
-        pricePerSqFt: sqft ? Math.round(s.amount!.saleamt! / sqft) : null,
+        pricePerSqFt: sqft && sqft > 0 ? Math.round(s.amount!.saleamt! / sqft) : null,
         seller: s.sellername || null,
         buyer: s.buyername || null,
       }))
@@ -328,7 +328,7 @@ function extractListingData(attom: AttomExpandedProfile | null, property: Proper
       ? (daysSince(attom.sale.saleSearchDate) < 90 ? 'recently_sold' : 'off_market')
       : 'off_market',
     listPrice: attom?.sale?.amount?.saleamt ?? property.lastSalePrice,
-    pricePerSqFt: (marketValue ?? property.estimatedValue) && sqft
+    pricePerSqFt: (marketValue ?? property.estimatedValue) && sqft && sqft > 0
       ? Math.round((marketValue ?? property.estimatedValue!) / sqft)
       : null,
     description: null,
