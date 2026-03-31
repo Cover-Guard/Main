@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { formatCurrency, formatAddress } from '@coverguard/shared'
+import { PropertyReportModal } from '@/components/property/PropertyReportModal'
 import {
   FileText,
   Search,
@@ -31,6 +32,7 @@ export function ReportsContent() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
 
   useEffect(() => {
     getSavedProperties()
@@ -191,19 +193,28 @@ export function ReportsContent() {
                       )}
                     </div>
 
-                    <Link
-                      href={`/properties/${p.id}`}
+                    <button
+                      onClick={() => setSelectedProperty(p)}
                       className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 hover:border-emerald-300 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg shrink-0 transition-colors"
                     >
                       View Report
                       <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
             )
           })}
         </div>
+      )}
+
+      {/* Property Report Modal */}
+      {selectedProperty && (
+        <PropertyReportModal
+          property={selectedProperty}
+          open={!!selectedProperty}
+          onClose={() => setSelectedProperty(null)}
+        />
       )}
     </div>
   )
