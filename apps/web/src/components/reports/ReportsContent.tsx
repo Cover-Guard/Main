@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
@@ -33,25 +33,21 @@ export function ReportsContent() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
-  const isLoadingRef = useRef(false)
 
   const loadReports = () => {
-    if (isLoadingRef.current) return
-    isLoadingRef.current = true
     setLoadError(null)
     setLoading(true)
-
     getSavedProperties()
       .then((data) => setSaved(data as SavedPropertyRow[]))
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load reports'))
-      .finally(() => {
-        isLoadingRef.current = false
-        setLoading(false)
-      })
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => {
-    loadReports()
+    getSavedProperties()
+      .then((data) => setSaved(data as SavedPropertyRow[]))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load reports'))
+      .finally(() => setLoading(false))
   }, [])
 
   const filtered = saved.filter((row) => {
