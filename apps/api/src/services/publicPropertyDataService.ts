@@ -12,6 +12,7 @@
 
 import { publicDataCache, publicDataDeduplicator } from '../utils/cache'
 import { logger } from '../utils/logger'
+import { prisma } from '../utils/prisma'
 import { getPropertyById } from './propertyService'
 import type {
   PropertyPublicData,
@@ -472,15 +473,32 @@ export async function getPropertyPublicData(
   return publicDataDeduplicator.dedupe(propertyId, async () => {
     const property = await getPropertyById(propertyId)
     if (!property) {
+      // Use findUniqueOrThrow to generate a P2025 error that the error
+      // handler maps to 404 — avoids returning a generic 500.
+      await prisma.property.findUniqueOrThrow({ where: { id: propertyId }, select: { id: true } })
+      // Unreachable, but satisfies TypeScript control flow
       throw new Error(`Property ${propertyId} not found`)
     }
 
-    // Fetch from multiple sources in parallel
+    // Fetch from multiple sources in parallel — each source is individually
+    // caught so a single upstream failure doesn't crash the entire response.
     const [attomProfile, saleHistory, amenities, walkScores] = await Promise.all([
-      fetchAttomExpanded(property.address, property.zip),
-      fetchAttomSaleHistory(property.address, property.zip),
-      fetchNearbyAmenities(property.lat, property.lng),
-      fetchWalkScore(property.lat, property.lng, `${property.address}, ${property.city}, ${property.state} ${property.zip}`),
+      fetchAttomExpanded(property.address, property.zip).catch((err) => {
+        logger.warn('ATTOM expanded profile failed', { propertyId, error: err instanceof Error ? err.message : err })
+        return null
+      }),
+      fetchAttomSaleHistory(property.address, property.zip).catch((err) => {
+        logger.warn('ATTOM sale history failed', { propertyId, error: err instanceof Error ? err.message : err })
+        return [] as PropertySaleHistory[]
+      }),
+      fetchNearbyAmenities(property.lat, property.lng).catch((err) => {
+        logger.warn('Nearby amenities fetch failed', { propertyId, error: err instanceof Error ? err.message : err })
+        return [] as NearbyAmenity[]
+      }),
+      fetchWalkScore(property.lat, property.lng, `${property.address}, ${property.city}, ${property.state} ${property.zip}`).catch((err) => {
+        logger.warn('Walk score fetch failed', { propertyId, error: err instanceof Error ? err.message : err })
+        return { walk: null, transit: null }
+      }),
     ])
 
     const images = buildPropertyImages(property)

@@ -69,7 +69,9 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
         _count: { _all: true },
       }),
 
-      // Raw SQL UNION ALL combining 6 analytical queries into 1 statement
+      // Raw SQL UNION ALL combining 6 analytical queries into 1 statement.
+      // Each SELECT with ORDER BY / LIMIT is wrapped in a subquery so the
+      // clauses apply to that SELECT only, not to the entire UNION ALL.
       prisma.$queryRaw<Array<Record<string, unknown>>>`
         -- searches_by_day
         SELECT 'searches_by_day' AS _query,
@@ -107,36 +109,41 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
 
         UNION ALL
 
-        -- top_states
-        SELECT 'top_states',
-               p.state, NULL,
-               COUNT(*)::int, NULL, NULL, NULL, NULL, NULL, NULL, NULL
-        FROM saved_properties sp
-        JOIN properties p ON p.id = sp."propertyId"
-        WHERE sp."userId" = ${userId}
-        GROUP BY 2
-        ORDER BY 4 DESC
-        LIMIT 10
+        -- top_states (subquery so ORDER BY / LIMIT apply to this SELECT only)
+        SELECT * FROM (
+          SELECT 'top_states'::text,
+                 p.state, NULL::text,
+                 COUNT(*)::int, NULL::numeric, NULL::numeric, NULL::numeric,
+                 NULL::numeric, NULL::numeric, NULL::numeric, NULL::text
+          FROM saved_properties sp
+          JOIN properties p ON p.id = sp."propertyId"
+          WHERE sp."userId" = ${userId}
+          GROUP BY 2
+          ORDER BY 4 DESC
+          LIMIT 10
+        ) _top_states
 
         UNION ALL
 
-        -- regional_risk
-        SELECT 'regional_risk',
-               p.state, NULL,
-               COUNT(DISTINCT p.id)::int,
-               ROUND(AVG(rp."overallRiskScore")::numeric, 1),
-               ROUND(AVG(rp."floodRiskScore")::numeric, 1),
-               ROUND(AVG(rp."fireRiskScore")::numeric, 1),
-               ROUND(AVG(rp."windRiskScore")::numeric, 1),
-               ROUND(AVG(rp."earthquakeRiskScore")::numeric, 1),
-               ROUND(AVG(rp."crimeRiskScore")::numeric, 1),
-               MODE() WITHIN GROUP (ORDER BY rp."overallRiskLevel")
-        FROM saved_properties sp
-        JOIN properties p ON p.id = sp."propertyId"
-        JOIN risk_profiles rp ON rp."propertyId" = p.id
-        WHERE sp."userId" = ${userId}
-        GROUP BY 2
-        LIMIT 15
+        -- regional_risk (subquery so LIMIT applies to this SELECT only)
+        SELECT * FROM (
+          SELECT 'regional_risk'::text,
+                 p.state, NULL::text,
+                 COUNT(DISTINCT p.id)::int,
+                 ROUND(AVG(rp."overallRiskScore")::numeric, 1),
+                 ROUND(AVG(rp."floodRiskScore")::numeric, 1),
+                 ROUND(AVG(rp."fireRiskScore")::numeric, 1),
+                 ROUND(AVG(rp."windRiskScore")::numeric, 1),
+                 ROUND(AVG(rp."earthquakeRiskScore")::numeric, 1),
+                 ROUND(AVG(rp."crimeRiskScore")::numeric, 1),
+                 MODE() WITHIN GROUP (ORDER BY rp."overallRiskLevel")
+          FROM saved_properties sp
+          JOIN properties p ON p.id = sp."propertyId"
+          JOIN risk_profiles rp ON rp."propertyId" = p.id
+          WHERE sp."userId" = ${userId}
+          GROUP BY 2
+          LIMIT 15
+        ) _regional_risk
 
         UNION ALL
 
