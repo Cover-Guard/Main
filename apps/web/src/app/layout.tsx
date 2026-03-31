@@ -59,6 +59,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans">
+        {/* Skip-to-content link — first focusable element for keyboard/screen reader users (WCAG 2.4.1) */}
+        <a href="#main-content" className="skip-to-content">
+          Skip to main content
+        </a>
         {children}
         <ServiceWorkerRegistration />
         <Analytics />
