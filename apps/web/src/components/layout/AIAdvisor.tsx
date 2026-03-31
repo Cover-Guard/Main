@@ -176,7 +176,7 @@ export function AIAdvisor() {
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about insurability…"
-              className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus-visible:outline-none focus:ring-2 focus:ring-teal-500"
+              className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus-visible:ring-2 focus-visible:ring-teal-500"
             />
             <button
               onClick={() => handleSend()}
