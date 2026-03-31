@@ -5,8 +5,12 @@ import type { Property, PropertyRiskProfile, InsuranceCostEstimate, Insurability
  * Sits in front of the DB to absorb repeated reads for the same property.
  *
  * TTL is stored per-entry so each cache level can have different expiry.
+ *
+ * NOTE on serverless (Vercel): each function instance is short-lived, so these
+ * in-process caches will be recycled frequently. Size them conservatively via
+ * the CACHE_MAX_* environment variables (defaults are tuned for serverless).
+ * Long-lived Node.js servers can set larger values.
  */
-
 interface CacheEntry<T> {
   value: T
   expiresAt: number // epoch ms
@@ -56,34 +60,85 @@ export class LRUCache<T> {
   }
 }
 
-// ── Shared cache instances ────────────────────────────────────────────────────
+// ── Cache size config ───────────────────────────────────────────────────────
+// Read from env vars so each deployment environment can tune independently.
+// Defaults are intentionally small for serverless (Vercel); increase for
+// long-lived servers where the cache actually persists across requests.
+const MAX_PROPERTIES  = parseInt(process.env.CACHE_MAX_PROPERTIES  ?? '2000',  10)
+const MAX_RISK        = parseInt(process.env.CACHE_MAX_RISK         ?? '2000',  10)
+const MAX_INSURANCE   = parseInt(process.env.CACHE_MAX_INSURANCE    ?? '2000',  10)
+const MAX_CARRIERS    = parseInt(process.env.CACHE_MAX_CARRIERS     ?? '1000',  10)
+const MAX_INSURABILITY= parseInt(process.env.CACHE_MAX_INSURABILITY ?? '2000',  10)
+const MAX_PUBLIC_DATA = parseInt(process.env.CACHE_MAX_PUBLIC_DATA  ?? '500',   10)
+const MAX_TOKENS      = parseInt(process.env.CACHE_MAX_TOKENS       ?? '10000', 10)
 
-/** Auth token → { userId, userRole, hasActiveSub } — 5 min TTL, 50k entries */
+// ── Shared cache instances ──────────────────────────────────────────────────
+/** Auth token → { userId, userRole, hasActiveSub } — 5 min TTL */
 export const tokenCache = new LRUCache<{ userId: string; userRole: string; hasActiveSub: boolean }>(
-  50_000,
+  MAX_TOKENS,
   5 * 60 * 1000,
 )
 
-/** Property detail — 30 min TTL, 200k entries */
-export const propertyCache = new LRUCache<Property>(200_000, 30 * 60 * 1000)
+/** Property detail — 30 min TTL */
+export const propertyCache = new LRUCache<Property>(MAX_PROPERTIES, 30 * 60 * 1000)
 
-/** Risk profile — 2 hour TTL, 200k entries */
-export const riskCache = new LRUCache<PropertyRiskProfile>(200_000, 2 * 60 * 60 * 1000)
+/** Risk profile — 2 hour TTL */
+export const riskCache = new LRUCache<PropertyRiskProfile>(MAX_RISK, 2 * 60 * 60 * 1000)
 
-/** Insurance estimate — 2 hour TTL, 200k entries */
-export const insuranceCache = new LRUCache<InsuranceCostEstimate>(200_000, 2 * 60 * 60 * 1000)
+/** Insurance estimate — 2 hour TTL */
+export const insuranceCache = new LRUCache<InsuranceCostEstimate>(MAX_INSURANCE, 2 * 60 * 60 * 1000)
 
-/** Carriers result — 1 hour TTL, 100k entries */
-export const carriersCache = new LRUCache<CarriersResult>(100_000, 60 * 60 * 1000)
+/** Carriers result — 1 hour TTL */
+export const carriersCache = new LRUCache<CarriersResult>(MAX_CARRIERS, 60 * 60 * 1000)
 
-/** Insurability status — 6 hour TTL, 200k entries */
-export const insurabilityCache = new LRUCache<InsurabilityStatus>(200_000, 6 * 60 * 60 * 1000)
+/** Insurability status — 6 hour TTL */
+export const insurabilityCache = new LRUCache<InsurabilityStatus>(MAX_INSURABILITY, 6 * 60 * 60 * 1000)
 
-/** Public property data — 24 hour TTL, 50k entries */
-export const publicDataCache = new LRUCache<PropertyPublicData>(50_000, 24 * 60 * 60 * 1000)
+/** Public property data — 24 hour TTL */
+export const publicDataCache = new LRUCache<PropertyPublicData>(MAX_PUBLIC_DATA, 24 * 60 * 60 * 1000)
 
-// ── Request deduplication ─────────────────────────────────────────────────────
+// ── Token revocation store ──────────────────────────────────────────────────
+/**
+ * Tracks revoked tokens so sign-out and account deletion take effect
+ * immediately rather than waiting for the in-process tokenCache TTL to expire.
+ *
+ * Entries are stored with the token's own JWT expiry so the store doesn't
+ * accumulate stale entries indefinitely. Opportunistic pruning runs when
+ * the store exceeds 10,000 entries.
+ *
+ * Limitation: this is in-process only. In a multi-instance deployment,
+ * revocations on one instance won't propagate to others. For full coverage,
+ * replace this with a shared Redis/Upstash store.
+ */
+export class TokenRevocationStore {
+  private readonly store = new Map<string, number>() // token → expiresAt epoch ms
 
+  revoke(token: string, expiresAtMs: number): void {
+    this.store.set(token, expiresAtMs)
+    if (this.store.size > 10_000) this.prune()
+  }
+
+  isRevoked(token: string): boolean {
+    const exp = this.store.get(token)
+    if (exp === undefined) return false
+    if (Date.now() > exp) {
+      this.store.delete(token)
+      return false
+    }
+    return true
+  }
+
+  private prune(): void {
+    const now = Date.now()
+    for (const [token, exp] of this.store) {
+      if (now > exp) this.store.delete(token)
+    }
+  }
+}
+
+export const tokenRevocationStore = new TokenRevocationStore()
+
+// ── Request deduplication ───────────────────────────────────────────────────
 /**
  * Deduplicates concurrent in-flight async operations for the same key.
  * The second caller waits on the first caller's Promise instead of
@@ -95,7 +150,6 @@ export class RequestDeduplicator<T> {
   async dedupe(key: string, fn: () => Promise<T>): Promise<T> {
     const existing = this.inFlight.get(key)
     if (existing) return existing
-
     const promise = fn().finally(() => {
       this.inFlight.delete(key)
     })
