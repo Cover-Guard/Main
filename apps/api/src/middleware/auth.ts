@@ -45,35 +45,34 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  try {
-    const authHeader = req.headers.authorization
-    if (!authHeader?.startsWith('Bearer ')) {
-      res.status(401).json({
-        success: false,
-        error: { code: 'UNAUTHORIZED', message: 'Missing bearer token' },
-      })
-      return
-    }
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Missing bearer token' },
+    })
+    return
+  }
 
-    const token = authHeader.split(' ')[1]
-    if (!token) {
-      res.status(401).json({
-        success: false,
-        error: { code: 'UNAUTHORIZED', message: 'Malformed bearer token' },
-      })
-      return
-    }
+  const token = authHeader.split(' ')[1]
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Malformed bearer token' },
+    })
+    return
+  }
 
-    // Fast path: token already validated and not yet expired in local cache
-    const cached = tokenCache.get(token)
-    if (cached) {
-      const authReq = req as AuthenticatedRequest
-      authReq.userId = cached.userId
-      authReq.userRole = cached.userRole
-      authReq.hasActiveSubscription = cached.hasActiveSub
-      next()
-      return
-    }
+  // Fast path: token already validated and not yet expired in local cache
+  const cached = tokenCache.get(token)
+  if (cached) {
+    const authReq = req as AuthenticatedRequest
+    authReq.userId = cached.userId
+    authReq.userRole = cached.userRole
+    authReq.hasActiveSubscription = cached.hasActiveSub
+    next()
+    return
+  }
 
   // Slow path: verify with Supabase + load user profile
   try {
