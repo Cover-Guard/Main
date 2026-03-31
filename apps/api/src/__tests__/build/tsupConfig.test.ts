@@ -28,8 +28,8 @@ describe('tsup.config.ts', () => {
     expect(configContent).toMatch(/@prisma|pg|prisma|fsevents/)
   })
 
-  it('keeps @prisma/client as external', () => {
-    expect(configContent).toMatch(/external.*@prisma\/client/)
+  it('bundles @prisma/client (not external)', () => {
+    expect(configContent).not.toMatch(/external.*@prisma\/client/)
   })
 
   it('outputs CommonJS format', () => {
