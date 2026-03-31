@@ -60,6 +60,31 @@ describe('errorHandler — 503 config errors', () => {
     },
   )
 
+  const invalidUrlMessages = [
+    'Invalid URL',
+    'DATABASE_URL is not a valid URL. Ensure it follows the format postgresql://user:password@host:port/database and that special characters in the password are percent-encoded.',
+  ]
+
+  it.each(invalidUrlMessages)(
+    'returns 503 for Invalid URL error: "%s"',
+    (message) => {
+      const err = new Error(message)
+      const { res, status, json } = makeRes()
+
+      errorHandler(err, req, res, next)
+
+      expect(status).toHaveBeenCalledWith(503)
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: expect.objectContaining({
+            code: 'SERVICE_UNAVAILABLE',
+          }),
+        }),
+      )
+    },
+  )
+
   it('returns 500 for unrelated errors', () => {
     const err = new Error('Cannot read property x of undefined')
     const { res, status } = makeRes()

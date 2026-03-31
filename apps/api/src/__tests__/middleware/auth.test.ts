@@ -217,6 +217,33 @@ describe('requireAuth', () => {
       expect(tokenCache.has(token)).toBe(true)
     })
   })
+
+  describe('async error forwarding', () => {
+    it('forwards Supabase connection errors to next(err)', async () => {
+      const err = new Error('fetch failed')
+      mockGetUser.mockRejectedValue(err)
+      const req = makeReq()
+      const { res } = makeRes()
+      const next = makeNext()
+
+      await requireAuth(req, res, next)
+
+      expect(next).toHaveBeenCalledWith(err)
+    })
+
+    it('forwards Prisma errors to next(err)', async () => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+      const err = new Error('Invalid URL')
+      mockFindUser.mockRejectedValue(err)
+      const req = makeReq()
+      const { res } = makeRes()
+      const next = makeNext()
+
+      await requireAuth(req, res, next)
+
+      expect(next).toHaveBeenCalledWith(err)
+    })
+  })
 })
 
 describe('requireRole', () => {

@@ -71,9 +71,9 @@
   ],
   "shortcuts": [
     {
-      "name": "New Check",
-      "short_name": "Check",
-      "description": "Run a new property insurability check",
+      "name": "Search a Property",
+      "short_name": "Search",
+      "description": "Search a property for insurability",
       "url": "/",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },

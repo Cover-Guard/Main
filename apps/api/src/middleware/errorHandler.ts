@@ -124,6 +124,22 @@ export function errorHandler(
     return
   }
 
+  // Prisma / pg "Invalid URL" — the DATABASE_URL is malformed → 503
+  if (err instanceof Error && (
+    err.message.includes('Invalid URL') ||
+    err.message.includes('DATABASE_URL is not a valid URL')
+  )) {
+    logger.error('Invalid database connection URL: %s', err.message)
+    res.status(503).json({
+      success: false,
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Database temporarily unavailable. Please try again later.',
+      },
+    })
+    return
+  }
+
   // Prisma connection errors (pool exhausted, DB unreachable) → 503
   if (err instanceof Error && (
     err.message.includes('Can\'t reach database server') ||
