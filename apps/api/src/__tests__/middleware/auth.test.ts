@@ -19,10 +19,12 @@ jest.mock('../../utils/prisma', () => ({
   prisma: { user: { findUnique: jest.fn() } },
 }))
 jest.mock('../../utils/cache', () => {
-  const { LRUCache, RequestDeduplicator } = jest.requireActual('../../utils/cache')
+  const { LRUCache, RequestDeduplicator, TokenRevocationStore } = jest.requireActual('../../utils/cache')
   return {
     LRUCache,
     RequestDeduplicator,
+    TokenRevocationStore,
+    tokenRevocationStore: new TokenRevocationStore(),
     tokenCache: new LRUCache(100, 60_000),
     propertyCache: new LRUCache(100, 60_000),
     riskCache: new LRUCache(100, 60_000),

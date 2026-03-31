@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { supabaseAdmin } from '../utils/supabaseAdmin'
 import { prisma } from '../utils/prisma'
 import { requireAuth } from '../middleware/auth'
+import { tokenCache, tokenRevocationStore } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
 import type { Request } from 'express'
@@ -21,7 +22,7 @@ function toValidRole(value: unknown): ValidRole {
 }
 
 /** Decode JWT payload to extract user metadata without a network call.
- *  Safe to use after requireAuth has already verified the token. */
+ * Safe to use after requireAuth has already verified the token. */
 function decodeJwtPayload(req: Request): Record<string, unknown> | null {
   try {
     const token = req.headers.authorization?.split(' ')[1]
@@ -34,6 +35,20 @@ function decodeJwtPayload(req: Request): Record<string, unknown> | null {
   }
 }
 
+/** Read the JWT exp claim from the Authorization header (ms). Returns 0 if absent. */
+function getTokenExpMs(req: Request): number {
+  try {
+    const token = req.headers.authorization?.split(' ')[1]
+    if (!token) return 0
+    const payload = token.split('.')[1]
+    if (!payload) return 0
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { exp?: number }
+    return typeof decoded.exp === 'number' ? decoded.exp * 1000 : 0
+  } catch {
+    return 0
+  }
+}
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -42,20 +57,14 @@ const registerSchema = z.object({
   role: z.enum(['BUYER', 'AGENT', 'LENDER']).default('BUYER'),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
-  // NDA, terms, and privacy agreements are handled during onboarding (POST /me/terms)
-  // to ensure the same workflow for email and OAuth users.
 })
 
-// ─── Register ─────────────────────────────────────────────────────────────────
-
+// ─── Register ───────────────────────────────────────────────────────────────
 authRouter.post('/register', async (req, res, next) => {
   try {
     const body = registerSchema.parse(req.body)
 
     // Validate database connectivity BEFORE creating the Supabase auth user.
-    // If the DB is unreachable (e.g. missing connection string env var), we
-    // fail fast with a 503 instead of creating an orphaned auth user that
-    // blocks the email from future registration attempts.
     try {
       await prisma.$queryRawUnsafe('SELECT 1')
     } catch (dbErr) {
@@ -64,17 +73,11 @@ authRouter.post('/register', async (req, res, next) => {
       })
       res.status(503).json({
         success: false,
-        error: {
-          code: 'SERVICE_UNAVAILABLE',
-          message: 'Service temporarily unavailable. Please try again later.',
-        },
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable. Please try again later.' },
       })
       return
     }
 
-    // Create Supabase auth user with metadata so it stays in sync with the
-    // Prisma profile and downstream checks (e.g. OAuth callback termsAcceptedAt
-    // guard) work correctly.
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: body.email,
       password: body.password,
@@ -85,25 +88,20 @@ authRouter.post('/register', async (req, res, next) => {
         role: body.role,
         company: body.company ?? null,
         licenseNumber: body.licenseNumber ?? null,
-        // Agreement timestamps are NOT set here — they are set during the
-        // unified onboarding step (POST /me/terms) so email and OAuth users
-        // go through the same NDA/terms/privacy acceptance workflow.
       },
     })
 
     if (authError || !authData.user) {
-      // Supabase returns "User already registered" for duplicate emails
       const isDuplicate = authError?.message?.toLowerCase().includes('already registered')
       const status = isDuplicate ? 409 : 400
       const code = isDuplicate ? 'DUPLICATE_EMAIL' : 'AUTH_ERROR'
-      res.status(status).json({ success: false, error: { code, message: authError?.message ?? 'Registration failed' } })
+      res.status(status).json({
+        success: false,
+        error: { code, message: authError?.message ?? 'Registration failed' },
+      })
       return
     }
 
-    // Upsert user profile in our DB.  The Supabase handle_new_user trigger may
-    // have already inserted a skeleton row (without agreement timestamps) by the
-    // time this code runs, so we use upsert to fill in / overwrite the record
-    // rather than failing with a P2002 unique constraint violation.
     const profileData = {
       email: body.email,
       firstName: body.firstName,
@@ -111,7 +109,6 @@ authRouter.post('/register', async (req, res, next) => {
       role: body.role,
       company: body.company ?? null,
       licenseNumber: body.licenseNumber ?? null,
-      // Agreement timestamps left null — set during onboarding (POST /me/terms)
     }
 
     try {
@@ -121,11 +118,8 @@ authRouter.post('/register', async (req, res, next) => {
         create: { id: authData.user.id, ...profileData },
         select: { id: true, email: true, role: true },
       })
-
       res.status(201).json({ success: true, data: user })
     } catch (profileErr) {
-      // Profile creation failed after auth user was created — roll back the
-      // Supabase auth user so the email isn't permanently "taken".
       logger.error('Profile creation failed, rolling back auth user', {
         userId: authData.user.id,
         error: profileErr instanceof Error ? profileErr.message : profileErr,
@@ -143,16 +137,15 @@ authRouter.post('/register', async (req, res, next) => {
   }
 })
 
-// ─── Me ───────────────────────────────────────────────────────────────────────
-
+// ─── Me ──────────────────────────────────────────────────────────────────────
 authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
-        id: true, email: true, firstName: true, lastName: true, role: true,
-        company: true, licenseNumber: true, avatarUrl: true,
+        id: true, email: true, firstName: true, lastName: true,
+        role: true, company: true, licenseNumber: true, avatarUrl: true,
         termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
         createdAt: true, updatedAt: true,
       },
@@ -163,8 +156,7 @@ authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Update profile ───────────────────────────────────────────────────────────
-
+// ─── Update profile ──────────────────────────────────────────────────────────
 const updateProfileSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
   lastName: z.string().min(1).max(50).optional(),
@@ -181,8 +173,8 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
       where: { id: userId },
       data: body,
       select: {
-        id: true, email: true, firstName: true, lastName: true, role: true,
-        company: true, licenseNumber: true, avatarUrl: true,
+        id: true, email: true, firstName: true, lastName: true,
+        role: true, company: true, licenseNumber: true, avatarUrl: true,
         termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
         createdAt: true, updatedAt: true,
       },
@@ -193,8 +185,7 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Saved properties ─────────────────────────────────────────────────────────
-
+// ─── Saved properties ────────────────────────────────────────────────────────
 authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
@@ -216,49 +207,29 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Accept terms / NDA / privacy (unified onboarding endpoint) ─────────────
-// Used by both email-registered and OAuth-registered users. Sets all three
-// agreement timestamps in a single call. Optimistic update first (profile
-// already exists from register or sync-profile), create fallback if missing.
-
+// ─── Accept terms / NDA / privacy ────────────────────────────────────────────
 authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const now = new Date()
+    const agreements = { termsAcceptedAt: now, ndaAcceptedAt: now, privacyAcceptedAt: now }
 
-    const agreements = {
-      termsAcceptedAt: now,
-      ndaAcceptedAt: now,
-      privacyAcceptedAt: now,
-    }
-
-    // Fast path: profile already exists (99% of cases after register or OAuth sync)
-    const updated = await prisma.user.updateMany({
-      where: { id: userId },
-      data: agreements,
-    })
-
+    const updated = await prisma.user.updateMany({ where: { id: userId }, data: agreements })
     if (updated.count > 0) {
       res.json({ success: true, data: agreements })
       return
     }
 
-    // Slow path: profile missing — extract metadata from JWT (already verified by
-    // requireAuth) to avoid a redundant Supabase Admin API round trip.
     const jwt = decodeJwtPayload(req)
     const meta = (jwt?.user_metadata ?? {}) as Record<string, string | undefined>
     const email = (jwt?.email as string) ?? ''
     const fullName = meta.full_name ?? ''
 
-    // Use upsert to handle concurrent requests — if two requests both see
-    // updateMany.count=0 and race to create, the second would fail with P2002.
-    // Upsert handles this atomically.
     await prisma.user.upsert({
       where: { id: userId },
       update: agreements,
       create: {
-        id: userId,
-        email,
+        id: userId, email,
         firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
         lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
         role: toValidRole(meta.role),
@@ -274,13 +245,7 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Sync profile (OAuth fallback) ────────────────────────────────────────────
-// Called by the OAuth callback route when the handle_new_user trigger did not
-// create a public.users row (e.g. trigger misconfigured or first-deploy race).
-// Safe to call multiple times — upsert is idempotent.
-// Uses JWT claims (already verified by requireAuth) instead of a second Supabase
-// Admin API call, saving ~50-200ms on the critical onboarding path.
-
+// ─── Sync profile (OAuth fallback) ───────────────────────────────────────────
 authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
@@ -288,13 +253,11 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
     const meta = (jwt?.user_metadata ?? {}) as Record<string, string | undefined>
     const email = (jwt?.email as string) ?? ''
     const fullName = meta.full_name ?? meta.name ?? ''
-
     const user = await prisma.user.upsert({
       where: { id: userId },
-      update: {}, // profile already exists — leave it untouched
+      update: {},
       create: {
-        id: userId,
-        email,
+        id: userId, email,
         firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
         lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
         role: toValidRole(meta.role),
@@ -304,7 +267,6 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
       },
       select: { id: true, email: true, role: true },
     })
-
     res.json({ success: true, data: user })
   } catch (err) {
     next(err)
@@ -312,19 +274,44 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
 })
 
 // ─── Delete account ───────────────────────────────────────────────────────────
-
 authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
 
-    // Delete all user data from DB first (cascades via Prisma relations)
-    await prisma.user.delete({ where: { id: userId } })
+    // Delete all user data from DB FIRST (cascades via Prisma relations).
+    // If this fails, the user still has their auth account and can retry.
+    // If we delete auth first and DB delete fails, the user is left with an
+    // orphaned DB record and cannot re-register with the same email.
+    try {
+      await prisma.user.delete({ where: { id: userId } })
+    } catch (dbErr) {
+      logger.error(`Database deletion failed for user ${userId}`, {
+        error: dbErr instanceof Error ? dbErr.message : dbErr,
+      })
+      res.status(500).json({
+        success: false,
+        error: { code: 'DELETE_FAILED', message: 'Failed to delete account. Please try again.' },
+      })
+      return
+    }
 
-    // Delete the Supabase auth user
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
-    if (error) {
-      // DB already deleted — log but don't fail the request
-      logger.error(`Supabase auth delete failed: ${error.message}`)
+    // Delete the Supabase auth user only after DB deletion succeeds.
+    // If this fails, we log it but don't fail the response since the user
+    // data is already gone from the database.
+    const { error: supabaseError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+    if (supabaseError) {
+      logger.error(`Supabase auth delete failed for user ${userId}: ${supabaseError.message}`)
+      // Note: We don't return here because the DB user is already deleted.
+      // The auth account being orphaned is less critical than DB data consistency.
+    }
+
+    // Revoke the current token immediately so it can't be reused even within
+    // the cache TTL window.
+    const token = req.headers.authorization?.split(' ')[1]
+    if (token) {
+      const expMs = getTokenExpMs(req)
+      tokenRevocationStore.revoke(token, expMs > Date.now() ? expMs : Date.now() + 5 * 60_000)
+      tokenCache.delete(token)
     }
 
     res.json({ success: true, data: { deleted: true } })
@@ -333,8 +320,7 @@ authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Reports ──────────────────────────────────────────────────────────────────
-
+// ─── Reports ─────────────────────────────────────────────────────────────────
 authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { supabaseAdmin } from '../utils/supabaseAdmin'
 import { prisma } from '../utils/prisma'
-import { tokenCache } from '../utils/cache'
+import { tokenCache, tokenRevocationStore } from '../utils/cache'
 import { logger } from '../utils/logger'
 
 export interface AuthenticatedRequest extends Request {
@@ -15,15 +15,13 @@ const MAX_TOKEN_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 /**
  * Decode the JWT payload (without verification — Supabase verifies on the slow
  * path) to read the `exp` claim so we can avoid caching a token past its own
- * expiry.  Returns 0 if the token is malformed or has no `exp`.
+ * expiry. Returns 0 if the token is malformed or has no `exp`.
  */
 function getJwtExp(token: string): number {
   try {
     const payload = token.split('.')[1]
     if (!payload) return 0
-    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
-      exp?: number
-    }
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { exp?: number }
     return typeof decoded.exp === 'number' ? decoded.exp * 1000 : 0
   } catch {
     return 0
@@ -37,8 +35,11 @@ function getJwtExp(token: string): number {
  * authenticated request does NOT hit Supabase Auth + the DB on every call.
  * Cache TTL is set to min(5 min, time-until-token-expiry) so we never serve a
  * cached entry for a token that has already expired. Tokens that fail Supabase
- * validation are never cached. Cache eviction is TTL-only; there is no active
- * invalidation on sign-out or token revocation.
+ * validation are never cached.
+ *
+ * Revocation: tokens added to tokenRevocationStore (e.g. on sign-out or account
+ * deletion) are rejected immediately, bypassing the cache. Note this store is
+ * in-process only — in a multi-instance deployment use a shared Redis store.
  */
 export async function requireAuth(
   req: Request,
@@ -59,6 +60,16 @@ export async function requireAuth(
     res.status(401).json({
       success: false,
       error: { code: 'UNAUTHORIZED', message: 'Malformed bearer token' },
+    })
+    return
+  }
+
+  // Revocation check — reject tokens explicitly revoked on sign-out / account delete.
+  // This runs before the cache lookup so revoked tokens are never served from cache.
+  if (tokenRevocationStore.isRevoked(token)) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Token has been revoked' },
     })
     return
   }
@@ -100,6 +111,7 @@ export async function requireAuth(
         },
       },
     })
+
     if (!user) {
       logger.warn(`Authenticated user ${data.user.id} not found in database — possible sync issue`)
       res.status(401).json({
@@ -108,14 +120,11 @@ export async function requireAuth(
       })
       return
     }
+
     const hasActiveSub = user.subscriptions.length > 0
 
     // Cache with TTL = min(5 min, time until JWT expiry) to avoid serving
     // cached entries for tokens that have already expired.
-    // - If exp is in the future: use min(5min, time-until-expiry)
-    // - If exp is 0 (no exp claim or malformed): fall back to full 5 min TTL
-    // - If exp is in the past but Supabase still validated (e.g., clock skew):
-    //   use a minimal 30 s TTL to limit exposure without skipping the cache entirely
     const expMs = getJwtExp(token)
     let ttlMs: number
     if (expMs > Date.now()) {
@@ -126,6 +135,7 @@ export async function requireAuth(
       // Token appears expired (clock skew) — cache very briefly
       ttlMs = 30_000
     }
+
     tokenCache.set(token, { userId: user.id, userRole: user.role, hasActiveSub }, ttlMs)
 
     const authReq = req as AuthenticatedRequest
