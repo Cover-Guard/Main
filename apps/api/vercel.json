@@ -1,31 +1,31 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "cd ../.. && npm install",
-  "buildCommand": "cd ../.. && . scripts/normalize-env.sh && npx prisma generate --schema apps/api/prisma/schema.prisma && npm run build --workspace=@coverguard/api",
-  "outputDirectory": "public",
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 60,
-      "memory": 1024,
-      "includeFiles": "{dist/**,prisma/schema.prisma,src/generated/prisma/**},node_modules/{.prisma/**,@prisma/**}"
-    }
-  },
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "https://coverguard.io" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization,X-Requested-With" },
-        { "key": "Access-Control-Allow-Credentials", "value": "true" },
-        { "key": "Access-Control-Max-Age", "value": "86400" },
-        { "key": "Vary", "value": "Origin" }
-      ]
-    }
-  ],
-  "rewrites": [
-    { "source": "/health", "destination": "/api" },
-    { "source": "/(.*)", "destination": "/api" }
-  ]
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "framework": null,
+    "installCommand": "cd ../.. && npm install",
+    "buildCommand": "cd ../.. && . scripts/normalize-env.sh && npx prisma generate --schema apps/api/prisma/schema.prisma && npm run build --workspace=@coverguard/api",
+    "outputDirectory": "public",
+    "functions": {
+          "api/index.js": {
+                  "maxDuration": 60,
+                  "memory": 1024,
+                  "includeFiles": "{dist/**,prisma/schema.prisma}"
+          }
+    },
+    "headers": [
+          {
+                  "source": "/(.*)",
+                  "headers": [
+                            { "key": "Access-Control-Allow-Origin", "value": "https://coverguard.io" },
+                            { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
+                            { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization,X-Requested-With" },
+                            { "key": "Access-Control-Allow-Credentials", "value": "true" },
+                            { "key": "Access-Control-Max-Age", "value": "86400" },
+                            { "key": "Vary", "value": "Origin" }
+                  ]
+          }
+    ],
+    "rewrites": [
+          { "source": "/health", "destination": "/api" },
+          { "source": "/(.*)", "destination": "/api" }
+    ]
 }
