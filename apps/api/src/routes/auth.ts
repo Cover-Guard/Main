@@ -278,18 +278,31 @@ authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
 
-    // Delete the Supabase auth user FIRST so that if this fails the DB record
-    // is still intact and the user can retry. Previously this was done in reverse
-    // order, which could leave a dangling auth account after the DB row was gone,
-    // permanently blocking re-registration with the same email.
-    const { error: supabaseError } = await supabaseAdmin.auth.admin.deleteUser(userId)
-    if (supabaseError) {
-      logger.error(`Supabase auth delete failed for user ${userId}: ${supabaseError.message}`)
+    // Delete all user data from DB FIRST (cascades via Prisma relations).
+    // If this fails, the user still has their auth account and can retry.
+    // If we delete auth first and DB delete fails, the user is left with an
+    // orphaned DB record and cannot re-register with the same email.
+    try {
+      await prisma.user.delete({ where: { id: userId } })
+    } catch (dbErr) {
+      logger.error(`Database deletion failed for user ${userId}`, {
+        error: dbErr instanceof Error ? dbErr.message : dbErr,
+      })
       res.status(500).json({
         success: false,
         error: { code: 'DELETE_FAILED', message: 'Failed to delete account. Please try again.' },
       })
       return
+    }
+
+    // Delete the Supabase auth user only after DB deletion succeeds.
+    // If this fails, we log it but don't fail the response since the user
+    // data is already gone from the database.
+    const { error: supabaseError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+    if (supabaseError) {
+      logger.error(`Supabase auth delete failed for user ${userId}: ${supabaseError.message}`)
+      // Note: We don't return here because the DB user is already deleted.
+      // The auth account being orphaned is less critical than DB data consistency.
     }
 
     // Revoke the current token immediately so it can't be reused even within
@@ -300,9 +313,6 @@ authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
       tokenRevocationStore.revoke(token, expMs > Date.now() ? expMs : Date.now() + 5 * 60_000)
       tokenCache.delete(token)
     }
-
-    // Delete all user data from DB (cascades via Prisma relations)
-    await prisma.user.delete({ where: { id: userId } })
 
     res.json({ success: true, data: { deleted: true } })
   } catch (err) {
