@@ -6,7 +6,6 @@ import cors from 'cors'
 import compression from 'compression'
 import morgan from 'morgan'
 import { rateLimit } from 'express-rate-limit'
-import type { Options as RateLimitOptions } from 'express-rate-limit'
 import { logger } from './utils/logger'
 import { errorHandler } from './middleware/errorHandler'
 import { requestTimeout } from './middleware/timeout'
@@ -16,6 +15,8 @@ import { clientsRouter } from './routes/clients'
 import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
 import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
+
+
 
 
 // ─── Startup environment validation ────────────────────────────────────────
@@ -44,12 +45,18 @@ if (missingEnv.length > 0) {
 }
 
 
+
+
 const app = express()
 const PORT = parseInt(process.env.PORT ?? '4000', 10)
 
 
+
+
 // ─── Security / middleware ──────────────────────────────────────────────────
 app.set('trust proxy', 1) // trust X-Forwarded-For from load balancer / Vercel edge
+
+
 
 
 const allowedOrigins = (
@@ -60,6 +67,8 @@ const allowedOrigins = (
   .map((o) => o.trim())
 
 
+
+
 /** Check if origin is allowed — supports exact match + *.coverguard.io subdomains. */
 function isOriginAllowed(origin: string): boolean {
   if (origin.length > 256) return false
@@ -68,6 +77,8 @@ function isOriginAllowed(origin: string): boolean {
   if (/^https:\/\/[\w-]{1,52}-cover-guard\.vercel\.app$/.test(origin)) return true
   return false
 }
+
+
 
 
 const corsOptions = {
@@ -84,10 +95,14 @@ const corsOptions = {
 }
 
 
+
+
 app.use(cors(corsOptions))
 app.options('*', cors(corsOptions))
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
 app.use(compression())
+
+
 
 
 // ─── Rate limiting ──────────────────────────────────────────────────────────
@@ -102,6 +117,8 @@ function makeLimiter(opts: { windowMs: number; max: number | string; message: st
     message: { success: false, error: { code: 'RATE_LIMITED', message: opts.message } },
   })
 }
+
+
 
 
 // Three tiers:
@@ -131,9 +148,13 @@ const authLimiter = makeLimiter({
 })
 
 
+
+
 // ─── Routes ─────────────────────────────────────────────────────────────────
 // Apply global rate limit BEFORE any route handlers (including webhooks)
 app.use('/api', globalLimiter)
+
+
 
 
 // Stripe webhook must receive the raw body for signature verification —
@@ -147,17 +168,25 @@ app.use(
 )
 
 
+
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
+
+
 
 
 app.use('/api/auth', authLimiter, requestTimeout(40_000), authRouter)
 app.use('/api/stripe', requestTimeout(40_000), stripeRouter)
 
 
+
+
 // Search: moderate limit, fast timeout
 app.use('/api/properties/search', searchLimiter, requestTimeout(40_000))
+
+
 
 
 // External-data endpoints: stricter limit, longer timeout (upstream APIs can be slow)
@@ -167,10 +196,14 @@ app.use('/api/properties/:id/carriers', externalDataLimiter, requestTimeout(40_0
 app.use('/api/properties/:id/insurability', externalDataLimiter, requestTimeout(40_000))
 
 
+
+
 app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
 app.use('/api/clients', requestTimeout(40_000), clientsRouter)
 app.use('/api/analytics', requestTimeout(55_000), analyticsRouter)
 app.use('/api/advisor', requestTimeout(40_000), advisorRouter)
+
+
 
 
 // ─── 404 ────────────────────────────────────────────────────────────────────
@@ -179,8 +212,12 @@ app.use((_req, res) => {
 })
 
 
+
+
 // ─── Error handler ──────────────────────────────────────────────────────────
 app.use(errorHandler)
+
+
 
 
 // ─── Start (skip in serverless environments like Vercel) ────────────────────
@@ -189,6 +226,8 @@ if (process.env.VERCEL !== '1') {
     logger.info(`CoverGuard API running on port ${PORT} [${process.env.NODE_ENV ?? 'development'}]`)
   })
 }
+
+
 
 
 export { app }
