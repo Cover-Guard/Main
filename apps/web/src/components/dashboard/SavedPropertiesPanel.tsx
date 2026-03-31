@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { PropertyCard } from '@/components/search/PropertyCard'
-import { Building2, AlertTriangle } from 'lucide-react'
+import { Building2, AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface SavedPropertiesPanelProps {
   limit?: number
@@ -37,10 +37,17 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
 
   if (error) {
     return (
-      <div className="card p-6 text-center">
+      <div className="card p-6 text-center" role="alert" aria-live="polite">
         <AlertTriangle className="mx-auto mb-2 h-7 w-7 text-red-400" />
         <p className="font-medium text-red-600">Could not load saved properties</p>
-        <p className="mt-1 text-sm text-gray-400">{error}</p>
+        <p className="mt-1 text-sm text-gray-400">Service temporarily unavailable. Please try again.</p>
+        <button
+          onClick={() => { setError(null); setLoading(true); getSavedProperties().then(d => setSaved(d as Array<{ property: Property }>)).catch(err => setError(err instanceof Error ? err.message : 'Failed')).finally(() => setLoading(false)) }}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600 transition-colors"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Retry
+        </button>
       </div>
     )
   }
