@@ -253,25 +253,36 @@ export async function getOrComputeRiskProfile(
 
     logger.info('Computing risk profile', { propertyId, forceRefresh, state: property.state })
 
-    // Fetch all risk data sources in parallel (primary + supplemental)
+    // Fetch all risk data sources in parallel (primary + supplemental).
+    // Each source is individually caught so a single upstream failure
+    // (timeout, DNS, JSON parse error) cannot crash the entire profile.
+    const safe = <T>(fn: Promise<T>, fallback: T, label: string): Promise<T> =>
+      fn.catch((err) => {
+        logger.warn(`Risk data source "${label}" failed — using fallback`, {
+          propertyId,
+          error: err instanceof Error ? err.message : err,
+        })
+        return fallback
+      })
+
     const [
       floodData, fireData, earthquakeData, windData, crimeData,
       elevation, historicalEq, fuelModel, nriData, sinkholeData, damData, superfundData,
     ] = await Promise.all([
       // Primary sources
-      fetchFloodRisk(property.lat, property.lng, property.zip ?? ''),
-      fetchFireRisk(property.lat, property.lng, property.state),
-      fetchEarthquakeRisk(property.lat, property.lng),
-      fetchWindRisk(property.lat, property.lng, property.state),
-      fetchCrimeRisk(property.lat, property.lng, property.zip ?? ''),
+      safe(fetchFloodRisk(property.lat, property.lng, property.zip ?? ''), { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }, 'FEMA Flood'),
+      safe(fetchFireRisk(property.lat, property.lng, property.state), {}, 'Fire Risk'),
+      safe(fetchEarthquakeRisk(property.lat, property.lng), {}, 'Earthquake'),
+      safe(fetchWindRisk(property.lat, property.lng, property.state), {}, 'Wind'),
+      safe(fetchCrimeRisk(property.lat, property.lng, property.zip ?? ''), {}, 'Crime'),
       // Supplemental sources
-      fetchElevation(property.lat, property.lng),
-      fetchHistoricalEarthquakes(property.lat, property.lng),
-      fetchLandfireFuelModel(property.lat, property.lng),
-      fetchFemaNri(property.lat, property.lng),
-      fetchSinkholeRisk(property.lat, property.lng),
-      fetchDamHazard(property.lat, property.lng),
-      fetchSuperfundProximity(property.lat, property.lng),
+      safe(fetchElevation(property.lat, property.lng), null, 'Elevation'),
+      safe(fetchHistoricalEarthquakes(property.lat, property.lng), null, 'Historical EQ'),
+      safe(fetchLandfireFuelModel(property.lat, property.lng), null, 'LANDFIRE'),
+      safe(fetchFemaNri(property.lat, property.lng), null, 'FEMA NRI'),
+      safe(fetchSinkholeRisk(property.lat, property.lng), null, 'Sinkhole'),
+      safe(fetchDamHazard(property.lat, property.lng), null, 'Dam Hazard'),
+      safe(fetchSuperfundProximity(property.lat, property.lng), null, 'Superfund'),
     ])
 
     // Enhance flood score with elevation data (low elevation = higher risk)

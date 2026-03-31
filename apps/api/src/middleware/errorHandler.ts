@@ -73,6 +73,37 @@ export function errorHandler(
     return
   }
 
+  // Fetch timeout / abort errors (from AbortSignal.timeout in external API calls) → 504
+  if (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
+    logger.warn('External API timeout: %s', err.message)
+    res.status(504).json({
+      success: false,
+      error: {
+        code: 'UPSTREAM_TIMEOUT',
+        message: 'An upstream data source took too long to respond. Please try again.',
+      },
+    })
+    return
+  }
+
+  // Fetch / network connection errors → 502
+  if (err instanceof TypeError && (
+    err.message.includes('fetch failed') ||
+    err.message.includes('network') ||
+    err.message.includes('ECONNREFUSED') ||
+    err.message.includes('ENOTFOUND')
+  )) {
+    logger.warn('Upstream connection error: %s', err.message)
+    res.status(502).json({
+      success: false,
+      error: {
+        code: 'BAD_GATEWAY',
+        message: 'Could not reach an upstream service. Please try again.',
+      },
+    })
+    return
+  }
+
   // Missing configuration (DB, Supabase, etc.) → 503
   if (err instanceof Error && (
     err.message.includes('connection string is not configured') ||
@@ -88,6 +119,24 @@ export function errorHandler(
       error: {
         code: 'SERVICE_UNAVAILABLE',
         message: 'Service temporarily unavailable. Please try again later.',
+      },
+    })
+    return
+  }
+
+  // Prisma connection errors (pool exhausted, DB unreachable) → 503
+  if (err instanceof Error && (
+    err.message.includes('Can\'t reach database server') ||
+    err.message.includes('Connection pool timeout') ||
+    err.message.includes('prepared statement') ||
+    err.name === 'PrismaClientInitializationError'
+  )) {
+    logger.error('Database connection error: %s', err.message)
+    res.status(503).json({
+      success: false,
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Database temporarily unavailable. Please try again later.',
       },
     })
     return
