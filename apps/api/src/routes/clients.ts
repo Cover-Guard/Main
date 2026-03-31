@@ -34,24 +34,28 @@ clientsRouter.get('/', async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const page = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
-    const clients = await prisma.client.findMany({
-      where: { agentId: userId },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: (page - 1) * limit,
-      select: {
-        id: true, agentId: true, firstName: true, lastName: true,
-        email: true, phone: true, notes: true, status: true,
-        createdAt: true, updatedAt: true,
-        _count: { select: { savedProperties: true } },
-      },
-    })
+    const where = { agentId: userId }
+    const [clients, total] = await Promise.all([
+      prisma.client.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: (page - 1) * limit,
+        select: {
+          id: true, agentId: true, firstName: true, lastName: true,
+          email: true, phone: true, notes: true, status: true,
+          createdAt: true, updatedAt: true,
+          _count: { select: { savedProperties: true } },
+        },
+      }),
+      prisma.client.count({ where }),
+    ])
     // Flatten _count into savedPropertyCount to match the Client DTO
     const data = clients.map(({ _count, ...client }) => ({
       ...client,
       savedPropertyCount: _count.savedProperties,
     }))
-    res.json({ success: true, data })
+    res.json({ success: true, data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } })
   } catch (err) { next(err) }
 })
 

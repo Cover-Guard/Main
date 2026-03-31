@@ -12,7 +12,7 @@ function getStripe(): Stripe {
   }
   _stripeInstance = new Stripe(key, {
     apiVersion: '2025-02-24.acacia',
-    maxNetworkRetries: 0,
+    maxNetworkRetries: 2,
   })
   return _stripeInstance
 }

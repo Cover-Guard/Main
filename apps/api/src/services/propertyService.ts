@@ -67,6 +67,10 @@ export async function searchProperties(
       const geocoded = await geocodeByPlaceId(params.placeId)
       if (geocoded) {
         params = { ...params, address: geocoded.address, city: geocoded.city, state: geocoded.state, zip: geocoded.zip, lat: geocoded.lat, lng: geocoded.lng }
+      } else {
+        // Geocoding failed and no other filters — return empty results rather
+        // than falling through to an unfiltered external API call
+        return { properties: [], total: 0, page, limit }
       }
     }
   }

@@ -12,7 +12,6 @@
 
 import { publicDataCache, publicDataDeduplicator } from '../utils/cache'
 import { logger } from '../utils/logger'
-import { prisma } from '../utils/prisma'
 import { getPropertyById } from './propertyService'
 import type {
   PropertyPublicData,
@@ -473,11 +472,12 @@ export async function getPropertyPublicData(
   return publicDataDeduplicator.dedupe(propertyId, async () => {
     const property = await getPropertyById(propertyId)
     if (!property) {
-      // Use findUniqueOrThrow to generate a P2025 error that the error
-      // handler maps to 404 — avoids returning a generic 500.
-      await prisma.property.findUniqueOrThrow({ where: { id: propertyId }, select: { id: true } })
-      // Unreachable, but satisfies TypeScript control flow
-      throw new Error(`Property ${propertyId} not found`)
+      // Throw a Prisma-style error so the error handler maps it to 404.
+      // This avoids a redundant second DB lookup that findUniqueOrThrow would do.
+      const err = new Error('Record to read not found.') as Error & { code: string; name: string }
+      err.name = 'PrismaClientKnownRequestError'
+      err.code = 'P2025'
+      throw err
     }
 
     // Fetch from multiple sources in parallel — each source is individually

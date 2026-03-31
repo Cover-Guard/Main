@@ -165,6 +165,12 @@ propertiesRouter.get('/:id', async (req, res, next) => {
 propertiesRouter.get('/:id/risk', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
+    // Validate property exists before triggering 12+ external API calls
+    const exists = await getPropertyById(req.params.id)
+    if (!exists) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
+      return
+    }
     const profile = await getOrComputeRiskProfile(req.params.id, forceRefresh)
     // When risk is refreshed, invalidate dependent caches so they recompute with new scores
     if (forceRefresh) {
@@ -189,6 +195,12 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
 propertiesRouter.get('/:id/insurance', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
+    // Validate property exists before triggering expensive risk + insurance computation
+    const exists = await getPropertyById(req.params.id)
+    if (!exists) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
+      return
+    }
     // Ensure risk profile exists and is fresh (insurance depends on risk scores)
     await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const estimate = await getOrComputeInsuranceEstimate(req.params.id, forceRefresh)
@@ -206,15 +218,10 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
     const id = req.params.id
-    // Fetch property + compute risk + public data in parallel
-    const [property, risk, publicData] = await Promise.all([
-      getPropertyById(id),
-      getOrComputeRiskProfile(id, forceRefresh),
-      getPropertyPublicData(id, forceRefresh).catch((err) => {
-        logger.warn('Public data fetch failed for report', { propertyId: id, error: err instanceof Error ? err.message : err })
-        return null
-      }),
-    ])
+
+    // Validate property exists FIRST — avoids wasting 12+ external API calls
+    // (risk profile) and multiple DB queries if the property ID is invalid.
+    const property = await getPropertyById(id)
     if (!property) {
       res.status(404).json({
         success: false,
@@ -222,6 +229,16 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       })
       return
     }
+
+    // Compute risk + public data in parallel (both are independent)
+    const [risk, publicData] = await Promise.all([
+      getOrComputeRiskProfile(id, forceRefresh),
+      getPropertyPublicData(id, forceRefresh).catch((err) => {
+        logger.warn('Public data fetch failed for report', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
+    ])
+
     // Insurance/insurability/carriers depend on risk — run in parallel now that risk is ready
     const [insurance, insurability, carriers] = await Promise.all([
       getOrComputeInsuranceEstimate(id, forceRefresh),
@@ -241,6 +258,12 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
 propertiesRouter.get('/:id/public-data', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
+    // Validate property exists before triggering external API calls (ATTOM, Google, Walk Score)
+    const exists = await getPropertyById(req.params.id)
+    if (!exists) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
+      return
+    }
     const publicData = await getPropertyPublicData(req.params.id, forceRefresh)
     if (forceRefresh) setNoCacheHeaders(res)
     else setCacheHeaders(res, 86400, 3600) // 24h CDN cache
@@ -320,6 +343,12 @@ propertiesRouter.delete('/:id/save', requireAuth, requireSubscription, async (re
 propertiesRouter.get('/:id/insurability', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
+    // Validate property exists before triggering expensive risk + insurability computation
+    const exists = await getPropertyById(req.params.id)
+    if (!exists) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
+      return
+    }
     // Ensure risk profile exists and is fresh (insurability depends on risk scores)
     await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const status = await getInsurabilityStatus(req.params.id, forceRefresh)
@@ -336,6 +365,12 @@ propertiesRouter.get('/:id/insurability', async (req, res, next) => {
 propertiesRouter.get('/:id/carriers', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
+    // Validate property exists before triggering expensive risk + carriers computation
+    const exists = await getPropertyById(req.params.id)
+    if (!exists) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
+      return
+    }
     // Ensure risk profile exists and is fresh (carrier decisions depend on risk scores)
     await getOrComputeRiskProfile(req.params.id, forceRefresh)
     const carriers = await getCarriersForProperty(req.params.id, forceRefresh)

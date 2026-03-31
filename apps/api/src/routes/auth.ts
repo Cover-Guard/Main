@@ -200,17 +200,21 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const page = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
-    const saved = await prisma.savedProperty.findMany({
-      where: { userId },
-      select: {
-        id: true, notes: true, tags: true, savedAt: true, clientId: true,
-        property: { select: PROPERTY_PUBLIC_SELECT },
-      },
-      orderBy: { savedAt: 'desc' },
-      take: limit,
-      skip: (page - 1) * limit,
-    })
-    res.json({ success: true, data: saved })
+    const where = { userId }
+    const [saved, total] = await Promise.all([
+      prisma.savedProperty.findMany({
+        where,
+        select: {
+          id: true, notes: true, tags: true, savedAt: true, clientId: true,
+          property: { select: PROPERTY_PUBLIC_SELECT },
+        },
+        orderBy: { savedAt: 'desc' },
+        take: limit,
+        skip: (page - 1) * limit,
+      }),
+      prisma.savedProperty.count({ where }),
+    ])
+    res.json({ success: true, data: saved, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } })
   } catch (err) {
     next(err)
   }
@@ -340,17 +344,21 @@ authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
     const { userId } = req as AuthenticatedRequest
     const rPage = Math.min(10000, Math.max(1, parseInt(req.query.page as string, 10) || 1))
     const rLimit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 50))
-    const reports = await prisma.propertyReport.findMany({
-      where: { userId },
-      select: {
-        id: true, reportType: true, generatedAt: true, propertyId: true,
-        property: { select: PROPERTY_PUBLIC_SELECT },
-      },
-      orderBy: { generatedAt: 'desc' },
-      take: rLimit,
-      skip: (rPage - 1) * rLimit,
-    })
-    res.json({ success: true, data: reports })
+    const where = { userId }
+    const [reports, total] = await Promise.all([
+      prisma.propertyReport.findMany({
+        where,
+        select: {
+          id: true, reportType: true, generatedAt: true, propertyId: true,
+          property: { select: PROPERTY_PUBLIC_SELECT },
+        },
+        orderBy: { generatedAt: 'desc' },
+        take: rLimit,
+        skip: (rPage - 1) * rLimit,
+      }),
+      prisma.propertyReport.count({ where }),
+    ])
+    res.json({ success: true, data: reports, meta: { total, page: rPage, limit: rLimit, totalPages: Math.ceil(total / rLimit) } })
   } catch (err) {
     next(err)
   }

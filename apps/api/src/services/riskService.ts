@@ -251,6 +251,39 @@ export async function getOrComputeRiskProfile(
       return dto
     }
 
+    // Guard against properties with invalid coordinates — geocoded properties
+    // may have 0,0 or NaN coordinates if the geocode failed silently.
+    if (!Number.isFinite(property.lat) || !Number.isFinite(property.lng) ||
+        (property.lat === 0 && property.lng === 0)) {
+      logger.warn('Property has invalid coordinates — skipping external API calls', { propertyId, lat: property.lat, lng: property.lng })
+      // Return a minimal risk profile with default scores rather than
+      // making 12+ API calls that will all return garbage data.
+      const defaultProfile = {
+        overallRiskLevel: 'MODERATE' as const,
+        overallRiskScore: 25,
+        floodRiskLevel: 'LOW' as const, floodRiskScore: 20,
+        floodZone: null, floodFirmPanelId: null, floodBaseElevation: null,
+        inSFHA: false, floodAnnualChance: null,
+        fireRiskLevel: 'LOW' as const, fireRiskScore: 15,
+        fireHazardZone: null, wildlandUrbanInterface: false, nearestFireStation: null,
+        windRiskLevel: 'LOW' as const, windRiskScore: 10,
+        hurricaneRisk: false, tornadoRisk: false, hailRisk: false, designWindSpeed: null,
+        earthquakeRiskLevel: 'LOW' as const, earthquakeRiskScore: 10,
+        seismicZone: null, nearestFaultLine: null,
+        crimeRiskLevel: 'LOW' as const, crimeRiskScore: 0,
+        violentCrimeIndex: 0, propertyCrimeIndex: 0, nationalAvgDiff: 0,
+        expiresAt: new Date(Date.now() + RISK_CACHE_TTL_SECONDS * 1000),
+      }
+      const profile = await prisma.riskProfile.upsert({
+        where: { propertyId },
+        update: { ...defaultProfile, generatedAt: new Date() },
+        create: { propertyId, ...defaultProfile },
+      })
+      const dto = prismaProfileToDto(profile, propertyId)
+      riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
+      return dto
+    }
+
     logger.info('Computing risk profile', { propertyId, forceRefresh, state: property.state })
 
     // Fetch all risk data sources in parallel (primary + supplemental).
