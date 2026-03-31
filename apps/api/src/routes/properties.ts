@@ -60,9 +60,16 @@ const searchSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
 
-/** Extract the Supabase user id from a Bearer JWT without full verification.
- *  Used only for optional analytics (search history) — NOT for authorization. */
-function extractOptionalUserId(req: Request): string | undefined {
+/**
+ * Extracts the Supabase user ID from a Bearer JWT WITHOUT verifying the signature.
+ *
+ * WARNING: NO cryptographic signature verification is performed here.
+ * This is intentional — this helper is used ONLY for optional analytics
+ * (search-history logging) and must NEVER be used for authorization or
+ * access-control decisions.  For anything security-sensitive, verify the
+ * token via the Supabase Auth client instead.
+ */
+function extractUnverifiedUserIdForAnalytics(req: Request): string | undefined {
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) return undefined
   try {
@@ -107,7 +114,7 @@ propertiesRouter.get('/search', async (req, res, next) => {
       })
       return
     }
-    const result = await searchProperties(params, extractOptionalUserId(req))
+    const result = await searchProperties(params, extractUnverifiedUserIdForAnalytics(req))
     // Search results: short CDN TTL (60 s) since properties can be added
     setCacheHeaders(res, 60, 30)
     res.json({ success: true, data: result })
@@ -125,7 +132,7 @@ const geocodeSchema = z.object({
 propertiesRouter.post('/geocode', async (req, res, next) => {
   try {
     const { placeId } = geocodeSchema.parse(req.body)
-    const property = await geocodeAndCreateProperty(placeId, extractOptionalUserId(req))
+    const property = await geocodeAndCreateProperty(placeId, extractUnverifiedUserIdForAnalytics(req))
     if (!property) {
       res.status(422).json({
         success: false,
