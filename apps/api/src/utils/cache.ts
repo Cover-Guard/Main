@@ -64,13 +64,32 @@ export class LRUCache<T> {
 // Read from env vars so each deployment environment can tune independently.
 // Defaults are intentionally small for serverless (Vercel); increase for
 // long-lived servers where the cache actually persists across requests.
-const MAX_PROPERTIES  = parseInt(process.env.CACHE_MAX_PROPERTIES  ?? '2000',  10)
-const MAX_RISK        = parseInt(process.env.CACHE_MAX_RISK         ?? '2000',  10)
-const MAX_INSURANCE   = parseInt(process.env.CACHE_MAX_INSURANCE    ?? '2000',  10)
-const MAX_CARRIERS    = parseInt(process.env.CACHE_MAX_CARRIERS     ?? '1000',  10)
-const MAX_INSURABILITY= parseInt(process.env.CACHE_MAX_INSURABILITY ?? '2000',  10)
-const MAX_PUBLIC_DATA = parseInt(process.env.CACHE_MAX_PUBLIC_DATA  ?? '500',   10)
-const MAX_TOKENS      = parseInt(process.env.CACHE_MAX_TOKENS       ?? '10000', 10)
+
+/**
+ * Parse a cache size from env var with validation.
+ * Ensures the value is a positive integer.
+ * Falls back to default if env var is missing, invalid, or negative.
+ */
+function parseCacheSize(envValue: string | undefined, defaultValue: number): number {
+  if (envValue === undefined) return defaultValue
+  const parsed = parseInt(envValue, 10)
+  // Reject NaN, negative, or zero values
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    console.warn(
+      `Invalid cache size "${envValue}" (parsed as ${parsed}). Using default: ${defaultValue}`,
+    )
+    return defaultValue
+  }
+  return parsed
+}
+
+const MAX_PROPERTIES  = parseCacheSize(process.env.CACHE_MAX_PROPERTIES,   2000)
+const MAX_RISK        = parseCacheSize(process.env.CACHE_MAX_RISK,        2000)
+const MAX_INSURANCE   = parseCacheSize(process.env.CACHE_MAX_INSURANCE,   2000)
+const MAX_CARRIERS    = parseCacheSize(process.env.CACHE_MAX_CARRIERS,    1000)
+const MAX_INSURABILITY= parseCacheSize(process.env.CACHE_MAX_INSURABILITY, 2000)
+const MAX_PUBLIC_DATA = parseCacheSize(process.env.CACHE_MAX_PUBLIC_DATA,  500)
+const MAX_TOKENS      = parseCacheSize(process.env.CACHE_MAX_TOKENS,      10000)
 
 // ── Shared cache instances ──────────────────────────────────────────────────
 /** Auth token → { userId, userRole, hasActiveSub } — 5 min TTL */
