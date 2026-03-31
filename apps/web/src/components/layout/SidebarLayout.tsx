@@ -37,7 +37,10 @@ const navItems = [
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
-  const [bannerVisible, setBannerVisible] = useState(true)
+  const [bannerVisible, setBannerVisible] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('cg_banner_dismissed') !== '1'
+  })
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const pathname = usePathname()
@@ -99,8 +102,10 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             {collapsed && <CoverGuardShield className="h-5 w-5 mx-auto" />}
             <button
               onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-expanded={!collapsed}
               className={cn(
-                'text-white/40 hover:text-white p-1 rounded transition-colors shrink-0',
+                'text-white/70 hover:text-white p-1 rounded transition-colors shrink-0',
                 collapsed && 'mx-auto'
               )}
             >
@@ -121,17 +126,17 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={href}
                   href={href}
-                  title={collapsed ? label : undefined}
+                  title={label}
                   className={cn(
                     'flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-medium transition-colors',
                     collapsed ? 'justify-center' : '',
                     isNewCheck
                       ? active
                         ? 'bg-white text-[#0d1929]'
-                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                        : 'text-white/85 hover:bg-white/10 hover:text-white'
                       : active
                       ? 'bg-white/10 text-white'
-                      : 'text-white/60 hover:bg-white/5 hover:text-white'
+                      : 'text-white/80 hover:bg-white/5 hover:text-white'
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -159,12 +164,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-semibold text-white truncate">{displayName}</p>
-                    <p className="text-[9px] text-white/40 capitalize truncate">{user.role?.toLowerCase()}</p>
+                    <p className="text-[9px] text-white/65 capitalize truncate">{user.role?.toLowerCase()}</p>
                   </div>
                   <button
                     onClick={handleSignOut}
                     title="Sign out"
-                    className="text-white/30 hover:text-white transition-colors shrink-0"
+                    className="text-white/65 hover:text-white transition-colors shrink-0"
                   >
                     <LogOut className="h-3.5 w-3.5" />
                   </button>
@@ -200,7 +205,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-2 text-white">
                 <CoverGuardShield className="h-4 w-4 shrink-0" />
                 <span className="text-sm font-semibold">CoverGuard is on Android!</span>
-                <span className="text-white/50 text-xs hidden sm:inline">
+                <span className="text-white/80 text-xs hidden sm:inline">
                   Take insurance checks on the go.
                 </span>
               </div>
@@ -210,8 +215,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                   Download
                 </button>
                 <button
-                  onClick={() => setBannerVisible(false)}
-                  className="text-white/40 hover:text-white p-1 transition-colors"
+                  onClick={() => { setBannerVisible(false); localStorage.setItem('cg_banner_dismissed', '1') }}
+                  aria-label="Dismiss app download banner"
+                  className="text-white/70 hover:text-white p-1 transition-colors rounded"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -219,7 +225,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <main className="flex-1 overflow-hidden bg-[#f2f4f7]">
+          <main id="main-content" className="flex-1 overflow-hidden bg-[#f2f4f7]">
             <div className="h-full overflow-auto">
               {children}
             </div>

@@ -34,6 +34,15 @@ export function ReportsContent() {
   const [search, setSearch] = useState('')
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
 
+  const loadReports = () => {
+    setLoadError(null)
+    setLoading(true)
+    getSavedProperties()
+      .then((data) => setSaved(data as SavedPropertyRow[]))
+      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load reports'))
+      .finally(() => setLoading(false))
+  }
+
   useEffect(() => {
     getSavedProperties()
       .then((data) => setSaved(data as SavedPropertyRow[]))
@@ -102,7 +111,7 @@ export function ReportsContent() {
           <p className="font-semibold text-red-600">Failed to load reports</p>
           <p className="text-sm text-gray-400 mt-1">{loadError}</p>
           <button
-            onClick={() => { setLoadError(null); setLoading(true); getSavedProperties().then((d) => setSaved(d as SavedPropertyRow[])).catch((e) => setLoadError(e instanceof Error ? e.message : 'Failed to load reports')).finally(() => setLoading(false)) }}
+            onClick={loadReports}
             className="mt-4 px-4 py-2 text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors"
           >
             Retry

@@ -176,9 +176,15 @@ function SearchBarInner({ defaultValue = '', autoFocus, className }: SearchBarPr
   return (
     <form onSubmit={handleSubmit} className={cn('flex gap-2', className)}>
       <div className="relative flex-1">
+        {/* Visually-hidden label — announced by screen readers (WCAG 1.3.1) */}
+        <label htmlFor="property-address-search" className="sr-only">
+          Search by property address
+        </label>
         <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         <input
           ref={inputRef}
+          id="property-address-search"
+          aria-label="Search by property address"
           type="text"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
