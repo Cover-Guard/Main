@@ -71,7 +71,7 @@ export function ReportsContent() {
           className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
           <Search className="h-4 w-4" />
-          New Check
+          Search a Property
         </Link>
       </div>
 

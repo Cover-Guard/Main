@@ -75,7 +75,8 @@ export async function requireAuth(
       return
     }
 
-    // Slow path: verify with Supabase + load user profile
+  // Slow path: verify with Supabase + load user profile
+  try {
     const { data, error } = await supabaseAdmin.auth.getUser(token)
     if (error || !data.user) {
       // Do NOT cache invalid tokens

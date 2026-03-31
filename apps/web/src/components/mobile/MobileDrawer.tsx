@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 const navItems = [
-  { href: '/check',     label: 'New Check',  icon: Shield,          exact: true },
+  { href: '/check',     label: 'Search a Property',  icon: Shield,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
@@ -117,7 +117,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           <div className="space-y-0.5">
             {navItems.map(({ href, label, icon: Icon, exact }) => {
               const active = isActive(href, exact)
-              const isNewCheck = label === 'New Check'
+              const isNewCheck = label === 'Search a Property'
               return (
                 <Link
                   key={href}
