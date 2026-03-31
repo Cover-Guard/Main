@@ -1,21 +1,50 @@
 // Vercel serverless function entry point
 
 // Supabase Vercel Integration prefixes env var names with the project label
-// (e.g. COVERGUARD_2_POSTGRES_URL). Normalize to standard names before the
-// Express app loads so Prisma, Supabase, and other services resolve them.
-const _label = process.env.SUPABASE_ENV_LABEL || 'COVERGUARD_2';
-[
-  'DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLED',
-  'DIRECT_URL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
-].forEach((name) => {
-  if (process.env[name]) return;
-  // Prefix convention (Vercel marketplace standard): LABEL_VARNAME
-  const prefixed = `${_label}_${name}`;
-  if (process.env[prefixed]) { process.env[name] = process.env[prefixed]; return; }
-  // Suffix convention (fallback): VARNAME_LABEL
-  const suffixed = `${name}_${_label}`;
-  if (process.env[suffixed]) { process.env[name] = process.env[suffixed]; }
-});
+// (e.g. coverguard_2_POSTGRES_URL or COVERGUARD_2_POSTGRES_URL).
+// Normalize to standard names before the Express app loads so Prisma,
+// Supabase, and other services resolve them.
+//
+// The integration may use lowercase, uppercase, or mixed-case prefixes
+// depending on the Supabase version. We detect the actual prefix at runtime.
+
+const EXPECTED_LABELS = [
+  process.env.SUPABASE_ENV_LABEL,
+  'COVERGUARD_2',   // uppercase convention
+  'coverguard_2',   // lowercase (current Supabase Vercel integration)
+  'Coverguard_2',   // mixed-case fallback
+].filter(Boolean);
+
+const ENV_NAMES = [
+  'DATABASE_URL',
+  'POSTGRES_URL',
+  'POSTGRES_PRISMA_URL',
+  'POSTGRES_URL_NON_POOLED',
+  'DIRECT_URL',
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+];
+
+for (const name of ENV_NAMES) {
+  if (process.env[name]) continue; // already set — skip
+
+  for (const label of EXPECTED_LABELS) {
+    // Prefix convention: LABEL_VARNAME  (Vercel marketplace standard)
+    const prefixed = `${label}_${name}`;
+    if (process.env[prefixed]) {
+      process.env[name] = process.env[prefixed];
+      break;
+    }
+
+    // Suffix convention (fallback): VARNAME_LABEL
+    const suffixed = `${name}_${label}`;
+    if (process.env[suffixed]) {
+      process.env[name] = process.env[suffixed];
+      break;
+    }
+  }
+}
 
 // The Express app is bundled by tsup into apps/api/dist/index.js (CommonJS)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -25,7 +54,7 @@ const entry = require('../apps/api/dist/index.js');
 const app = entry.default ?? entry.app ?? entry;
 
 // Wrap the Express app to guarantee CORS headers on every response,
-// including OPTIONS preflight.  Vercel sometimes does not run Express
+// including OPTIONS preflight. Vercel sometimes does not run Express
 // middleware on preflight requests, which causes the browser to block
 // the subsequent POST/PUT/DELETE.
 const ALLOWED_ORIGINS = [
@@ -57,7 +86,7 @@ module.exports = (req, res) => {
     res.setHeader('Access-Control-Max-Age', '86400');
   }
 
-  // Respond to preflight immediately — don't forward to Express
+  // Respond to preflight immediately — don’t forward to Express
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;
