@@ -34,11 +34,8 @@ describe('tsup.config.ts', () => {
     expect(configContent).toMatch(/@prisma|pg|prisma|fsevents/)
   })
 
-
-  it('bundles @prisma/client via noExternal (required for Vercel serverless)', () => {
-    // @prisma/client MUST be bundled: npm workspaces hoists it to the repo root,
-    // outside the Vercel serverless include path. It lives in noExternal, not external.
-    expect(configContent).not.toMatch(/external:\s*\[.*'@prisma\/client'/)
+  it('bundles @prisma/client (not external)', () => {
+    expect(configContent).not.toMatch(/external.*@prisma\/client/)
   })
 
 
