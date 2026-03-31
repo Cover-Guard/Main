@@ -33,6 +33,21 @@ function createPrismaClient(): PrismaClient {
     )
   }
 
+  // Validate the connection string with the WHATWG URL API before passing it
+  // to the pg driver.  This catches malformed URLs early with a clear error
+  // message instead of surfacing a cryptic "Invalid URL" from deep inside
+  // Prisma at query time (which also triggers the deprecated url.parse()
+  // fallback path in older pg versions).
+  try {
+    new URL(connectionString)
+  } catch {
+    throw new Error(
+      `DATABASE_URL is not a valid URL. Ensure it follows the format ` +
+      `postgresql://user:password@host:port/database and that special ` +
+      `characters in the password are percent-encoded.`,
+    )
+  }
+
   const adapter = new PrismaPg({ connectionString })
 
   return new PrismaClient({

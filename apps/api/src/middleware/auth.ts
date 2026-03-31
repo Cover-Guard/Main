@@ -75,63 +75,67 @@ export async function requireAuth(
   }
 
   // Slow path: verify with Supabase + load user profile
-  const { data, error } = await supabaseAdmin.auth.getUser(token)
-  if (error || !data.user) {
-    // Do NOT cache invalid tokens
-    res.status(401).json({
-      success: false,
-      error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token' },
-    })
-    return
-  }
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token)
+    if (error || !data.user) {
+      // Do NOT cache invalid tokens
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token' },
+      })
+      return
+    }
 
-  // Fetch user profile + subscription status in a single query to avoid
-  // a separate DB round trip in the requireSubscription middleware.
-  const user = await prisma.user.findUnique({
-    where: { id: data.user.id },
-    select: {
-      id: true,
-      role: true,
-      subscriptions: {
-        where: { status: { in: ['ACTIVE', 'TRIALING'] } },
-        select: { id: true },
-        take: 1,
+    // Fetch user profile + subscription status in a single query to avoid
+    // a separate DB round trip in the requireSubscription middleware.
+    const user = await prisma.user.findUnique({
+      where: { id: data.user.id },
+      select: {
+        id: true,
+        role: true,
+        subscriptions: {
+          where: { status: { in: ['ACTIVE', 'TRIALING'] } },
+          select: { id: true },
+          take: 1,
+        },
       },
-    },
-  })
-  if (!user) {
-    logger.warn(`Authenticated user ${data.user.id} not found in database — possible sync issue`)
-    res.status(401).json({
-      success: false,
-      error: { code: 'USER_NOT_FOUND', message: 'User profile not found' },
     })
-    return
-  }
-  const hasActiveSub = user.subscriptions.length > 0
+    if (!user) {
+      logger.warn(`Authenticated user ${data.user.id} not found in database — possible sync issue`)
+      res.status(401).json({
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User profile not found' },
+      })
+      return
+    }
+    const hasActiveSub = user.subscriptions.length > 0
 
-  // Cache with TTL = min(5 min, time until JWT expiry) to avoid serving
-  // cached entries for tokens that have already expired.
-  // - If exp is in the future: use min(5min, time-until-expiry)
-  // - If exp is 0 (no exp claim or malformed): fall back to full 5 min TTL
-  // - If exp is in the past but Supabase still validated (e.g., clock skew):
-  //   use a minimal 30 s TTL to limit exposure without skipping the cache entirely
-  const expMs = getJwtExp(token)
-  let ttlMs: number
-  if (expMs > Date.now()) {
-    ttlMs = Math.min(MAX_TOKEN_CACHE_TTL_MS, expMs - Date.now())
-  } else if (expMs === 0) {
-    ttlMs = MAX_TOKEN_CACHE_TTL_MS
-  } else {
-    // Token appears expired (clock skew) — cache very briefly
-    ttlMs = 30_000
-  }
-  tokenCache.set(token, { userId: user.id, userRole: user.role, hasActiveSub }, ttlMs)
+    // Cache with TTL = min(5 min, time until JWT expiry) to avoid serving
+    // cached entries for tokens that have already expired.
+    // - If exp is in the future: use min(5min, time-until-expiry)
+    // - If exp is 0 (no exp claim or malformed): fall back to full 5 min TTL
+    // - If exp is in the past but Supabase still validated (e.g., clock skew):
+    //   use a minimal 30 s TTL to limit exposure without skipping the cache entirely
+    const expMs = getJwtExp(token)
+    let ttlMs: number
+    if (expMs > Date.now()) {
+      ttlMs = Math.min(MAX_TOKEN_CACHE_TTL_MS, expMs - Date.now())
+    } else if (expMs === 0) {
+      ttlMs = MAX_TOKEN_CACHE_TTL_MS
+    } else {
+      // Token appears expired (clock skew) — cache very briefly
+      ttlMs = 30_000
+    }
+    tokenCache.set(token, { userId: user.id, userRole: user.role, hasActiveSub }, ttlMs)
 
-  const authReq = req as AuthenticatedRequest
-  authReq.userId = user.id
-  authReq.userRole = user.role
-  authReq.hasActiveSubscription = hasActiveSub
-  next()
+    const authReq = req as AuthenticatedRequest
+    authReq.userId = user.id
+    authReq.userRole = user.role
+    authReq.hasActiveSubscription = hasActiveSub
+    next()
+  } catch (err) {
+    next(err)
+  }
 }
 
 export function requireRole(...roles: string[]) {
