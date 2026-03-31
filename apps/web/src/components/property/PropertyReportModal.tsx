@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useReducer } from 'react'
 import type {
   Property,
   PropertyRiskProfile,
@@ -42,28 +42,47 @@ interface ReportData {
   publicData: PropertyPublicData | null
 }
 
+type ReportState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error'; error: string }
+  | { status: 'success'; data: ReportData }
+
+type ReportAction =
+  | { type: 'FETCH' }
+  | { type: 'SUCCESS'; data: ReportData }
+  | { type: 'ERROR'; error: string }
+
+function reportReducer(_state: ReportState, action: ReportAction): ReportState {
+  switch (action.type) {
+    case 'FETCH':
+      return { status: 'loading' }
+    case 'SUCCESS':
+      return { status: 'success', data: action.data }
+    case 'ERROR':
+      return { status: 'error', error: action.error }
+  }
+}
+
 export function PropertyReportModal({ property, open, onClose }: PropertyReportModalProps) {
-  const [report, setReport] = useState<ReportData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [state, dispatch] = useReducer(reportReducer, { status: 'idle' })
+
+  const fetchReport = useCallback(() => {
+    dispatch({ type: 'FETCH' })
+    getPropertyReport(property.id)
+      .then((data) => dispatch({ type: 'SUCCESS', data }))
+      .catch((err) => dispatch({ type: 'ERROR', error: err instanceof Error ? err.message : 'Failed to load report' }))
+  }, [property.id])
 
   useEffect(() => {
     if (!open) return
-    // Reset state when opening for a new property
-    setReport(null)
-    setError(null)
-    setLoading(true)
-
-    getPropertyReport(property.id)
-      .then((data) => setReport(data))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load report'))
-      .finally(() => setLoading(false))
-  }, [open, property.id])
+    fetchReport()
+  }, [open, fetchReport])
 
   const fullAddress = `${property.address}, ${property.city}, ${property.state} ${property.zip}`
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+    <Dialog open={open} onOpenChange={(isOpen: boolean) => { if (!isOpen) onClose() }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4">
@@ -85,27 +104,20 @@ export function PropertyReportModal({ property, open, onClose }: PropertyReportM
 
         {/* Body */}
         <div className="px-6 py-6">
-          {loading && (
+          {state.status === 'loading' && (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-3" />
               <p className="text-sm text-gray-500">Loading property report...</p>
             </div>
           )}
 
-          {error && (
+          {state.status === 'error' && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <AlertTriangle className="h-10 w-10 text-red-300 mb-3" />
               <p className="font-semibold text-red-600">Failed to load report</p>
-              <p className="text-sm text-gray-400 mt-1">{error}</p>
+              <p className="text-sm text-gray-400 mt-1">{state.error}</p>
               <button
-                onClick={() => {
-                  setError(null)
-                  setLoading(true)
-                  getPropertyReport(property.id)
-                    .then((data) => setReport(data))
-                    .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load report'))
-                    .finally(() => setLoading(false))
-                }}
+                onClick={fetchReport}
                 className="mt-4 px-4 py-2 text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors"
               >
                 Retry
@@ -113,41 +125,41 @@ export function PropertyReportModal({ property, open, onClose }: PropertyReportM
             </div>
           )}
 
-          {report && (
+          {state.status === 'success' && (
             <div className="space-y-6">
               {/* Property Images */}
-              {report.publicData?.images && report.publicData.images.length > 0 && (
-                <PropertyImages images={report.publicData.images} address={fullAddress} />
+              {state.data.publicData?.images && state.data.publicData.images.length > 0 && (
+                <PropertyImages images={state.data.publicData.images} address={fullAddress} />
               )}
 
               {/* Insurability */}
-              {report.insurability && (
-                <InsurabilityPanel status={report.insurability} />
+              {state.data.insurability && (
+                <InsurabilityPanel status={state.data.insurability} />
               )}
 
               {/* Risk */}
-              {report.risk && (
+              {state.data.risk && (
                 <>
-                  <RiskSummary profile={report.risk} />
-                  <RiskBreakdown profile={report.risk} />
+                  <RiskSummary profile={state.data.risk} />
+                  <RiskBreakdown profile={state.data.risk} />
                 </>
               )}
 
               {/* Carriers & Insurance */}
-              {report.carriers && (
+              {state.data.carriers && (
                 <ActiveCarriers
-                  data={report.carriers}
+                  data={state.data.carriers}
                   propertyId={property.id}
                   propertyAddress={fullAddress}
                 />
               )}
-              {report.insurance && (
-                <InsuranceCostEstimate estimate={report.insurance} />
+              {state.data.insurance && (
+                <InsuranceCostEstimate estimate={state.data.insurance} />
               )}
 
               {/* Public Info (tax, amenities, etc.) */}
-              {report.publicData && (
-                <PropertyPublicInfo data={report.publicData} />
+              {state.data.publicData && (
+                <PropertyPublicInfo data={state.data.publicData} />
               )}
             </div>
           )}
