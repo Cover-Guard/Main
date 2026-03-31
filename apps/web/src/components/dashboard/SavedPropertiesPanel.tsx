@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { PropertyCard } from '@/components/search/PropertyCard'
@@ -15,25 +15,12 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
   const [saved, setSaved] = useState<Array<{ property: Property }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const isLoadingRef = useRef(false)
 
-  const loadProperties = () => {
-    if (isLoadingRef.current) return
-    isLoadingRef.current = true
-    setError(null)
-    setLoading(true)
-
+  useEffect(() => {
     getSavedProperties()
       .then((data) => setSaved(data as Array<{ property: Property }>))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load saved properties'))
-      .finally(() => {
-        isLoadingRef.current = false
-        setLoading(false)
-      })
-  }
-
-  useEffect(() => {
-    loadProperties()
+      .finally(() => setLoading(false))
   }, [])
 
   const displayed = limit ? saved.slice(0, limit) : saved
@@ -55,7 +42,7 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
         <p className="font-medium text-red-600">Could not load saved properties</p>
         <p className="mt-1 text-sm text-gray-400">Service temporarily unavailable. Please try again.</p>
         <button
-          onClick={loadProperties}
+          onClick={() => { setError(null); setLoading(true); getSavedProperties().then(d => setSaved(d as Array<{ property: Property }>)).catch(err => setError(err instanceof Error ? err.message : 'Failed')).finally(() => setLoading(false)) }}
           className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600 transition-colors"
         >
           <RefreshCw className="h-3.5 w-3.5" />
