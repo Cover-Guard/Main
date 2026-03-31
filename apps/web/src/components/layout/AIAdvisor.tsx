@@ -176,7 +176,7 @@ export function AIAdvisor() {
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about insurability…"
-              className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus-visible:outline-none focus:ring-2 focus:ring-teal-500"
             />
             <button
               onClick={() => handleSend()}
@@ -193,6 +193,9 @@ export function AIAdvisor() {
         onClick={() => setOpen(!open)}
         className="h-12 w-12 rounded-full bg-[#0d1929] hover:bg-[#162438] shadow-xl flex items-center justify-center transition-colors border border-white/10"
         title="AI Advisor"
+        aria-label="Open AI Advisor"
+        aria-expanded={open}
+        aria-haspopup="dialog"
       >
         <div className="relative flex items-center justify-center">
           <CoverGuardShield className="h-5 w-5" />
