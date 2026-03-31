@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { href: '/check',     label: 'Check',     icon: Shield,          exact: true },
+  { href: '/check',     label: 'Search',    icon: Shield,          exact: true },
   { href: '/search',    label: 'Search',    icon: Search,          exact: false },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: false },
   { href: '/analytics', label: 'Analytics', icon: BarChart2,       exact: false },
