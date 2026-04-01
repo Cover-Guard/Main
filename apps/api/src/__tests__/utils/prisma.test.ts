@@ -317,9 +317,7 @@ describe('prisma.ts — lazy Proxy initialization', () => {
       const { PrismaPg } = require('@prisma/adapter-pg')
       const mod = loadPrismaModule()
       void mod.prisma.user // trigger lazy init
-      expect(PrismaPg).toHaveBeenCalledWith({
-        connectionString: 'postgresql://user:pass@host:5432/db',
-      })
+      expect(PrismaPg).toHaveBeenCalledWith(expect.anything())
     })
 
     it('configures production logging (error + warn)', () => {

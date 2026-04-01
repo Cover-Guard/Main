@@ -58,6 +58,7 @@ function createPrismaClient(): PrismaClient {
     connectionString: dbUrl.toString(),
     ssl: { rejectUnauthorized: false },
   })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const adapter = new PrismaPg(pool as any)
 
   return new PrismaClient({
