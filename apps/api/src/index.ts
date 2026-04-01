@@ -21,7 +21,7 @@ import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
 // ─── Startup environment validation ────────────────────────────────────────
 // config/env.ts (imported above) has already normalised prefixed Supabase vars
-// and emitted soft warnings for optional keys (ATTOM_API_KEY, FBI_UCR_API_KEY).
+// and emitted soft warnings for optional keys (RENTCAST_API_KEY, FBI_UCR_API_KEY).
 const hasDbUrl = !!(
   process.env.DATABASE_URL ??
   process.env.POSTGRES_PRISMA_URL ??
@@ -169,6 +169,19 @@ app.use(
 
 
 
+
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'CoverGuard API',
+    version: '1.0.0',
+    status: 'ok',
+    endpoints: {
+      health: '/health',
+      properties: '/api/properties/search',
+      auth: '/api/auth',
+    },
+  })
+})
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
