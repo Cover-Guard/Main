@@ -51,7 +51,7 @@ for (const name of MANAGED_VARS) {
 // missing key in production is almost always a misconfiguration.  Log once at
 // startup so it shows up in deployment logs.
 const OPTIONAL_KEYS_WITH_FALLBACK: Array<{ key: string; feature: string }> = [
-  { key: 'ATTOM_API_KEY', feature: 'property data (real data disabled — mock fallback active)' },
+  { key: 'RENTCAST_API_KEY', feature: 'property data via RentCast (mock fallback when not set)' },
   { key: 'FBI_UCR_API_KEY', feature: 'crime risk scoring (will use heuristic fallback)' },
 ]
 
