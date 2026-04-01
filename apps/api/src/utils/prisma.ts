@@ -50,9 +50,12 @@ function createPrismaClient(): PrismaClient {
   }
 
   // Supabase pooler requires SSL but uses certs that need rejectUnauthorized: false.
-  // Create pg Pool explicitly to ensure SSL config isn't overridden by sslmode in the URL.
+  // pg-connection-string parses sslmode=require from the URL and overrides the ssl option,
+  // treating it as verify-full in pg 8.13+. Strip it so our explicit ssl config takes effect.
+  const dbUrl = new URL(connectionString)
+  dbUrl.searchParams.delete('sslmode')
   const pool = new Pool({
-    connectionString,
+    connectionString: dbUrl.toString(),
     ssl: { rejectUnauthorized: false },
   })
   const adapter = new PrismaPg(pool)
