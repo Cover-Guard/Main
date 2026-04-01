@@ -99,7 +99,7 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
 
         -- risk_distribution
         SELECT 'risk_distribution',
-               rp."overallRiskLevel", NULL,
+               rp."overallRiskLevel"::text, NULL,
                COUNT(*)::int, NULL, NULL, NULL, NULL, NULL, NULL, NULL
         FROM saved_properties sp
         JOIN properties p ON p.id = sp."propertyId"
@@ -136,7 +136,7 @@ analyticsRouter.get('/', async (req: Request, res, next) => {
                  ROUND(AVG(rp."windRiskScore")::numeric, 1),
                  ROUND(AVG(rp."earthquakeRiskScore")::numeric, 1),
                  ROUND(AVG(rp."crimeRiskScore")::numeric, 1),
-                 MODE() WITHIN GROUP (ORDER BY rp."overallRiskLevel")
+                 (MODE() WITHIN GROUP (ORDER BY rp."overallRiskLevel"))::text
           FROM saved_properties sp
           JOIN properties p ON p.id = sp."propertyId"
           JOIN risk_profiles rp ON rp."propertyId" = p.id
