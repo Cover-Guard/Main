@@ -7,7 +7,7 @@ export async function retryWithBackoff<T>(
     for (let attempt = 0; attempt < maxRetries; attempt++) {
           try {
                   return await fn();
-                } catch (err: any) {
+                } catch (err: unknown) {
                   lastError = err;
                   if (attempt < maxRetries - 1) {
                             await new Promise(r => setTimeout(r, baseDelayMs * Math.pow(2, attempt)));
