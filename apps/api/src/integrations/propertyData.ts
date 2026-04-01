@@ -5,7 +5,7 @@
  * Swap the implementation here without touching business logic.
  */
 
-import type { Property, PropertySearchParams, PropertySearchResult } from '@coverguard/shared'
+import type { Property, PropertySearchParams, PropertySearchResult, PropertyType } from '@coverguard/shared'
 import { logger } from '../utils/logger'
 
 const RENTCAST_BASE_URL = 'https://api.rentcast.io/v1'
@@ -71,10 +71,10 @@ function mapRentCastToProperty(rc: RentCastProperty): Omit<Property, 'id' | 'cre
     city: rc.city,
     state: rc.state,
     zip: rc.zipCode,
-    county: rc.county ?? null,
-    lat: rc.latitude ?? null,
-    lng: rc.longitude ?? null,
-    propertyType: rc.propertyType ?? 'SINGLE_FAMILY',
+    county: rc.county ?? '',
+    lat: rc.latitude ?? 0,
+    lng: rc.longitude ?? 0,
+    propertyType: (rc.propertyType ?? 'SINGLE_FAMILY') as PropertyType,
     yearBuilt: rc.yearBuilt ?? null,
     squareFeet: rc.squareFootage ?? null,
     bedrooms: rc.bedrooms ?? null,
