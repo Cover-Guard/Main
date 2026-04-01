@@ -7,6 +7,7 @@
 
 import type { Property, PropertySearchParams, PropertySearchResult, PropertyType } from '@coverguard/shared'
 import { logger } from '../utils/logger'
+import { retryWithBackoff } from '../lib/retryWithBackoff'
 
 const RENTCAST_BASE_URL = 'https://api.rentcast.io/v1'
 
@@ -33,31 +34,34 @@ interface RentCastProperty {
   features?: Record<string, unknown>
 }
 
-async function fetchRentCast<T>(path: string, params: Record<string, string>): Promise<T | null> {
+async function fetchRentCast<T>(path: string, params: Record<string, string>): Promise<T> {
   const apiKey = process.env.RENTCAST_API_KEY
   if (!apiKey) {
-    logger.warn('RENTCAST_API_KEY not set — using mock property data')
-    return null
+    throw new Error('RENTCAST_API_KEY not configured — property search unavailable')
   }
 
   try {
     const url = new URL(`${RENTCAST_BASE_URL}${path}`)
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
 
-    const res = await fetch(url.toString(), {
-      headers: { accept: 'application/json', 'X-Api-Key': apiKey },
-      signal: AbortSignal.timeout(8000),
+    const res = await retryWithBackoff(async () => {
+      const r = await fetch(url.toString(), {
+        headers: { accept: 'application/json', 'X-Api-Key': apiKey },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (r.status === 429) throw Object.assign(new Error('RentCast rate limited'), { status: 429 })
+      return r
     })
 
     if (!res.ok) {
       logger.error(`RentCast API error ${res.status}: ${path}`)
-      return null
+      throw new Error(`RentCast API error ${res.status}`)
     }
 
     return (await res.json()) as T
   } catch (err) {
     logger.error('RentCast API request failed', { path, error: err instanceof Error ? err.message : err })
-    return null
+    throw err
   }
 }
 

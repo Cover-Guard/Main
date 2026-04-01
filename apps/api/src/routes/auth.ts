@@ -269,6 +269,11 @@ authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) =>
     })
     res.json({ success: true, data: user })
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('connect')) {
+      res.set('Retry-After', '5')
+      return res.status(503).json({ error: 'Profile sync temporarily unavailable, please retry' })
+    }
     next(err)
   }
 })

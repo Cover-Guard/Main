@@ -119,6 +119,9 @@ propertiesRouter.get('/search', async (req, res, next) => {
     setCacheHeaders(res, 60, 30)
     res.json({ success: true, data: result })
   } catch (err) {
+    if (err instanceof Error && err.message.includes('not configured')) {
+      return res.status(503).json({ error: 'Property search service temporarily unavailable' })
+    }
     next(err)
   }
 })
