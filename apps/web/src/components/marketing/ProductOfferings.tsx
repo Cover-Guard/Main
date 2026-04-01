@@ -4,9 +4,9 @@ import {
   Wind,
   Mountain,
   ShieldAlert,
-  FileSearch,
+  Clock,
   Building2,
-  FileText,
+  AlertTriangle,
 } from 'lucide-react'
 
 const risks = [
@@ -19,22 +19,22 @@ const risks = [
 
 const offerings = [
   {
-    icon: FileSearch,
-    title: 'Risk Intelligence',
+    icon: AlertTriangle,
+    title: 'Pre-Offer Insurability Check',
     description:
-      'Comprehensive risk profiles powered by FEMA, USGS, NOAA, Cal Fire, and FBI data sources. Understand flood zones, fire severity, seismic exposure, hurricane surge, and neighborhood crime — all in one report.',
+      'Run a full insurability check before your client makes an offer — not after. CoverGuard pulls from FEMA, USGS, NOAA, Cal Fire, and FBI to surface deal-killing risks before you\'re under contract. Stop losing deals at the closing table.',
   },
   {
     icon: Building2,
-    title: 'Carrier Availability',
+    title: 'Real-Time Carrier Availability',
     description:
-      'See which insurance carriers are actively writing and binding policies for the property\'s specific risk profile and state. No more guessing — know exactly who will cover it before you make an offer.',
+      'State Farm, Allstate, and Farmers have pulled out of California, Florida, and Texas. See exactly which carriers are still actively writing in a specific ZIP code and risk profile — in real time. No more calling around to find out who\'s left.',
   },
   {
-    icon: FileText,
-    title: 'Binding Quote Requests',
+    icon: Clock,
+    title: 'Risk to Quote in 90 Seconds',
     description:
-      'Request a binding quote directly from active carriers on the platform. Streamline the insurance process from risk assessment to policy binding, cutting days of back-and-forth to minutes.',
+      'From address lookup to binding quote request — in one platform. CoverGuard aggregates 8+ government data sources and connects to active carriers, cutting the insurance discovery process from days to under two minutes.',
   },
 ]
 
@@ -46,11 +46,11 @@ export function ProductOfferings() {
         <div className="text-center max-w-3xl mx-auto">
           <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider">Product</p>
           <h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900">
-            Complete insurability intelligence in seconds
+            Everything you need before the deal is done
           </h2>
           <p className="mt-4 text-lg text-gray-600">
-            CoverGuard aggregates data from 8+ federal and state sources to give you a full picture
-            of property risk and insurance availability.
+            With carriers exiting markets across the US, insurance has become the #1 deal killer.
+            CoverGuard gives agents the intelligence to stay ahead of it.
           </p>
         </div>
 
