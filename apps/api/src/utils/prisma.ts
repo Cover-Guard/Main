@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 import { PrismaClient } from '../generated/prisma/client'
 import { logger } from './logger'
 
@@ -48,8 +49,13 @@ function createPrismaClient(): PrismaClient {
     )
   }
 
-  // Supabase pooler uses SSL certs that need rejectUnauthorized: false
-  const adapter = new PrismaPg({ connectionString, ssl: { rejectUnauthorized: false } })
+  // Supabase pooler requires SSL but uses certs that need rejectUnauthorized: false.
+  // Create pg Pool explicitly to ensure SSL config isn't overridden by sslmode in the URL.
+  const pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+  })
+  const adapter = new PrismaPg(pool)
 
   return new PrismaClient({
     adapter,
