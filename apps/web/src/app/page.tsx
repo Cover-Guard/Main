@@ -12,9 +12,9 @@ import {
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'CoverGuard — Property Insurability Intelligence',
+  title: 'CoverGuard — Check Property Insurability Before the Offer',
   description:
-    'Know the true cost of insuring any US property before you bid. Assess flood, fire, earthquake, wind, and crime risks instantly.',
+    'Real-time flood, fire, earthquake, wind & crime risk for any US property. See which carriers are still writing — in 90 seconds. Built for agents, brokers & lenders.',
 }
 
 export default async function HomePage() {
