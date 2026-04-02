@@ -42,7 +42,7 @@ export async function updateSession(request: NextRequest) {
   // so /api/auth/callback does not need to be listed here.
   // /onboarding is NOT public — it requires authentication. The onboarding gate
   // (below) redirects authenticated users without termsAcceptedAt to /onboarding.
-  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/nda', '/pricing', '/search', '/get-started']
+  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/nda', '/pricing', '/search', '/get-started', '/careers', '/docs', '/api-reference', '/blog', '/contact', '/security']
   const isPublic = pathname === '/' || publicPrefixes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   const SUB_COOKIE = 'cg_sub_active'
@@ -73,100 +73,3 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     if (pathname !== '/') {
-      const search = request.nextUrl.search
-      url.searchParams.set('redirectTo', pathname + search)
-    }
-    return NextResponse.redirect(url)
-  }
-
-  // ─── Onboarding gate ──────────────────────────────────────────────────────
-  // Both email-registered and OAuth users must complete onboarding (NDA + terms
-  // + privacy) before accessing protected routes. Check user_metadata for the
-  // termsAcceptedAt flag set by POST /me/terms during onboarding.
-  const termsAccepted = user?.user_metadata?.termsAcceptedAt
-
-  // Redirect users who haven't accepted terms to onboarding
-  if (user && !isPublic && pathname !== '/onboarding' && !termsAccepted) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/onboarding'
-    return NextResponse.redirect(url)
-  }
-
-  // Redirect already-onboarded users away from /onboarding to prevent confusion
-  if (user && pathname === '/onboarding' && termsAccepted) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
-  }
-
-  // ─── Subscription gate (feature flag) ──────────────────────────────────────
-  // When STRIPE_SUBSCRIPTION_REQUIRED=true, authenticated users without an
-  // active subscription are redirected to /pricing for all protected routes.
-  // A short-lived cookie (cg_sub_active, 5 min TTL) caches the result so the
-  // API isn't called on every single navigation.
-  const subscriptionExemptRoutes = ['/pricing', '/account', '/onboarding']
-  const isSubscriptionExempt = isPublic || subscriptionExemptRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))
-
-  if (
-    process.env.STRIPE_SUBSCRIPTION_REQUIRED?.toLowerCase() === 'true' &&
-    user &&
-    !isSubscriptionExempt
-  ) {
-    // Fast path: check cookie cache first
-    const cached = request.cookies.get(SUB_COOKIE)?.value
-    if (cached === '1') {
-      // Subscription is active (cached) — allow through
-      return supabaseResponse
-    }
-
-    if (cached === '0') {
-      // Subscription is inactive (cached) — redirect to pricing
-      const url = request.nextUrl.clone()
-      url.pathname = '/pricing'
-      url.searchParams.set('reason', 'subscription_required')
-      return NextResponse.redirect(url)
-    }
-
-    // Slow path: no cache — check subscription status via API
-    try {
-      const session = await supabase.auth.getSession()
-      const token = session.data.session?.access_token
-      if (token) {
-        const apiUrl = process.env.API_REWRITE_URL || 'http://localhost:4000'
-        const subRes = await fetch(`${apiUrl}/api/stripe/subscription`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (subRes.ok) {
-          const subData = await subRes.json()
-          const isActive = !subData.data.required || subData.data.active
-          // Cache the result in a cookie so subsequent navigations skip the API call
-          supabaseResponse.cookies.set(SUB_COOKIE, isActive ? '1' : '0', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: SUB_COOKIE_TTL,
-            path: '/',
-          })
-          if (!isActive) {
-            const pricingUrl = request.nextUrl.clone()
-            pricingUrl.pathname = '/pricing'
-            pricingUrl.searchParams.set('reason', 'subscription_required')
-            const redirectRes = NextResponse.redirect(pricingUrl)
-            redirectRes.cookies.set(SUB_COOKIE, '0', {
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax',
-              maxAge: SUB_COOKIE_TTL,
-              path: '/',
-            })
-            return redirectRes
-          }
-        }
-      }
-    } catch {
-      // If subscription check fails, allow access rather than blocking
-    }
-  }
-
-  return supabaseResponse
-}
