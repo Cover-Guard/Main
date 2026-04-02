@@ -11,18 +11,18 @@ const footerLinks = {
   Company: [
     { label: 'Pricing', href: '/pricing' },
     { label: 'Investors', href: '/#investors' },
-    { label: 'Careers', href: '#' },
+    { label: 'Careers', href: '/careers' },
   ],
   Resources: [
-    { label: 'Documentation', href: '#' },
-    { label: 'API Reference', href: '#' },
-    { label: 'Blog', href: '#' },
-    { label: 'Contact', href: '#' },
+    { label: 'Documentation', href: '/docs' },
+    { label: 'API Reference', href: '/api-reference' },
+    { label: 'Blog', href: '/blog' },
+    { label: 'Contact', href: '/contact' },
   ],
   Legal: [
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Service', href: '/terms' },
-    { label: 'Security', href: '#' },
+    { label: 'Security', href: '/security' },
   ],
 }
 
