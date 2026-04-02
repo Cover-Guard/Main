@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+himport type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, CheckCircle2, Calendar } from 'lucide-react'
 import { MarketingNav, MarketingFooter } from '@/components/marketing'
@@ -19,7 +19,7 @@ const benefits = [
 ]
 
 export default function AgentsPage() {
-  return (
+  return (h
     <div className="min-h-screen bg-white">
       <MarketingNav />
 
@@ -86,11 +86,11 @@ export default function AgentsPage() {
               <div className="space-y-6">
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                   <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider">Before CoverGuard</p>
-                  <p className="mt-2 text-gray-700">"We're three days from closing and the buyer just found out State Farm won't write the property. Deal is dead."</p>
+                  <p className="mt-2 text-gray-700">&quot;We&apos;re three days from closing and the buyer just found out State Farm won&apos;t write the property. Deal is dead.&quot;</p>
                 </div>
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-brand-200">
                   <p className="text-sm font-semibold text-green-600 uppercase tracking-wider">After CoverGuard</p>
-                  <p className="mt-2 text-gray-700">"I ran the insurability check before we made the offer. Two carriers were writing — we went in knowing exactly what coverage would cost."</p>
+                  <p className="mt-2 text-gray-700">&quot;I ran the insurability check before we made the offer. Two carriers were writing — we went in knowing exactly what coverage would cost.&quot;</p>
                 </div>
               </div>
             </div>
