@@ -1,4 +1,4 @@
-himport type { Metadata } from 'next'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, CheckCircle2, Calendar } from 'lucide-react'
 import { MarketingNav, MarketingFooter } from '@/components/marketing'
