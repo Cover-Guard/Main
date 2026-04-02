@@ -22,6 +22,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export default function AgentRegisterPage() {
+    'use no memo'
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState(false)
