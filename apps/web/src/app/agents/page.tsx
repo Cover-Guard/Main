@@ -19,7 +19,7 @@ const benefits = [
 ]
 
 export default function AgentsPage() {
-  return (h
+  return (
     <div className="min-h-screen bg-white">
       <MarketingNav />
 
