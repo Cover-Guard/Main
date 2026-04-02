@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Search, TrendingUp } from 'lucide-react'
+import { ArrowRight, Shield, TrendingUp } from 'lucide-react'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 export function Hero() {
@@ -21,15 +21,15 @@ export function Hero() {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 leading-[1.1]">
-            Know the true cost of
-            <span className="text-brand-600"> insuring a property </span>
-            before you bid
+            Know if a property is insurable
+            <span className="text-brand-600"> before your client </span>
+            makes an offer
           </h1>
 
           {/* Subheadline */}
           <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Instantly assess flood, fire, earthquake, wind, and crime risks for any US property.
-            See which carriers are actively writing policies and request a binding quote — all in one platform.
+            CoverGuard checks flood, fire, earthquake, wind, and crime risk — plus shows which carriers are still writing —
+            in 90 seconds. Built for real estate agents, insurance brokers, and lenders.
           </p>
 
           {/* CTAs */}
@@ -38,7 +38,7 @@ export function Hero() {
               href="/get-started"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-base font-semibold text-white hover:bg-brand-700 transition-colors shadow-lg shadow-brand-600/25"
             >
-              Start Free
+              Check a Property Free
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
@@ -59,24 +59,24 @@ export function Hero() {
         <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-3xl mx-auto">
           <div className="text-center">
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mx-auto mb-3">
-              <Search className="h-6 w-6 text-brand-600" />
-            </div>
-            <div className="text-3xl font-bold text-gray-900">1.2M+</div>
-            <div className="text-sm text-gray-500 mt-1">Properties Analyzed</div>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mx-auto mb-3">
               <CoverGuardShield className="h-6 w-6" />
             </div>
-            <div className="text-3xl font-bold text-gray-900">150+</div>
-            <div className="text-sm text-gray-500 mt-1">Active Carriers</div>
+            <div className="text-3xl font-bold text-gray-900">8+</div>
+            <div className="text-sm text-gray-500 mt-1">Federal Data Sources</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mx-auto mb-3">
               <TrendingUp className="h-6 w-6 text-brand-600" />
             </div>
-            <div className="text-3xl font-bold text-gray-900">38</div>
-            <div className="text-sm text-gray-500 mt-1">States Covered</div>
+            <div className="text-3xl font-bold text-gray-900">$77B</div>
+            <div className="text-sm text-gray-500 mt-1">Protection Gap in 2024</div>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mx-auto mb-3">
+              <Shield className="h-6 w-6 text-brand-600" />
+            </div>
+            <div className="text-3xl font-bold text-gray-900">150+</div>
+            <div className="text-sm text-gray-500 mt-1">Real-Time Carrier Availability</div>
           </div>
         </div>
       </div>
