@@ -42,7 +42,7 @@ export async function updateSession(request: NextRequest) {
   // so /api/auth/callback does not need to be listed here.
   // /onboarding is NOT public — it requires authentication. The onboarding gate
   // (below) redirects authenticated users without termsAcceptedAt to /onboarding.
-  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/nda', '/pricing', '/search', '/get-started']
+  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/nda', '/pricing', '/search', '/get-started', '/careers', '/docs', '/api-reference', '/blog', '/contact', '/security']
   const isPublic = pathname === '/' || publicPrefixes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   const SUB_COOKIE = 'cg_sub_active'
@@ -79,7 +79,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ─── Onboarding gate ──────────────────────────────────────────────────────
+  // ─── Onboarding gate ──────────────────────────────────────────────────────────────────
   // Both email-registered and OAuth users must complete onboarding (NDA + terms
   // + privacy) before accessing protected routes. Check user_metadata for the
   // termsAcceptedAt flag set by POST /me/terms during onboarding.
@@ -99,7 +99,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ─── Subscription gate (feature flag) ──────────────────────────────────────
+  // ─── Subscription gate (feature flag) ────────────────────────────────────────────────────
   // When STRIPE_SUBSCRIPTION_REQUIRED=true, authenticated users without an
   // active subscription are redirected to /pricing for all protected routes.
   // A short-lived cookie (cg_sub_active, 5 min TTL) caches the result so the
@@ -114,6 +114,7 @@ export async function updateSession(request: NextRequest) {
   ) {
     // Fast path: check cookie cache first
     const cached = request.cookies.get(SUB_COOKIE)?.value
+
     if (cached === '1') {
       // Subscription is active (cached) — allow through
       return supabaseResponse
@@ -131,14 +132,17 @@ export async function updateSession(request: NextRequest) {
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token
+
       if (token) {
         const apiUrl = process.env.API_REWRITE_URL || 'http://localhost:4000'
         const subRes = await fetch(`${apiUrl}/api/stripe/subscription`, {
           headers: { Authorization: `Bearer ${token}` },
         })
+
         if (subRes.ok) {
           const subData = await subRes.json()
           const isActive = !subData.data.required || subData.data.active
+
           // Cache the result in a cookie so subsequent navigations skip the API call
           supabaseResponse.cookies.set(SUB_COOKIE, isActive ? '1' : '0', {
             httpOnly: true,
@@ -147,6 +151,7 @@ export async function updateSession(request: NextRequest) {
             maxAge: SUB_COOKIE_TTL,
             path: '/',
           })
+
           if (!isActive) {
             const pricingUrl = request.nextUrl.clone()
             pricingUrl.pathname = '/pricing'
