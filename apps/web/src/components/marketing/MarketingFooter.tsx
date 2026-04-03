@@ -8,6 +8,12 @@ const footerLinks = {
     { label: 'Quote Requests', href: '/#product' },
     { label: 'Agent Dashboard', href: '/#solutions' },
   ],
+  Solutions: [
+    { label: 'For Agents', href: '/agents' },
+    { label: 'For Brokers', href: '/agents' },
+    { label: 'For Lenders', href: '/get-started' },
+    { label: 'Compare Plans', href: '/compare' },
+  ],
   Company: [
     { label: 'Pricing', href: '/pricing' },
     { label: 'Investors', href: '/#investors' },
@@ -30,7 +36,7 @@ export function MarketingFooter() {
   return (
     <footer className="bg-gray-900 text-gray-400">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
