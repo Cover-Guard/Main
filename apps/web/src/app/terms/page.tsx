@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Shield } from 'lucide-react'
+import { FooterPagesNav } from '@/components/marketing'
 
 export const metadata: Metadata = { title: 'Terms of Use — CoverGuard' }
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-12">
-      <div className="mx-auto max-w-3xl">
+    <div className="min-h-screen bg-gray-50">
+      <FooterPagesNav />
+      <div className="mx-auto max-w-3xl px-4 py-12">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-center gap-2 text-brand-700">
           <Shield className="h-8 w-8" />

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MarketingNav, MarketingFooter } from '@/components/marketing'
+import { MarketingNav, MarketingFooter, FooterPagesNav } from '@/components/marketing'
 import { ArrowRight } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -18,6 +18,9 @@ export default function BlogPage() {
   return (
     <>
       <MarketingNav />
+      <div className="pt-16">
+        <FooterPagesNav />
+      </div>
       <main className="min-h-screen bg-white">
         <section className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
           <div className="mx-auto max-w-5xl px-4 py-20 text-center">

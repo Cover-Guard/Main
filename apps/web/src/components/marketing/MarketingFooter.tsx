@@ -3,14 +3,14 @@ import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 const footerLinks = {
   Product: [
-    { label: 'Risk Intelligence', href: '/#product' },
-    { label: 'Carrier Availability', href: '/#product' },
-    { label: 'Quote Requests', href: '/#product' },
-    { label: 'Agent Dashboard', href: '/#solutions' },
+    { label: 'Risk Intelligence', href: '/product/risk-intelligence' },
+    { label: 'Carrier Availability', href: '/product/carrier-availability' },
+    { label: 'Quote Requests', href: '/product/quote-requests' },
+    { label: 'Agent Dashboard', href: '/product/agent-dashboard' },
   ],
   Company: [
     { label: 'Pricing', href: '/pricing' },
-    { label: 'Investors', href: '/#investors' },
+    { label: 'Investors', href: '/investors' },
     { label: 'Careers', href: '/careers' },
   ],
   Resources: [
