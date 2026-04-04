@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Terms of Use — CoverGuard' }
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <FooterPagesNav />
+      <FooterPagesNav offsetNav={false} />
       <div className="mx-auto max-w-3xl px-4 py-12">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-center gap-2 text-brand-700">

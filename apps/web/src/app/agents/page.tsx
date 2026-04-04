@@ -22,9 +22,7 @@ export default function AgentsPage() {
   return (
     <div className="min-h-screen bg-white">
       <MarketingNav />
-      <div className="pt-16">
-        <FooterPagesNav />
-      </div>
+      <FooterPagesNav />
 
       {/* Hero */}
       <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-gradient-to-b from-brand-50/50 via-white to-white overflow-hidden">

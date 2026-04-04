@@ -18,9 +18,7 @@ export default function DocsPage() {
   return (
     <>
       <MarketingNav />
-      <div className="pt-16">
-        <FooterPagesNav />
-      </div>
+      <FooterPagesNav />
       <main className="min-h-screen bg-white">
         <section className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
           <div className="mx-auto max-w-5xl px-4 py-20 text-center">

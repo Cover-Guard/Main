@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function InvestorsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <FooterPagesNav />
+      <FooterPagesNav offsetNav={false} />
       {/* Hero */}
       <div className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
         <div className="mx-auto max-w-5xl px-4 py-16 md:py-24">
