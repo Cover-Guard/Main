@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, CheckCircle2, Calendar } from 'lucide-react'
-import { MarketingNav, MarketingFooter } from '@/components/marketing'
+import { MarketingNav, MarketingFooter, FooterPagesNav } from '@/components/marketing'
 
 export const metadata: Metadata = {
   title: 'CoverGuard for Real Estate Agents — Check Insurability Before the Offer',
@@ -22,6 +22,7 @@ export default function AgentsPage() {
   return (
     <div className="min-h-screen bg-white">
       <MarketingNav />
+      <FooterPagesNav />
 
       {/* Hero */}
       <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 bg-gradient-to-b from-brand-50/50 via-white to-white overflow-hidden">

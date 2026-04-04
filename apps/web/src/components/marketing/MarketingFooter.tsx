@@ -1,30 +1,6 @@
 import Link from 'next/link'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
-
-const footerLinks = {
-  Product: [
-    { label: 'Risk Intelligence', href: '/#product' },
-    { label: 'Carrier Availability', href: '/#product' },
-    { label: 'Quote Requests', href: '/#product' },
-    { label: 'Agent Dashboard', href: '/#solutions' },
-  ],
-  Company: [
-    { label: 'Pricing', href: '/pricing' },
-    { label: 'Investors', href: '/#investors' },
-    { label: 'Careers', href: '/careers' },
-  ],
-  Resources: [
-    { label: 'Documentation', href: '/docs' },
-    { label: 'API Reference', href: '/api-reference' },
-    { label: 'Blog', href: '/blog' },
-    { label: 'Contact', href: '/contact' },
-  ],
-  Legal: [
-    { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Terms of Service', href: '/terms' },
-    { label: 'Security', href: '/security' },
-  ],
-}
+import { footerPageGroups } from './footerPageGroups'
 
 export function MarketingFooter() {
   return (
@@ -43,7 +19,7 @@ export function MarketingFooter() {
           </div>
 
           {/* Link columns */}
-          {Object.entries(footerLinks).map(([category, links]) => (
+          {Object.entries(footerPageGroups).map(([category, links]) => (
             <div key={category}>
               <h4 className="text-sm font-semibold text-white">{category}</h4>
               <ul className="mt-4 space-y-3">

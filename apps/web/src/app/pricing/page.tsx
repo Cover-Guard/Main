@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MarketingNav, MarketingFooter } from '@/components/marketing'
+import { MarketingNav, MarketingFooter, FooterPagesNav } from '@/components/marketing'
 import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { createCheckoutSession, createPortalSession } from '@/lib/api'
@@ -117,6 +117,7 @@ export default function PricingPage() {
     <div className="min-h-screen">
       <MarketingNav />
       <main className="pt-16">
+        <FooterPagesNav offsetNav={false} />
         <section className="py-24 bg-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {/* Header */}
