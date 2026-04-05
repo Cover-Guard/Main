@@ -214,6 +214,12 @@ POST /api/stripe/webhook                     Stripe webhook (raw body, signature
 | NOAA SLOSH | Hurricane surge zones | `coast.noaa.gov/arcgis` — coastal only |
 | FBI CDE | Crime rates by agency/jurisdiction | `api.usa.gov/crime/fbi/cde` — needs `FBI_CDE_KEY` |
 | ASCE 7 | Design wind speed | Computed from lat/state |
+| **Esri USA Flood Hazard** | Flood zone cross-validation (Living Atlas) | `services.arcgis.com/P3ePLMYs2RVChkJx` |
+| **USDA Wildfire Risk (Esri)** | Wildfire hazard potential, burn probability | `apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire` |
+| **Esri Hurricane Tracks** | IBTrACS historical hurricane tracks (Living Atlas) | `services.arcgis.com/jIL9msH9OI208GCb` |
+| **US Drought Monitor (Esri)** | Current drought severity (fire risk modifier) | `services.arcgis.com/P3ePLMYs2RVChkJx` |
+| **CDC SVI (Esri)** | Social Vulnerability Index by census tract | `services3.arcgis.com/ZvidGQkLaDJxRSJ2` |
+| **USGS Landslide (Esri)** | Landslide susceptibility | `services.arcgis.com/jIL9msH9OI208GCb` |
 | Google Street View | Property street-level images | Uses `GOOGLE_MAPS_API_KEY` |
 | Google Static Maps | Satellite/aerial imagery | Uses `GOOGLE_MAPS_API_KEY` |
 | Google Places | Nearby amenities (schools, etc.) | Uses `GOOGLE_MAPS_API_KEY` |

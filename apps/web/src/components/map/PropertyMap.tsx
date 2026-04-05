@@ -50,61 +50,85 @@ const RISK_LAYER_CONFIG: Record<
     label: 'Flood Zones',
     color: '#3b82f6',
     icon: Droplets,
-    description: 'FEMA NFHL Flood Hazard Zones',
+    description: 'FEMA NFHL + Esri USA Flood Hazard',
   },
   fire: {
     label: 'Fire Hazard',
     color: '#ef4444',
     icon: Flame,
-    description: 'USFS Wildland-Urban Interface',
+    description: 'USDA Wildfire Risk + USFS WUI (Esri)',
   },
   wind: {
     label: 'Wind / Hurricane',
     color: '#a855f7',
     icon: Wind,
-    description: 'NOAA SLOSH Cat-3 Storm Surge',
+    description: 'NOAA SLOSH + Esri Hurricane Tracks',
   },
   earthquake: {
     label: 'Earthquake',
     color: '#f97316',
     icon: Activity,
-    description: 'USGS Seismic Hazard (2% in 50yr)',
+    description: 'USGS Seismic Hazard (Esri-hosted)',
   },
   crime: {
     label: 'Crime',
     color: '#6b7280',
     icon: ShieldAlert,
-    description: 'FBI Crime Data Explorer',
+    description: 'FBI Crime + CDC SVI (Esri)',
   },
 }
-
 // âââ ArcGIS Tile Service URLs ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // These public ArcGIS MapServer services render real GIS data as map tiles.
+// Primary services are augmented with Esri Living Atlas layers for richer coverage.
 const ARCGIS_TILE_SERVICES: Partial<
-  Record<RiskLayer, { url: string; layers: string }>
+  Record<RiskLayer, Array<{ url: string; layers: string; label: string }>>
 > = {
-  flood: {
-    url: 'https://hazards.fema.gov/gis/nfhl/rest/services/FIRMette/NFHLREST_FIRMette/MapServer',
-    layers: 'show:20', // Layer 20 = S_Fld_Haz_Ar (Flood Hazard Zones)
-  },
-  fire: {
-    url: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer',
-    layers: 'show:0', // Layer 0 = WUI 2020
-  },
-  wind: {
-    url: 'https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer',
-    layers: 'show:0', // SLOSH MOM Cat-3 hurricane storm surge
-  },
-  earthquake: {
-    url: 'https://earthquake.usgs.gov/arcgis/rest/services/haz/US5hz250_2014/MapServer',
-    layers: 'show:0', // 2014 NSHM â 2% in 50yr, 0.2s spectral acceleration
-  },
-  crime: {
-    url: 'https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/FBI_Crime_Data_Explorer/MapServer',
-    layers: 'show:0', // FBI UCR crime data by county
-  },
+  flood: [
+    {
+      url: 'https://hazards.fema.gov/gis/nfhl/rest/services/FIRMette/NFHLREST_FIRMette/MapServer',
+      layers: 'show:20', // Layer 20 = S_Fld_Haz_Ar (Flood Hazard Zones)
+      label: 'FEMA NFHL',
+    },
+    {
+      url: 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Flood_Hazard_Reduced_Set/FeatureServer',
+      layers: 'show:0', // Esri USA Flood Hazard Areas (Living Atlas)
+      label: 'Esri Flood Hazard',
+    },
+  ],
+  fire: [
+    {
+      url: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer',
+      layers: 'show:0', // Layer 0 = WUI 2020
+      label: 'USFS WUI',
+    },
+    {
+      url: 'https://apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire/RMRS_WRC_WildfireRisk/MapServer',
+      layers: 'show:0', // USDA Wildfire Risk to Communities (Esri-hosted)
+      label: 'USDA Wildfire Risk',
+    },
+  ],
+  wind: [
+    {
+      url: 'https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer',
+      layers: 'show:0', // SLOSH MOM Cat-3 hurricane storm surge
+      label: 'NOAA SLOSH Cat-3',
+    },
+  ],
+  earthquake: [
+    {
+      url: 'https://earthquake.usgs.gov/arcgis/rest/services/haz/US5hz250_2014/MapServer',
+      layers: 'show:0', // 2014 NSHM - 2% in 50yr, 0.2s spectral acceleration
+      label: 'USGS Seismic Hazard',
+    },
+  ],
+  crime: [
+    {
+      url: 'https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/FBI_Crime_Data_Explorer/MapServer',
+      layers: 'show:0', // FBI UCR crime data by county
+      label: 'FBI Crime Data',
+    },
+  ],
 }
-
 // Coverage notes shown when a layer may not have visible data in some areas
 const LAYER_COVERAGE_NOTES: Partial<Record<RiskLayer, string>> = {
   flood: 'FEMA flood maps may not cover all areas. No overlay = unmapped zone.',
@@ -231,17 +255,17 @@ export function PropertyMap({
               style={{ width: '100%', height: '100%' }}
             >
               {/* ââ GIS tile overlays (real geographic data) ââââââââââââ */}
-              {Array.from(activeLayers).map((layer) => {
-                const service = ARCGIS_TILE_SERVICES[layer]
-                if (!service) return null
-                return (
+              {Array.from(activeLayers).flatMap((layer) => {
+                const services = ARCGIS_TILE_SERVICES[layer]
+                if (!services) return []
+                return services.map((service, idx) => (
                   <ArcGISTileOverlay
-                    key={layer}
+                    key={`${layer}-${idx}`}
                     serviceUrl={service.url}
                     layers={service.layers}
                     opacity={0.55}
                   />
-                )
+                ))
               })}
 
               {/* ââ Risk score circle overlays ââââââââââââââââââââââââââ */}

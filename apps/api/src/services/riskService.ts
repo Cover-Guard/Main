@@ -13,6 +13,9 @@ import {
   fetchSinkholeRisk,
   fetchDamHazard,
   fetchSuperfundProximity,
+  fetchEsriFloodHazard,
+  fetchEsriLandslideRisk,
+  fetchEsriSocialVulnerability,
 } from '../integrations/riskData'
 import type {
   FireRiskExtended,
@@ -20,6 +23,9 @@ import type {
   WindRiskExtended,
   CrimeRiskExtended,
   NriResult,
+  EsriFloodHazardResult,
+  EsriLandslideResult,
+  EsriSviResult,
 } from '../integrations/riskData'
 import type { PropertyRiskProfile, RiskLevel, RiskTrend } from '@coverguard/shared'
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
@@ -116,6 +122,18 @@ function computeFireScore(fireData: FireRiskExtended): number {
   if (vegetation === 'HIGH') score = Math.min(100, score + 8)
   else if (vegetation === 'MODERATE') score = Math.min(100, score + 3)
 
+  // Esri Wildfire Hazard Potential boost
+  const esriWhp = fireData.esriWildfireHazardPotential ?? null
+  if (esriWhp === 'Very High') score = Math.max(score, 80)
+  else if (esriWhp === 'High') score = Math.max(score, 60)
+  else if (esriWhp === 'Moderate') score = Math.max(score, Math.min(score + 5, 100))
+
+  // Esri Drought intensity boost — drought amplifies fire risk
+  const droughtIntensity = fireData.esriDroughtIntensity ?? 0
+  if (droughtIntensity >= 4) score = Math.min(100, score + 10) // Extreme/Exceptional drought
+  else if (droughtIntensity >= 2) score = Math.min(100, score + 5) // Severe drought
+  else if (droughtIntensity >= 1) score = Math.min(100, score + 2) // Moderate drought
+
   return score
 }
 
@@ -160,6 +178,14 @@ function computeWindScore(windData: WindRiskExtended): number {
     else if (historicalHail > 10) hailScore = 45
     else if (historicalHail > 0) hailScore = 40
     score = Math.max(score, hailScore)
+  }
+
+  // Esri hurricane category data — if max category is high, boost further
+  const esriMaxCat = windData.esriHurricaneMaxCategory ?? null
+  if (esriMaxCat != null && esriMaxCat >= 4) {
+    score = Math.min(100, Math.max(score, 85))
+  } else if (esriMaxCat != null && esriMaxCat >= 3) {
+    score = Math.min(100, Math.max(score, 75))
   }
 
   return score
@@ -268,6 +294,7 @@ export async function getOrComputeRiskProfile(
     const [
       floodData, fireData, earthquakeData, windData, crimeData,
       elevation, historicalEq, fuelModel, nriData, sinkholeData, damData, superfundData,
+      esriFloodHazard, esriLandslide, esriSvi,
     ] = await Promise.all([
       // Primary sources
       safe(fetchFloodRisk(property.lat, property.lng, property.zip ?? ''), { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }, 'FEMA Flood'),
@@ -283,6 +310,10 @@ export async function getOrComputeRiskProfile(
       safe(fetchSinkholeRisk(property.lat, property.lng), null, 'Sinkhole'),
       safe(fetchDamHazard(property.lat, property.lng), null, 'Dam Hazard'),
       safe(fetchSuperfundProximity(property.lat, property.lng), null, 'Superfund'),
+      // Esri Living Atlas supplemental sources
+      safe(fetchEsriFloodHazard(property.lat, property.lng), null, 'Esri Flood Hazard'),
+      safe(fetchEsriLandslideRisk(property.lat, property.lng), null, 'Esri Landslide'),
+      safe(fetchEsriSocialVulnerability(property.lat, property.lng), null, 'Esri CDC SVI'),
     ])
 
     // Enhance flood score with elevation data (low elevation = higher risk)
@@ -408,6 +439,9 @@ export async function getOrComputeRiskProfile(
       sinkholeData,
       damData,
       superfundData,
+      esriFloodHazard,
+      esriLandslide,
+      esriSvi,
     })
     riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
     return dto
@@ -428,6 +462,9 @@ interface EnrichmentData {
   sinkholeData?: { inKarstArea: boolean; karstType: string | null } | null
   damData?: { nearbyHighHazardDams: number; nearestDamName: string | null; nearestDamCondition: string | null; nearestDamDistance: number | null } | null
   superfundData?: { nearbySites: number; nearestSiteName: string | null; nearestSiteDistance: number | null } | null
+  esriFloodHazard?: EsriFloodHazardResult | null
+  esriLandslide?: EsriLandslideResult | null
+  esriSvi?: EsriSviResult | null
 }
 
 function prismaProfileToDto(
@@ -468,6 +505,15 @@ function prismaProfileToDto(
   if (enrichment?.sinkholeData?.inKarstArea) {
     floodDetails.push(`Located in karst terrain (${enrichment.sinkholeData.karstType ?? 'dissolution-prone geology'}) — sinkhole risk elevated`)
   }
+  if (enrichment?.esriFloodHazard) {
+    const esriZone = enrichment.esriFloodHazard.esriFloodZone
+    if (esriZone) {
+      floodDetails.push(`Esri USA Flood Hazard zone: ${esriZone}${enrichment.esriFloodHazard.esriZoneSubtype ? ` (${enrichment.esriFloodHazard.esriZoneSubtype})` : ''}`)
+    }
+  }
+  if (enrichment?.esriLandslide?.susceptibility) {
+    floodDetails.push(`Landslide susceptibility: ${enrichment.esriLandslide.susceptibility} (USGS via Esri)`)
+  }
 
   const fireDetails: string[] = []
   if (p.fireHazardZone) fireDetails.push(`Fire hazard severity zone: ${p.fireHazardZone}`)
@@ -488,6 +534,18 @@ function prismaProfileToDto(
   }
   if (enrichment?.fuelModel?.fuelDescription) {
     fireDetails.push(`LANDFIRE fuel model: ${enrichment.fuelModel.fuelDescription}`)
+  }
+  if (enrichment?.fireData?.esriWildfireHazardPotential) {
+    fireDetails.push(`USDA Wildfire Hazard Potential: ${enrichment.fireData.esriWildfireHazardPotential} (Esri Living Atlas)`)
+  }
+  if (enrichment?.fireData?.esriBurningProbability != null) {
+    fireDetails.push(`Annual burn probability: ${(enrichment.fireData.esriBurningProbability * 100).toFixed(4)}%`)
+  }
+  if (enrichment?.fireData?.esriFlameLength != null) {
+    fireDetails.push(`Expected flame length: ${enrichment.fireData.esriFlameLength.toFixed(1)} ft`)
+  }
+  if (enrichment?.fireData?.esriDroughtLevel && enrichment.fireData.esriDroughtLevel !== 'None') {
+    fireDetails.push(`Current drought: ${enrichment.fireData.esriDroughtLabel ?? enrichment.fireData.esriDroughtLevel} (US Drought Monitor via Esri)`)
   }
 
   const windDetails: string[] = []
@@ -516,7 +574,16 @@ function prismaProfileToDto(
   }
   const hurricaneCount = enrichment?.windData?.historicalHurricaneCount ?? 0
   if (hurricaneCount > 0) {
-    windDetails.push(`${hurricaneCount} historical hurricane tracks within 75 miles (NOAA)`)
+    windDetails.push(`${hurricaneCount} historical hurricane tracks within 75 miles`)
+  }
+  if (enrichment?.windData?.esriHurricaneMaxCategory != null) {
+    windDetails.push(`Max historical hurricane category: ${enrichment.windData.esriHurricaneMaxCategory} (Esri IBTrACS)`)
+  }
+  if (enrichment?.windData?.esriHurricaneMostRecentYear != null) {
+    windDetails.push(`Most recent hurricane: ${enrichment.windData.esriHurricaneMostRecentYear}`)
+  }
+  if (enrichment?.windData?.esriHurricaneStormNames && enrichment.windData.esriHurricaneStormNames.length > 0) {
+    windDetails.push(`Notable storms: ${enrichment.windData.esriHurricaneStormNames.slice(0, 5).join(', ')}`)
   }
   if (windDetails.length === 0) {
     windDetails.push('Low wind hazard exposure')
@@ -552,6 +619,12 @@ function prismaProfileToDto(
       earthquakeDetails.push(`${enrichment.historicalEq.significantCount} significant events (M4.0+)`)
     }
   }
+  if (enrichment?.esriLandslide?.susceptibility) {
+    earthquakeDetails.push(`Landslide susceptibility: ${enrichment.esriLandslide.susceptibility} (USGS via Esri Living Atlas)`)
+    if (enrichment.esriLandslide.inclinationClass) {
+      earthquakeDetails.push(`Slope classification: ${enrichment.esriLandslide.inclinationClass}`)
+    }
+  }
 
   const crimeDetails: string[] = [
     `Violent crime index: ${p.violentCrimeIndex} per 100k`,
@@ -566,6 +639,17 @@ function prismaProfileToDto(
     crimeDetails.push('Crime estimates derived from Census Bureau socioeconomic indicators (FBI data unavailable)')
   } else if (crimeSource === 'NONE') {
     crimeDetails.push('Crime data unavailable for this area')
+  }
+  if (enrichment?.crimeData?.esriSviRating) {
+    crimeDetails.push(`CDC Social Vulnerability Index: ${enrichment.crimeData.esriSviRating} (${enrichment.crimeData.esriSviOverall?.toFixed(3) ?? 'N/A'}) via Esri`)
+  }
+  if (enrichment?.esriSvi?.overallSvi != null) {
+    if (!enrichment?.crimeData?.esriSviRating) {
+      crimeDetails.push(`CDC Social Vulnerability Index: ${enrichment.esriSvi.sviRating ?? 'N/A'} (${enrichment.esriSvi.overallSvi.toFixed(3)}) via Esri`)
+    }
+    if (enrichment.esriSvi.socioeconomicSvi != null) {
+      crimeDetails.push(`Socioeconomic vulnerability: ${enrichment.esriSvi.socioeconomicSvi.toFixed(3)} (0=lowest, 1=highest)`)
+    }
   }
   if (enrichment?.superfundData && enrichment.superfundData.nearbySites > 0) {
     crimeDetails.push(`${enrichment.superfundData.nearbySites} EPA Superfund/SEMS site(s) within 3 miles`)
@@ -589,9 +673,9 @@ function prismaProfileToDto(
       level: p.floodRiskLevel as RiskLevel,
       score: p.floodRiskScore,
       trend: 'STABLE' as RiskTrend,
-      description: 'Flood risk based on FEMA National Flood Hazard Layer, OpenFEMA claims, USGS elevation, and dam hazard data',
+      description: 'Flood risk based on FEMA NFHL, Esri USA Flood Hazard, OpenFEMA claims, USGS elevation, and dam hazard data',
       details: nriSummary ? [...floodDetails, nriSummary] : floodDetails,
-      dataSource: 'FEMA NFHL / OpenFEMA / NOAA SLR / USGS 3DEP / NID / FEMA NRI',
+      dataSource: 'FEMA NFHL / Esri Living Atlas / OpenFEMA / NOAA SLR / USGS 3DEP / NID / FEMA NRI',
       lastUpdated: now,
       floodZone: p.floodZone ?? 'UNKNOWN',
       firmPanelId: p.floodFirmPanelId,
@@ -603,9 +687,9 @@ function prismaProfileToDto(
       level: p.fireRiskLevel as RiskLevel,
       score: p.fireRiskScore,
       trend: 'STABLE' as RiskTrend,
-      description: 'Wildfire risk based on Cal Fire FHSZ, USFS WUI, NIFC fire history, and vegetation analysis',
+      description: 'Wildfire risk based on Cal Fire FHSZ, USFS WUI, USDA Wildfire Risk (Esri), NIFC fire history, drought monitor, and vegetation analysis',
       details: fireDetails,
-      dataSource: 'Cal Fire / USFS WUI / NIFC / HIFLD / USGS NLCD / LANDFIRE',
+      dataSource: 'Cal Fire / USFS WUI / USDA WRC (Esri) / NIFC / HIFLD / USGS NLCD / LANDFIRE / US Drought Monitor (Esri)',
       lastUpdated: now,
       fireHazardSeverityZone: p.fireHazardZone,
       wildlandUrbanInterface: p.wildlandUrbanInterface,
@@ -616,9 +700,9 @@ function prismaProfileToDto(
       level: p.windRiskLevel as RiskLevel,
       score: p.windRiskScore,
       trend: 'STABLE' as RiskTrend,
-      description: 'Wind hazard based on ASCE 7 design wind speeds, NOAA SLOSH hurricane surge, and SPC storm history',
+      description: 'Wind hazard based on ASCE 7 design wind speeds, NOAA SLOSH hurricane surge, Esri IBTrACS hurricane tracks, and SPC storm history',
       details: windDetails,
-      dataSource: 'ASCE 7 / NOAA SLOSH / NOAA Hurricane Tracks / SPC SVRGIS',
+      dataSource: 'ASCE 7 / NOAA SLOSH / Esri IBTrACS / NOAA Hurricane Tracks / SPC SVRGIS',
       lastUpdated: now,
       designWindSpeed: p.designWindSpeed,
       hurricaneRisk: p.hurricaneRisk,
@@ -629,9 +713,9 @@ function prismaProfileToDto(
       level: p.earthquakeRiskLevel as RiskLevel,
       score: p.earthquakeRiskScore,
       trend: 'STABLE' as RiskTrend,
-      description: 'Seismic risk based on USGS Design Maps (ASCE 7-22) and Quaternary Fault Database',
+      description: 'Seismic risk based on USGS Design Maps (ASCE 7-22), Quaternary Fault Database, and USGS Landslide data (Esri)',
       details: earthquakeDetails,
-      dataSource: 'USGS Design Maps / USGS QFaults / USGS Earthquake Catalog',
+      dataSource: 'USGS Design Maps / USGS QFaults / USGS Earthquake Catalog / USGS Landslide (Esri)',
       lastUpdated: now,
       seismicZone: p.seismicZone,
       nearestFaultLine: p.nearestFaultLine,
@@ -642,9 +726,9 @@ function prismaProfileToDto(
       level: p.crimeRiskLevel as RiskLevel,
       score: p.crimeRiskScore,
       trend: 'STABLE' as RiskTrend,
-      description: 'Crime index based on FBI Crime Data Explorer and Census Bureau ACS indicators',
+      description: 'Crime index based on FBI Crime Data Explorer, Census Bureau ACS indicators, and CDC Social Vulnerability Index (Esri)',
       details: crimeDetails,
-      dataSource: crimeSource === 'CENSUS_ACS' ? 'Census Bureau ACS' : crimeSource === 'FBI_CDE' ? 'FBI UCR / CDE' : 'FBI UCR',
+      dataSource: crimeSource === 'CENSUS_ACS' ? 'Census Bureau ACS / CDC SVI (Esri)' : crimeSource === 'FBI_CDE' ? 'FBI UCR / CDE / CDC SVI (Esri)' : 'FBI UCR / CDC SVI (Esri)',
       lastUpdated: now,
       violentCrimeIndex: p.violentCrimeIndex,
       propertyCrimeIndex: p.propertyCrimeIndex,
