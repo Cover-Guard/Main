@@ -78,7 +78,7 @@ export default function AgentRegisterPage() {
         return
       }
 
-      // Redirect to onboarding — same workflow as OAuth users
+      // Redirect to onboarding for terms & privacy acceptance
       router.push('/onboarding')
       router.refresh()
     } catch (err) {
@@ -146,7 +146,7 @@ export default function AgentRegisterPage() {
           <button
             type="button"
             onClick={signUpWithGoogle}
-            disabled={oauthLoading || isSubmitting}
+            disabled={oauthLoading || isSubmitting || !ndaAcknowledged}
             className="btn-secondary mb-4 w-full py-2.5 gap-3"
           >
             <GoogleIcon />

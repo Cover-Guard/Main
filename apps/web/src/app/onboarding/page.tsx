@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shield, CheckCircle, FileText, Lock, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import NDAReadRequirement from '@/components/auth/NDAReadRequirement'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -122,38 +123,15 @@ export default function OnboardingPage() {
               comprehensive security controls to protect the confidentiality, integrity, and availability of your information.
             </div>
 
-            {/* NDA */}
-            <div className="rounded-lg border border-gray-200 bg-gray-50">
-              <details className="group">
-                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800 select-none">
-                  <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Non-Disclosure Agreement</a>{' '}
-                  <span className="text-xs font-normal text-gray-500">(click to expand summary, or open full NDA)</span>
-                </summary>
-                <div className="max-h-48 overflow-y-auto border-t border-gray-200 px-4 py-3 text-xs leading-relaxed text-gray-600">
-                  This Non-Disclosure Agreement is entered into between CoverGuard, Inc. and the User. Confidential Information includes proprietary risk scoring methodologies, carrier availability data, underwriting intelligence, property insurability assessments, and pricing models. User agrees to hold all Confidential Information in strict confidence, not disclose it to third parties, and use it solely for lawful property research purposes. This Agreement remains in effect for 5 years following termination of access. Full NDA text is available at <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">/nda</a>.
-                </div>
-              </details>
-            </div>
+            {/* NDA — requires scroll-through before checkbox is enabled */}
+            <NDAReadRequirement acknowledged={agreeNDA} onAcknowledgedChange={setAgreeNDA} />
 
             {error && (
               <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
             )}
 
-            {/* Agreement checkboxes */}
+            {/* Agreement checkboxes (NDA is handled by NDAReadRequirement above) */}
             <div className="space-y-3">
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={agreeNDA}
-                  onChange={(e) => setAgreeNDA(e.target.checked)}
-                  className="mt-0.5 h-5 w-5 cursor-pointer rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                />
-                <span className="text-sm text-gray-800">
-                  I have read and agree to the{' '}
-                  <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700 font-semibold">Non-Disclosure Agreement</a>
-                </span>
-              </label>
-
               <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"

@@ -82,8 +82,7 @@ export default function RegisterPage() {
         return
       }
 
-      // Redirect to onboarding — same workflow as OAuth users.
-      // NDA, terms, and privacy acceptance happens there.
+      // Redirect to onboarding for terms & privacy acceptance.
       router.push('/onboarding')
       router.refresh()
     } catch (err) {
@@ -154,7 +153,7 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={signUpWithGoogle}
-            disabled={oauthLoading || isSubmitting}
+            disabled={oauthLoading || isSubmitting || !ndaAcknowledged}
             className="btn-secondary mb-4 w-full py-2.5 gap-3"
           >
             <GoogleIcon />
