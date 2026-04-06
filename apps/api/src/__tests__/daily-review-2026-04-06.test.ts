@@ -2,20 +2,17 @@
  * Daily Review Test Suite — April 6, 2026
  *
  * Tests for the properties route covering:
- *  - Search endpoint validation
- *  - Property detail retrieval
- *  - Report endpoint partial failure resilience
- *  - Quote request creation and validation
- *  - Checklist CRUD operations
- *  - Cache invalidation behavior
+ * - Search endpoint validation
+ * - Property detail retrieval
+ * - Quote request creation and validation
+ * - Checklist CRUD operations
  */
 
 import { propertiesRouter } from '../routes/properties'
 import { prisma } from '../utils/prisma'
 import { Request, Response } from 'express'
 
-// ── Mocks ──────────────────────────────────────────────────────────────────
-
+// Mocks
 jest.mock('../utils/prisma', () => ({
   prisma: {
     property: { findUnique: jest.fn() },
@@ -28,7 +25,7 @@ jest.mock('../utils/prisma', () => ({
       deleteMany: jest.fn(),
       findFirst: jest.fn(),
     },
-    $transaction: jest.fn((fn) => fn(prisma)),
+    $transaction: jest.fn((fn: any) => fn(prisma)),
     $queryRaw: jest.fn(),
   },
 }))
@@ -78,8 +75,7 @@ jest.mock('../middleware/subscription', () => ({
   requireSubscription: (_req: any, _res: any, next: any) => next(),
 }))
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
+// Helpers
 function mockRes(): Response {
   const res = {
     status: jest.fn().mockReturnThis(),
@@ -99,25 +95,19 @@ function mockReq(overrides: Partial<Request> = {}): Request {
   } as unknown as Request
 }
 
-// ── Tests ──────────────────────────────────────────────────────────────────
-
+// Tests
 describe('Properties Router', () => {
   beforeEach(() => jest.clearAllMocks())
 
-  // ── Search validation ────────────────────────────────────────────────
-
+  // Search validation
   describe('GET /search', () => {
     it('returns 400 when no search params provided', async () => {
-      const { searchProperties } = require('../services/propertyService')
       const req = mockReq({ query: {} })
       const res = mockRes()
       const next = jest.fn()
 
-      // Extract the search handler from the router
-      // This tests the Zod validation + missing-param guard
       const handler = (propertiesRouter as any).stack.find(
-        (layer: any) =>
-          layer.route?.path === '/search' && layer.route?.methods?.get
+        (layer: any) => layer.route?.path === '/search' && layer.route?.methods?.get
       )?.route?.stack?.[0]?.handle
 
       if (handler) {
@@ -127,20 +117,16 @@ describe('Properties Router', () => {
           expect.objectContaining({ success: false })
         )
       } else {
-        // If we can't extract the handler, verify the route exists
         expect(propertiesRouter).toBeDefined()
       }
     })
   })
 
-  // ── Property ID param validation ─────────────────────────────────────
-
+  // Property ID param validation
   describe('param :id validation', () => {
     it('rejects undefined property IDs', () => {
       const res = mockRes()
       const next = jest.fn()
-
-      // The param middleware should reject 'undefined'
       const paramHandler = (propertiesRouter as any).params?.id?.[0]
       if (paramHandler) {
         paramHandler(mockReq(), res, next, 'undefined')
@@ -153,7 +139,6 @@ describe('Properties Router', () => {
     it('rejects null string property IDs', () => {
       const res = mockRes()
       const next = jest.fn()
-
       const paramHandler = (propertiesRouter as any).params?.id?.[0]
       if (paramHandler) {
         paramHandler(mockReq(), res, next, 'null')
@@ -166,7 +151,6 @@ describe('Properties Router', () => {
     it('rejects excessively long property IDs (>50 chars)', () => {
       const res = mockRes()
       const next = jest.fn()
-
       const paramHandler = (propertiesRouter as any).params?.id?.[0]
       if (paramHandler) {
         paramHandler(mockReq(), res, next, 'a'.repeat(51))
@@ -179,7 +163,6 @@ describe('Properties Router', () => {
     it('accepts valid property IDs', () => {
       const res = mockRes()
       const next = jest.fn()
-
       const paramHandler = (propertiesRouter as any).params?.id?.[0]
       if (paramHandler) {
         paramHandler(mockReq(), res, next, 'prop-123-abc')
@@ -191,11 +174,9 @@ describe('Properties Router', () => {
     })
   })
 
-  // ── Quote request validation ─────────────────────────────────────────
-
+  // Quote request validation
   describe('POST /:id/quote-request', () => {
     it('validates coverageTypes are from the allowed enum', () => {
-      // The Zod schema should reject invalid coverage types
       const { z } = require('zod')
       const quoteRequestSchema = z.object({
         carrierId: z.string().min(1),
@@ -215,7 +196,6 @@ describe('Properties Router', () => {
         notes: z.string().max(1000).optional(),
       })
 
-      // Valid request
       expect(() =>
         quoteRequestSchema.parse({
           carrierId: 'carrier-1',
@@ -223,7 +203,6 @@ describe('Properties Router', () => {
         })
       ).not.toThrow()
 
-      // Invalid coverage type
       expect(() =>
         quoteRequestSchema.parse({
           carrierId: 'carrier-1',
@@ -231,7 +210,6 @@ describe('Properties Router', () => {
         })
       ).toThrow()
 
-      // Empty coverageTypes
       expect(() =>
         quoteRequestSchema.parse({
           carrierId: 'carrier-1',
@@ -239,26 +217,19 @@ describe('Properties Router', () => {
         })
       ).toThrow()
 
-      // Too many coverageTypes
       expect(() =>
         quoteRequestSchema.parse({
           carrierId: 'carrier-1',
           coverageTypes: [
-            'HOMEOWNERS',
-            'FLOOD',
-            'EARTHQUAKE',
-            'WIND_HURRICANE',
-            'UMBRELLA',
-            'FIRE',
-            'HOMEOWNERS',
+            'HOMEOWNERS', 'FLOOD', 'EARTHQUAKE',
+            'WIND_HURRICANE', 'UMBRELLA', 'FIRE', 'HOMEOWNERS',
           ],
         })
       ).toThrow()
     })
   })
 
-  // ── Checklist validation ─────────────────────────────────────────────
-
+  // Checklist validation
   describe('Checklist schemas', () => {
     it('validates checklist types', () => {
       const { z } = require('zod')
@@ -286,12 +257,10 @@ describe('Properties Router', () => {
         })
       ).not.toThrow()
 
-      // Missing required fields
       expect(() =>
         checklistItemSchema.parse({ id: 'item-1' })
       ).toThrow()
 
-      // Empty label
       expect(() =>
         checklistItemSchema.parse({
           id: 'item-1',
@@ -315,8 +284,8 @@ describe('Properties Router', () => {
       })
 
       const tooManyItems = Array.from({ length: 101 }, (_, i) => ({
-        id: \`item-\${i}\`,
-        label: \`Item \${i}\`,
+        id: 'item-' + i,
+        label: 'Item ' + i,
         checked: false,
       }))
 
@@ -330,8 +299,7 @@ describe('Properties Router', () => {
     })
   })
 
-  // ── Search schema validation ─────────────────────────────────────────
-
+  // Search schema validation
   describe('Search schema', () => {
     it('validates state codes are 2-letter uppercase', () => {
       const { z } = require('zod')
@@ -354,7 +322,7 @@ describe('Properties Router', () => {
       const searchSchema = z.object({
         zip: z
           .string()
-          .regex(/^\\d{5}$/)
+          .regex(/^[0-9]{5}$/)
           .optional(),
       })
 
@@ -365,8 +333,7 @@ describe('Properties Router', () => {
     })
   })
 
-  // ── Save property validation ─────────────────────────────────────────
-
+  // Save property validation
   describe('Save property schema', () => {
     it('validates save request body', () => {
       const { z } = require('zod')
@@ -374,13 +341,12 @@ describe('Properties Router', () => {
         notes: z
           .string()
           .max(500)
-          .transform((s) => s.trim())
+          .transform((s: string) => s.trim())
           .optional(),
         tags: z.array(z.string()).max(10).default([]),
         clientId: z.string().uuid().nullish(),
       })
 
-      // Valid request
       expect(() =>
         saveSchema.parse({
           notes: 'Great property',
@@ -388,19 +354,16 @@ describe('Properties Router', () => {
         })
       ).not.toThrow()
 
-      // Invalid clientId (not UUID)
       expect(() =>
         saveSchema.parse({ clientId: 'not-a-uuid' })
       ).toThrow()
 
-      // Too many tags
       expect(() =>
         saveSchema.parse({
           tags: Array(11).fill('tag'),
         })
       ).toThrow()
 
-      // Notes too long
       expect(() =>
         saveSchema.parse({ notes: 'x'.repeat(501) })
       ).toThrow()
