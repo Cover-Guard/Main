@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { FooterPagesNav, MarketingNav, MarketingFooter } from '@/components/marketing'
+import { MarketingNav, MarketingFooter } from '@/components/marketing'
 
 export const metadata: Metadata = { title: 'Privacy Policy — CoverGuard' }
 
@@ -7,7 +7,6 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <MarketingNav />
-      <FooterPagesNav />
       <div className="mx-auto max-w-3xl px-4 py-12">
         <div className="card p-8 md:p-12">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Privacy Policy</h1>

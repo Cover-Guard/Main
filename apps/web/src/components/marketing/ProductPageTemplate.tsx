@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { MarketingNav } from './MarketingNav'
 import { MarketingFooter } from './MarketingFooter'
-import { FooterPagesNav } from './FooterPagesNav'
 
 export type ProductFeature = {
   icon: LucideIcon
@@ -42,7 +41,6 @@ export function ProductPageTemplate({
   return (
     <div className="min-h-screen bg-white">
       <MarketingNav />
-      <FooterPagesNav />
 
       <section className="pt-16 pb-20 bg-gradient-to-b from-brand-50/50 via-white to-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
