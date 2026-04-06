@@ -1,21 +1,14 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { Shield } from 'lucide-react'
-import { FooterPagesNav } from '@/components/marketing'
+import { FooterPagesNav, MarketingNav, MarketingFooter } from '@/components/marketing'
 
 export const metadata: Metadata = { title: 'Privacy Policy — CoverGuard' }
 
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <FooterPagesNav offsetNav={false} />
+      <MarketingNav />
+      <FooterPagesNav />
       <div className="mx-auto max-w-3xl px-4 py-12">
-        {/* Logo */}
-        <div className="mb-8 flex items-center justify-center gap-2 text-brand-700">
-          <Shield className="h-8 w-8" />
-          <span className="text-2xl font-bold">CoverGuard</span>
-        </div>
-
         <div className="card p-8 md:p-12">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Privacy Policy</h1>
           <p className="mb-8 text-sm text-gray-500">Last updated: March 26, 2026</p>
@@ -270,12 +263,9 @@ export default function PrivacyPage() {
             </section>
           </div>
 
-          <div className="mt-10 border-t border-gray-200 pt-6 flex flex-wrap gap-4">
-            <Link href="/terms" className="text-sm text-brand-600 hover:underline">Terms of Use</Link>
-            <Link href="/login" className="text-sm text-gray-500 hover:underline">← Back to Sign In</Link>
-          </div>
         </div>
       </div>
+      <MarketingFooter />
     </div>
   )
 }
