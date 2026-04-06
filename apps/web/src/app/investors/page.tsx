@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Shield, TrendingUp, Users, MapPin, BarChart3, Mail, ArrowRight, CheckCircle2 } from 'lucide-react'
-import { FooterPagesNav, MarketingNav, MarketingFooter } from '@/components/marketing'
+import { MarketingNav, MarketingFooter } from '@/components/marketing'
 
 export const metadata: Metadata = {
   title: 'Investors — CoverGuard',
@@ -11,7 +11,6 @@ export default function InvestorsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <MarketingNav />
-      <FooterPagesNav />
       {/* Hero */}
       <div className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
         <div className="mx-auto max-w-5xl px-4 py-16 md:py-24">
