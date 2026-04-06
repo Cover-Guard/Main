@@ -31,6 +31,14 @@
  *   - FBI Crime Data Explorer API (requires API key: FBI_CDE_KEY)
  *   - Census Bureau ACS 5-year estimates (poverty/income proxy when FBI unavailable)
  *
+ * ESRI LIVING ATLAS (cross-cutting enrichment for all risk categories)
+ *   - Esri USA Flood Hazard Areas — validates/supplements FEMA flood zones
+ *   - USDA Wildfire Risk to Communities (Esri-hosted) — wildfire hazard potential
+ *   - Esri Historical Hurricane Tracks — IBTrACS storm tracks (Living Atlas)
+ *   - CDC Social Vulnerability Index (Esri-hosted) — community vulnerability context
+ *   - Esri USA Drought Monitor — drought severity (fire risk modifier)
+ *   - USGS Landslide Susceptibility (Esri-hosted) — slope failure risk
+ *
  * SUPPLEMENTAL (cross-cutting)
  *   - FEMA National Risk Index (NRI) — composite risk by census tract
  *   - USGS Karst Map — sinkhole susceptibility
@@ -174,9 +182,35 @@ export async function fetchFloodRisk(lat: number, lng: number, zip: string): Pro
   // Enrich with NOAA sea level rise for coastal properties
   const slrPromise = fetchNoaaSeaLevelRise(lat, lng, floodZoneData)
 
-  await Promise.all([claimsPromise, slrPromise])
+  // Enrich with Esri USA Flood Hazard Areas for cross-validation
+  const esriFloodPromise = fetchEsriFloodHazardEnrichment(lat, lng, floodZoneData)
+
+  await Promise.all([claimsPromise, slrPromise, esriFloodPromise])
 
   return floodZoneData
+}
+
+/** Esri USA Flood Hazard Areas — cross-validates FEMA flood zone when primary data is missing */
+async function fetchEsriFloodHazardEnrichment(lat: number, lng: number, floodZoneData: Partial<FloodRisk>): Promise<void> {
+  if (floodZoneData.floodZone && floodZoneData.floodZone !== 'UNKNOWN') return // already have primary data
+  try {
+    const url = `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Flood_Hazard_Reduced_Set/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=FLD_ZONE,ZONE_SUBTY&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs?.FLD_ZONE) {
+        const zone = attrs.FLD_ZONE as string
+        const sfhaZones = ['A', 'AE', 'AH', 'AO', 'AR', 'A99', 'V', 'VE']
+        const inSFHA = sfhaZones.some((z) => zone.startsWith(z))
+        floodZoneData.floodZone = zone
+        floodZoneData.inSpecialFloodHazardArea = inSFHA
+        floodZoneData.annualChanceOfFlooding = inSFHA ? 1.0 : 0.1
+      }
+    }
+  } catch (err) {
+    logger.warn('Esri USA Flood Hazard enrichment unavailable', { err })
+  }
 }
 
 async function fetchOpenFemaClaims(zip: string, floodZoneData: Partial<FloodRisk>): Promise<void> {
@@ -249,6 +283,13 @@ export interface FireRiskExtended extends Partial<FireRisk> {
   wuiClass?: string | null
   recentFireCount?: number
   nearestFireDistanceMiles?: number | null
+  esriWildfireHazardPotential?: string | null
+  esriWildfireRiskRating?: string | null
+  esriBurningProbability?: number | null
+  esriFlameLength?: number | null
+  esriDroughtLevel?: string | null
+  esriDroughtLabel?: string | null
+  esriDroughtIntensity?: number
 }
 
 export async function fetchFireRisk(lat: number, lng: number, state: string): Promise<FireRiskExtended> {
@@ -267,16 +308,77 @@ export async function fetchFireRisk(lat: number, lng: number, state: string): Pr
     nearestFireDistanceMiles: null,
   }
 
-  // Run all fire data sources in parallel
+  // Run all fire data sources in parallel (including Esri enrichments)
   await Promise.all([
     fetchCalFireFHSZ(lat, lng, state, result),
     fetchUsfsWui(lat, lng, result),
     fetchNifcHistoricalFires(lat, lng, result),
     fetchNearestFireStation(lat, lng, result),
     fetchVegetationDensity(lat, lng, result),
+    fetchEsriWildfireRiskEnrichment(lat, lng, result),
+    fetchEsriDroughtEnrichment(lat, lng, result),
   ])
 
   return result
+}
+
+/** USDA Wildfire Risk to Communities via Esri — enriches fire data with hazard potential */
+async function fetchEsriWildfireRiskEnrichment(lat: number, lng: number, result: FireRiskExtended): Promise<void> {
+  try {
+    const url = `https://apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire/RMRS_WRC_WildfireRisk/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=WHPS_CLASS,RISK_RATING,BP,FL&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        const whpsMap: Record<string, string> = { '1': 'Very Low', '2': 'Low', '3': 'Moderate', '4': 'High', '5': 'Very High' }
+        const whpsClass = String(attrs.WHPS_CLASS ?? '')
+        result.esriWildfireHazardPotential = whpsMap[whpsClass] ?? (attrs.WHPS_CLASS as string) ?? null
+        result.esriWildfireRiskRating = (attrs.RISK_RATING as string) ?? null
+        result.esriBurningProbability = typeof attrs.BP === 'number' ? attrs.BP : null
+        result.esriFlameLength = typeof attrs.FL === 'number' ? attrs.FL : null
+
+        // If Esri wildfire data shows high/very high risk, ensure WUI flag and hazard zone are set
+        if (whpsClass === '4' || whpsClass === '5') {
+          result.wildlandUrbanInterface = true
+          if (!result.fireHazardSeverityZone) {
+            result.fireHazardSeverityZone = whpsClass === '5' ? 'VERY HIGH' : 'HIGH'
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('USDA Wildfire Risk to Communities (Esri) API unavailable', { err })
+  }
+}
+
+/** US Drought Monitor via Esri — drought conditions increase fire risk */
+async function fetchEsriDroughtEnrichment(lat: number, lng: number, result: FireRiskExtended): Promise<void> {
+  try {
+    const url = `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/US_Drought_Intensity_v1/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=dm,Name&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        const dm = typeof attrs.dm === 'number' ? attrs.dm : null
+        const labelMap: Record<number, string> = {
+          0: 'Abnormally Dry', 1: 'Moderate Drought', 2: 'Severe Drought',
+          3: 'Extreme Drought', 4: 'Exceptional Drought',
+        }
+        const dmCodeMap: Record<number, string> = { 0: 'D0', 1: 'D1', 2: 'D2', 3: 'D3', 4: 'D4' }
+        result.esriDroughtLevel = dm != null ? (dmCodeMap[dm] ?? `D${dm}`) : 'None'
+        result.esriDroughtLabel = dm != null ? (labelMap[dm] ?? (attrs.Name as string) ?? null) : 'No drought'
+        result.esriDroughtIntensity = dm != null ? dm + 1 : 0
+      } else {
+        result.esriDroughtLevel = 'None'
+        result.esriDroughtLabel = 'No drought conditions'
+        result.esriDroughtIntensity = 0
+      }
+    }
+  } catch (err) {
+    logger.warn('US Drought Monitor (Esri) API unavailable', { err })
+  }
 }
 
 /** California: Cal Fire FHSZ */
@@ -554,6 +656,10 @@ export interface WindRiskExtended extends Partial<WindRisk> {
   historicalTornadoCount?: number
   historicalHailCount?: number
   historicalHurricaneCount?: number
+  esriHurricaneMaxCategory?: number | null
+  esriHurricaneMaxWind?: number | null
+  esriHurricaneMostRecentYear?: number | null
+  esriHurricaneStormNames?: string[]
 }
 
 export async function fetchWindRisk(lat: number, lng: number, state: string): Promise<WindRiskExtended> {
@@ -577,14 +683,62 @@ export async function fetchWindRisk(lat: number, lng: number, state: string): Pr
     historicalHurricaneCount: 0,
   }
 
-  // Run wind data sources in parallel
+  // Run wind data sources in parallel (including Esri Living Atlas hurricane tracks)
   await Promise.all([
     fetchSloshHurricaneSurge(lat, lng, result),
     fetchSpcStormEvents(lat, lng, result),
     fetchHistoricalHurricaneTracks(lat, lng, result),
+    fetchEsriHurricaneTracksEnrichment(lat, lng, result),
   ])
 
   return result
+}
+
+/** Esri Living Atlas Historical Hurricane Tracks — richer IBTrACS data with storm categories */
+async function fetchEsriHurricaneTracksEnrichment(lat: number, lng: number, result: WindRiskExtended): Promise<void> {
+  if (!result.hurricaneRisk) return
+  try {
+    const bufferDeg = 1.1 // ~75 miles
+    const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
+    const url = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Hurricanes_v1/FeatureServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=Name,Year_,MAX_WIND,MAX_CAT&where=MAX_WIND>=64&resultRecordCount=200&returnGeometry=false&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const tracks = data.features ?? []
+      if (tracks.length > 0) {
+        let maxWind: number | null = null
+        let maxCat: number | null = null
+        let mostRecentYear: number | null = null
+        const names: string[] = []
+
+        for (const t of tracks) {
+          const wind = t.attributes?.MAX_WIND as number | null
+          const cat = t.attributes?.MAX_CAT as number | null
+          const year = t.attributes?.Year_ as number | null
+          const name = t.attributes?.Name as string | null
+
+          if (wind != null && (maxWind == null || wind > maxWind)) maxWind = wind
+          if (cat != null && (maxCat == null || cat > maxCat)) maxCat = cat
+          if (year != null && (mostRecentYear == null || year > mostRecentYear)) mostRecentYear = year
+          if (name && !names.includes(name)) names.push(name)
+        }
+
+        // Update main counts if Esri has more data than NOAA Gulf Atlas
+        result.historicalHurricaneCount = Math.max(result.historicalHurricaneCount ?? 0, tracks.length)
+        result.esriHurricaneMaxCategory = maxCat
+        result.esriHurricaneMaxWind = maxWind
+        result.esriHurricaneMostRecentYear = mostRecentYear
+        result.esriHurricaneStormNames = names.slice(0, 10)
+
+        // Boost design wind speed for areas with major hurricane history
+        if (maxCat != null && maxCat >= 3) {
+          result.designWindSpeed = Math.max(result.designWindSpeed ?? 115, 170)
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('Esri Hurricane Tracks API unavailable', { err })
+  }
 }
 
 /** Compute ASCE 7 design wind speed with more granularity */
@@ -755,6 +909,9 @@ interface FbiAgencyData {
 /** Extended crime result that signals data source used */
 export interface CrimeRiskExtended extends Partial<CrimeRisk> {
   dataSourceUsed?: 'FBI_CDE' | 'CENSUS_ACS' | 'NONE'
+  esriSviOverall?: number | null
+  esriSviRating?: string | null
+  esriSviSocioeconomic?: number | null
 }
 
 export async function fetchCrimeRisk(lat: number, lng: number, zip: string): Promise<CrimeRiskExtended> {
@@ -765,13 +922,47 @@ export async function fetchCrimeRisk(lat: number, lng: number, zip: string): Pro
 
   // Try FBI CDE first (most accurate)
   const fbiResult = await fetchFbiCrimeData(zip)
-  if (fbiResult) return { ...fbiResult, dataSourceUsed: 'FBI_CDE' }
+
+  // Enrich with CDC Social Vulnerability Index via Esri (runs in parallel with primary source)
+  const sviData = await fetchEsriSviEnrichment(lat, lng)
+
+  if (fbiResult) return { ...fbiResult, ...sviData, dataSourceUsed: 'FBI_CDE' }
 
   // Fallback: Census Bureau ACS poverty/income data as crime proxy
   const censusResult = await fetchCensusAcsCrimeProxy(zip)
-  if (censusResult) return { ...censusResult, dataSourceUsed: 'CENSUS_ACS' }
+  if (censusResult) return { ...censusResult, ...sviData, dataSourceUsed: 'CENSUS_ACS' }
 
-  return { dataSourceUsed: 'NONE' }
+  return { ...sviData, dataSourceUsed: 'NONE' }
+}
+
+/** CDC Social Vulnerability Index via Esri — enriches crime context with community vulnerability */
+async function fetchEsriSviEnrichment(lat: number, lng: number): Promise<Partial<CrimeRiskExtended>> {
+  try {
+    const url = `https://services3.arcgis.com/ZvidGQkLaDJxRSJ2/arcgis/rest/services/CDC_SVI_2020/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=RPL_THEMES,RPL_THEME1&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        const overall = typeof attrs.RPL_THEMES === 'number' ? Math.round(attrs.RPL_THEMES * 1000) / 1000 : null
+        let rating: string | null = null
+        if (overall != null) {
+          if (overall >= 0.75) rating = 'Very High'
+          else if (overall >= 0.50) rating = 'High'
+          else if (overall >= 0.25) rating = 'Moderate'
+          else rating = 'Low'
+        }
+        return {
+          esriSviOverall: overall,
+          esriSviRating: rating,
+          esriSviSocioeconomic: typeof attrs.RPL_THEME1 === 'number' ? Math.round(attrs.RPL_THEME1 * 1000) / 1000 : null,
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('CDC SVI (Esri) enrichment unavailable', { err })
+  }
+  return {}
 }
 
 async function fetchFbiCrimeData(zip: string): Promise<Partial<CrimeRisk> | null> {
@@ -1101,6 +1292,248 @@ export async function fetchDamHazard(lat: number, lng: number): Promise<{
     }
   } catch (err) {
     logger.warn('NID Dam Hazard API unavailable', { err })
+  }
+  return null
+}
+
+// ─── Esri Living Atlas Data Sources ──────────────────────────────────────────
+
+/**
+ * Esri USA Flood Hazard Areas (Living Atlas) — cross-validates FEMA flood zones.
+ * Uses Esri's curated USA Flood Hazard Reduced Set for supplemental zone data.
+ */
+export interface EsriFloodHazardResult {
+  esriFloodZone: string | null
+  esriZoneSubtype: string | null
+  esriFloodSource: string | null
+}
+
+export async function fetchEsriFloodHazard(lat: number, lng: number): Promise<EsriFloodHazardResult | null> {
+  try {
+    const url = `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Flood_Hazard_Reduced_Set/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=FLD_ZONE,ZONE_SUBTY,SOURCE_CIT&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        return {
+          esriFloodZone: (attrs.FLD_ZONE as string) ?? null,
+          esriZoneSubtype: (attrs.ZONE_SUBTY as string) ?? null,
+          esriFloodSource: (attrs.SOURCE_CIT as string) ?? null,
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('Esri USA Flood Hazard API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * USDA Wildfire Risk to Communities (Esri-hosted) — provides wildfire hazard potential,
+ * risk rating, and exposure data from USDA Forest Service RMRS.
+ */
+export interface EsriWildfireRiskResult {
+  wildfireHazardPotential: string | null  // 'Very High', 'High', 'Moderate', 'Low', 'Very Low'
+  wildfireRiskRating: string | null
+  burningProbability: number | null       // Annual burn probability
+  flameLength: number | null              // Expected flame length (feet)
+}
+
+export async function fetchEsriWildfireRisk(lat: number, lng: number): Promise<EsriWildfireRiskResult | null> {
+  try {
+    // USDA Forest Service Wildfire Risk to Communities — hosted on Esri ArcGIS
+    const url = `https://apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire/RMRS_WRC_WildfireRisk/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=WHPS_CLASS,RISK_RATING,BP,FL&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        // Map WHPS class to readable label
+        const whpsMap: Record<string, string> = { '1': 'Very Low', '2': 'Low', '3': 'Moderate', '4': 'High', '5': 'Very High' }
+        const whpsClass = String(attrs.WHPS_CLASS ?? '')
+        return {
+          wildfireHazardPotential: whpsMap[whpsClass] ?? (attrs.WHPS_CLASS as string) ?? null,
+          wildfireRiskRating: (attrs.RISK_RATING as string) ?? null,
+          burningProbability: typeof attrs.BP === 'number' ? attrs.BP : null,
+          flameLength: typeof attrs.FL === 'number' ? attrs.FL : null,
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('USDA Wildfire Risk to Communities API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * Esri Historical Hurricane Tracks (Living Atlas) — IBTrACS data with better
+ * coverage and richer attributes than the Gulf Data Atlas service.
+ */
+export interface EsriHurricaneTrackResult {
+  tracksWithin75Miles: number
+  maxWindSpeed: number | null       // knots
+  maxCategory: number | null        // Saffir-Simpson 1-5
+  mostRecentYear: number | null
+  stormNames: string[]
+}
+
+export async function fetchEsriHurricaneTracks(lat: number, lng: number): Promise<EsriHurricaneTrackResult | null> {
+  try {
+    const bufferDeg = 1.1 // ~75 miles
+    const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
+    const url = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/Hurricanes_v1/FeatureServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=Name,Year_,MAX_WIND,MAX_CAT&where=MAX_WIND>=64&resultRecordCount=200&returnGeometry=false&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const tracks = data.features ?? []
+      if (tracks.length > 0) {
+        let maxWind: number | null = null
+        let maxCat: number | null = null
+        let mostRecentYear: number | null = null
+        const names: string[] = []
+
+        for (const t of tracks) {
+          const wind = t.attributes?.MAX_WIND as number | null
+          const cat = t.attributes?.MAX_CAT as number | null
+          const year = t.attributes?.Year_ as number | null
+          const name = t.attributes?.Name as string | null
+
+          if (wind != null && (maxWind == null || wind > maxWind)) maxWind = wind
+          if (cat != null && (maxCat == null || cat > maxCat)) maxCat = cat
+          if (year != null && (mostRecentYear == null || year > mostRecentYear)) mostRecentYear = year
+          if (name && !names.includes(name)) names.push(name)
+        }
+
+        return {
+          tracksWithin75Miles: tracks.length,
+          maxWindSpeed: maxWind,
+          maxCategory: maxCat,
+          mostRecentYear,
+          stormNames: names.slice(0, 10), // limit to 10 most notable
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('Esri Historical Hurricane Tracks API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * CDC Social Vulnerability Index (Esri-hosted) — community vulnerability context.
+ * Higher SVI indicates populations more vulnerable to hazard impacts.
+ */
+export interface EsriSviResult {
+  overallSvi: number | null           // 0-1, higher = more vulnerable
+  socioeconomicSvi: number | null     // Theme 1: socioeconomic status
+  householdSvi: number | null         // Theme 2: household characteristics
+  minoritySvi: number | null          // Theme 3: racial/ethnic minority status
+  housingTypeSvi: number | null       // Theme 4: housing type & transportation
+  sviRating: string | null            // 'Very High', 'High', 'Moderate', 'Low'
+}
+
+export async function fetchEsriSocialVulnerability(lat: number, lng: number): Promise<EsriSviResult | null> {
+  try {
+    const url = `https://services3.arcgis.com/ZvidGQkLaDJxRSJ2/arcgis/rest/services/CDC_SVI_2020/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=RPL_THEMES,RPL_THEME1,RPL_THEME2,RPL_THEME3,RPL_THEME4&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        const overall = typeof attrs.RPL_THEMES === 'number' ? attrs.RPL_THEMES : null
+        let rating: string | null = null
+        if (overall != null) {
+          if (overall >= 0.75) rating = 'Very High'
+          else if (overall >= 0.50) rating = 'High'
+          else if (overall >= 0.25) rating = 'Moderate'
+          else rating = 'Low'
+        }
+        return {
+          overallSvi: overall != null ? Math.round(overall * 1000) / 1000 : null,
+          socioeconomicSvi: typeof attrs.RPL_THEME1 === 'number' ? Math.round(attrs.RPL_THEME1 * 1000) / 1000 : null,
+          householdSvi: typeof attrs.RPL_THEME2 === 'number' ? Math.round(attrs.RPL_THEME2 * 1000) / 1000 : null,
+          minoritySvi: typeof attrs.RPL_THEME3 === 'number' ? Math.round(attrs.RPL_THEME3 * 1000) / 1000 : null,
+          housingTypeSvi: typeof attrs.RPL_THEME4 === 'number' ? Math.round(attrs.RPL_THEME4 * 1000) / 1000 : null,
+          sviRating: rating,
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('CDC SVI (Esri) API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * US Drought Monitor (Esri-hosted) — current drought severity.
+ * Drought conditions significantly increase wildfire risk and affect water supply.
+ */
+export interface EsriDroughtResult {
+  droughtLevel: string | null       // 'D0'-'D4' or 'None'
+  droughtLabel: string | null       // 'Abnormally Dry', 'Moderate', 'Severe', 'Extreme', 'Exceptional'
+  droughtIntensity: number          // 0-5, 0=none, 5=exceptional
+}
+
+export async function fetchEsriDroughtMonitor(lat: number, lng: number): Promise<EsriDroughtResult | null> {
+  try {
+    const url = `https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/US_Drought_Intensity_v1/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=dm,Name&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        const dm = typeof attrs.dm === 'number' ? attrs.dm : null
+        const labelMap: Record<number, string> = {
+          0: 'Abnormally Dry',
+          1: 'Moderate Drought',
+          2: 'Severe Drought',
+          3: 'Extreme Drought',
+          4: 'Exceptional Drought',
+        }
+        const dmCodeMap: Record<number, string> = { 0: 'D0', 1: 'D1', 2: 'D2', 3: 'D3', 4: 'D4' }
+        return {
+          droughtLevel: dm != null ? (dmCodeMap[dm] ?? `D${dm}`) : null,
+          droughtLabel: dm != null ? (labelMap[dm] ?? (attrs.Name as string) ?? null) : null,
+          droughtIntensity: dm != null ? dm + 1 : 0,
+        }
+      }
+    }
+    // No drought features = no current drought
+    return { droughtLevel: 'None', droughtLabel: 'No drought conditions', droughtIntensity: 0 }
+  } catch (err) {
+    logger.warn('US Drought Monitor (Esri) API unavailable', { err })
+  }
+  return null
+}
+
+/**
+ * USGS Landslide Susceptibility (Esri-hosted) — slope failure risk assessment.
+ * Properties on or near steep terrain with susceptible geology face landslide risk.
+ */
+export interface EsriLandslideResult {
+  susceptibility: string | null     // 'High', 'Moderate', 'Low', 'Very Low'
+  inclinationClass: string | null   // Slope classification
+  exposureScore: number | null      // 0-10 scale
+}
+
+export async function fetchEsriLandslideRisk(lat: number, lng: number): Promise<EsriLandslideResult | null> {
+  try {
+    const url = `https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/USA_Landslide_Susceptibility/FeatureServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=SUSCEPTIBILITY,SLOPE_CLASS,EXPOSURE&returnGeometry=false&resultRecordCount=1&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = (await res.json()) as ArcGISFeatureResult
+      const attrs = data.features?.[0]?.attributes
+      if (attrs) {
+        return {
+          susceptibility: (attrs.SUSCEPTIBILITY as string) ?? null,
+          inclinationClass: (attrs.SLOPE_CLASS as string) ?? null,
+          exposureScore: typeof attrs.EXPOSURE === 'number' ? attrs.EXPOSURE : null,
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('USGS Landslide Susceptibility (Esri) API unavailable', { err })
   }
   return null
 }

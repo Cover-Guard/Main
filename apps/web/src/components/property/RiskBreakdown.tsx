@@ -26,6 +26,7 @@ export function RiskBreakdown({ profile }: RiskBreakdownProps) {
         { label: 'Hazard Zone', value: profile.fire.fireHazardSeverityZone },
         { label: 'Wildland-Urban Interface', value: profile.fire.wildlandUrbanInterface ? 'Yes' : 'No' },
         { label: 'Nearest Fire Station', value: profile.fire.nearestFireStation != null ? `${profile.fire.nearestFireStation} mi` : null },
+        { label: 'Vegetation Density', value: profile.fire.vegetationDensity },
       ],
     },
     {
@@ -44,6 +45,8 @@ export function RiskBreakdown({ profile }: RiskBreakdownProps) {
       extras: [
         { label: 'Seismic Zone', value: profile.earthquake.seismicZone },
         { label: 'Nearest Fault', value: profile.earthquake.nearestFaultLine != null ? `${profile.earthquake.nearestFaultLine} mi` : null },
+        { label: 'Soil Type', value: profile.earthquake.soilType },
+        { label: 'Liquefaction Risk', value: profile.earthquake.liquefactionPotential },
       ],
     },
     {
