@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Shield, User, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import NDAReadRequirement from '@/components/auth/NDAReadRequirement'
 
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -25,6 +26,7 @@ export default function RegisterPage() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState(false)
+  const [ndaAcknowledged, setNdaAcknowledged] = useState(false)
 
   const {
     register,
@@ -210,14 +212,16 @@ export default function RegisterPage() {
               </div>
             )}
 
+            <NDAReadRequirement acknowledged={ndaAcknowledged} onAcknowledgedChange={setNdaAcknowledged} />
+
             <p className="text-xs text-gray-500">
-              On the next step you will review and accept the{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>,{' '}
+              By creating an account you also agree to the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a> and{' '}
               <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>,
-              and <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Non-Disclosure Agreement</a> before accessing the platform.
+              which you will review on the next step.
             </p>
 
-            <button type="submit" disabled={isSubmitting || oauthLoading} className="btn-primary w-full py-2.5">
+            <button type="submit" disabled={isSubmitting || oauthLoading || !ndaAcknowledged} className="btn-primary w-full py-2.5">
               {isSubmitting ? 'Creating account\u2026' : 'Create account'}
             </button>
           </form>
