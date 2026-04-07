@@ -69,11 +69,11 @@ const allowedOrigins = (
 
 
 
-/** Check if origin is allowed — supports exact match + *.coverguard.io subdomains. */
+/** Check if origin is allowed — supports exact match + known coverguard.io subdomains + Vercel previews. */
 function isOriginAllowed(origin: string): boolean {
   if (origin.length > 256) return false
   if (allowedOrigins.includes(origin)) return true
-  if (/^https:\/\/[\w-]{1,52}\.coverguard\.io$/.test(origin)) return true
+  if (/^https:\/\/(www|api|app)\.coverguard\.io$/.test(origin)) return true
   if (/^https:\/\/[\w-]{1,52}-cover-guard\.vercel\.app$/.test(origin)) return true
   return false
 }
