@@ -162,7 +162,10 @@ const updateProfileSchema = z.object({
   lastName: z.string().min(1).max(50).optional(),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
-  avatarUrl: z.string().url().max(2048).nullish(),
+  avatarUrl: z.string().max(2048).refine(
+    (val) => /^https?:\/\//.test(val) || val.startsWith('data:'),
+    { message: 'Must be a valid URL or data URI' },
+  ).nullish(),
 })
 
 authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
@@ -256,9 +259,17 @@ authRouter.post('/sync-profile', requireAuthOnly, async (req: Request, res, next
     const meta = (jwt?.user_metadata ?? {}) as Record<string, string | undefined>
     const email = (jwt?.email as string) ?? ''
     const fullName = meta.full_name ?? meta.name ?? ''
+    const oauthAvatar = meta.avatar_url ?? meta.picture ?? null
+    // Backfill avatar from OAuth provider when user has none
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true },
+    })
     const user = await prisma.user.upsert({
       where: { id: userId },
-      update: {},
+      update: existing && !existing.avatarUrl && oauthAvatar
+        ? { avatarUrl: oauthAvatar }
+        : {},
       create: {
         id: userId, email,
         firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
@@ -266,9 +277,9 @@ authRouter.post('/sync-profile', requireAuthOnly, async (req: Request, res, next
         role: toValidRole(meta.role),
         company: meta.company ?? null,
         licenseNumber: meta.licenseNumber ?? null,
-        avatarUrl: meta.avatar_url ?? meta.picture ?? null,
+        avatarUrl: oauthAvatar,
       },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, avatarUrl: true, firstName: true, lastName: true },
     })
     res.json({ success: true, data: user })
   } catch (err) {
