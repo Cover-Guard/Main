@@ -148,6 +148,70 @@ export async function requireAuth(
   }
 }
 
+/**
+ * requireAuthOnly — validates Bearer JWT WITHOUT requiring a database profile.
+ *
+ * Use this middleware for endpoints that must be accessible to authenticated
+ * users who may not yet have a database profile (e.g. sync-profile, which
+ * creates the profile in the first place).
+ *
+ * This avoids the circular dependency where sync-profile needs requireAuth
+ * but requireAuth needs a DB profile that sync-profile is supposed to create.
+ */
+export async function requireAuthOnly(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  const authHeader = req.headers.authorization
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Missing bearer token' },
+    })
+    return
+  }
+
+  const token = authHeader.split(' ')[1]
+
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Malformed bearer token' },
+    })
+    return
+  }
+
+  if (tokenRevocationStore.isRevoked(token)) {
+    res.status(401).json({
+      success: false,
+      error: { code: 'UNAUTHORIZED', message: 'Token has been revoked' },
+    })
+    return
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.getUser(token)
+
+    if (error || !data.user) {
+      res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token' },
+      })
+      return
+    }
+
+    const authReq = req as AuthenticatedRequest
+    authReq.userId = data.user.id
+    // Role is unknown without a DB lookup; default to empty string
+    authReq.userRole = ''
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
+
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthenticatedRequest
