@@ -8,12 +8,12 @@
  * integration named them.
  *
  * IMPORTANT: This file must be imported BEFORE any module that reads env vars
- * (including prisma, supabase client, etc).  In apps/api/src/index.ts, import
+ * (including prisma, supabase client, etc). In apps/api/src/index.ts, import
  * this as the very first side-effectful import:
  *
- *   import './config/env'
- *   import 'dotenv/config'
- *   // ... rest of imports
+ * import './config/env'
+ * import 'dotenv/config'
+ * // ... rest of imports
  */
 
 const LABEL = process.env.SUPABASE_ENV_LABEL ?? 'COVERGUARD_2'
@@ -32,14 +32,14 @@ const MANAGED_VARS = [
 for (const name of MANAGED_VARS) {
   if (process.env[name]) continue
 
-  // Convention 1 — prefix:  LABEL_VARNAME  (Vercel Supabase integration default)
+  // Convention 1 — prefix: LABEL_VARNAME (Vercel Supabase integration default)
   const prefixed = `${LABEL}_${name}`
   if (process.env[prefixed]) {
     process.env[name] = process.env[prefixed]
     continue
   }
 
-  // Convention 2 — suffix:  VARNAME_LABEL
+  // Convention 2 — suffix: VARNAME_LABEL
   const suffixed = `${name}_${LABEL}`
   if (process.env[suffixed]) {
     process.env[name] = process.env[suffixed]
@@ -48,8 +48,11 @@ for (const name of MANAGED_VARS) {
 
 // ─── Soft warnings for optional-but-important API keys ─────────────────────
 // These keys have fallback behaviour (mock data / degraded scoring) but a
-// missing key in production is almost always a misconfiguration.  Log once at
+// missing key in production is almost always a misconfiguration. Log once at
 // startup so it shows up in deployment logs.
+//
+// NOTE: Using console.debug instead of console.warn to reduce log noise on
+// Vercel serverless where every cold start re-triggers these warnings.
 const OPTIONAL_KEYS_WITH_FALLBACK: Array<{ key: string; feature: string }> = [
   { key: 'RENTCAST_API_KEY', feature: 'property data via RentCast (mock fallback when not set)' },
   { key: 'FBI_UCR_API_KEY', feature: 'crime risk scoring (will use heuristic fallback)' },
@@ -57,7 +60,7 @@ const OPTIONAL_KEYS_WITH_FALLBACK: Array<{ key: string; feature: string }> = [
 
 for (const { key, feature } of OPTIONAL_KEYS_WITH_FALLBACK) {
   if (!process.env[key]) {
-    console.warn(`[CoverGuard] WARN: ${key} is not set — ${feature}`)
+    console.debug(`[CoverGuard] ${key} is not set — ${feature}`)
   }
 }
 

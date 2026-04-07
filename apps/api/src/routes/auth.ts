@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { supabaseAdmin } from '../utils/supabaseAdmin'
 import { prisma } from '../utils/prisma'
-import { requireAuth } from '../middleware/auth'
+import { requireAuth, requireAuthOnly } from '../middleware/auth'
 import { tokenCache, tokenRevocationStore } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
@@ -246,7 +246,10 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
 })
 
 // ─── Sync profile (OAuth fallback) ───────────────────────────────────────────
-authRouter.post('/sync-profile', requireAuth, async (req: Request, res, next) => {
+// FIX: Use requireAuthOnly instead of requireAuth to break the circular
+// dependency. requireAuth requires a DB profile to exist, but sync-profile
+// is the endpoint that CREATES the profile for new OAuth users.
+authRouter.post('/sync-profile', requireAuthOnly, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const jwt = decodeJwtPayload(req)
