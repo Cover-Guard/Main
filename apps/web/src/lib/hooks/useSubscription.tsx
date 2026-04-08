@@ -5,15 +5,13 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect,
+  useMemo,
   ReactNode,
 } from 'react'
-import { useAuth } from '@/lib/hooks/useAuth'
 import {
   PlanTier,
   UserType,
   PLANS,
-  canAccessFeature,
   isFeatureLocked,
 } from '@/lib/plans'
 
@@ -35,19 +33,21 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
   undefined
 )
 
-export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth()
-  const [plan, setPlan] = useState<PlanTier>('free')
-  const [userType, setUserType] = useState<UserType>('individual')
+interface SubscriptionProviderProps {
+  children: ReactNode
+  initialPlan?: PlanTier
+  initialUserType?: UserType
+}
+
+export function SubscriptionProvider({
+  children,
+  initialPlan = 'free',
+  initialUserType = 'individual',
+}: SubscriptionProviderProps) {
+  const [plan] = useState<PlanTier>(initialPlan)
+  const [userType] = useState<UserType>(initialUserType)
   const [searchesUsed, setSearchesUsed] = useState(0)
   const [savedCount, setSavedCount] = useState(0)
-
-  useEffect(() => {
-    if (user?.user_metadata) {
-      setPlan((user.user_metadata.plan as PlanTier) || 'free')
-      setUserType((user.user_metadata.user_type as UserType) || 'individual')
-    }
-  }, [user?.user_metadata])
 
   const searchLimit = PLANS[plan].searchLimit
   const saveLimit = PLANS[plan].saveLimit
@@ -75,19 +75,34 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     [plan]
   )
 
-  const value: SubscriptionContextType = {
-    plan,
-    userType,
-    searchesUsed,
-    searchLimit,
-    savedCount,
-    saveLimit,
-    incrementSearch,
-    incrementSaved,
-    canSearch,
-    canSave,
-    isFeatureLocked: isFeatureLockedFn,
-  }
+  const value = useMemo<SubscriptionContextType>(
+    () => ({
+      plan,
+      userType,
+      searchesUsed,
+      searchLimit,
+      savedCount,
+      saveLimit,
+      incrementSearch,
+      incrementSaved,
+      canSearch,
+      canSave,
+      isFeatureLocked: isFeatureLockedFn,
+    }),
+    [
+      plan,
+      userType,
+      searchesUsed,
+      searchLimit,
+      savedCount,
+      saveLimit,
+      incrementSearch,
+      incrementSaved,
+      canSearch,
+      canSave,
+      isFeatureLockedFn,
+    ]
+  )
 
   return (
     <SubscriptionContext.Provider value={value}>
