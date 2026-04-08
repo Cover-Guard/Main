@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, type FormEvent, type KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps'
+import { useMapsLibrary } from '@vis.gl/react-google-maps'
 import { Search, MapPin, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlacePrediction } from '@coverguard/shared'
@@ -20,11 +20,7 @@ export function SearchBar(props: SearchBarProps) {
     return <SearchBarFallback {...props} />
   }
 
-  return (
-    <APIProvider apiKey={GOOGLE_MAPS_KEY} libraries={['places']}>
-      <SearchBarInner {...props} />
-    </APIProvider>
-  )
+  return <SearchBarInner {...props} />
 }
 
 function SearchBarInner({ defaultValue = '', autoFocus, className }: SearchBarProps) {

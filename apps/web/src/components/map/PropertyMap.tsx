@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef, Component, type ReactNode } from 'react'
 import {
-  APIProvider,
   Map,
   AdvancedMarker,
   InfoWindow,
@@ -244,8 +243,7 @@ export function PropertyMap({
   return (
     <div className={`relative overflow-hidden rounded-xl ${className}`}>
       <MapErrorBoundary className={className}>
-        <APIProvider apiKey={GOOGLE_MAPS_KEY}>
-          <MapLoadingGuard>
+        <MapLoadingGuard>
             <Map
               defaultCenter={mapCenter}
               defaultZoom={zoom}
@@ -345,7 +343,6 @@ export function PropertyMap({
               )}
             </Map>
           </MapLoadingGuard>
-        </APIProvider>
       </MapErrorBoundary>
 
       {/* ââ Risk layer control panel âââââââââââââââââââââââââââââââ */}

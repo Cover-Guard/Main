@@ -19,10 +19,23 @@ import type {
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
 
-// Always use same-origin (relative) paths. In production, Next.js rewrites
-// proxy /api/* to the API backend, eliminating CORS. In local dev, the rewrite
-// forwards to http://localhost:4000 (set API_REWRITE_URL in .env.local).
-const API_URL = ''
+// ─── Server-safe base URL ───────────────────────────────────────────────────
+// Client-side: use relative paths (same-origin, proxied by Next.js rewrites).
+// Server-side (SSR / server components): Node.js fetch() requires an absolute
+// URL — there is no `window.location.origin` to resolve against.  Fall back to
+// env vars that Vercel & the dev server provide automatically.
+function getBaseUrl(): string {
+  if (typeof window !== 'undefined') return '' // browser — relative works fine
+
+  // Server-side — need an absolute URL for Node.js fetch()
+  if (process.env.API_REWRITE_URL) return process.env.API_REWRITE_URL
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL
+  // VERCEL_URL is set automatically by Vercel on every deployment
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  return 'http://localhost:3000'
+}
+
+const API_URL = getBaseUrl()
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
