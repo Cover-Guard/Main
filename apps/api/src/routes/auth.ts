@@ -389,6 +389,8 @@ authRouter.post('/sync-profile', requireAuthOnly, async (req: Request, res, next
     res.json({ success: true, data: user })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
+    const catchUserId = (req as AuthenticatedRequest).userId
+    const catchEmail = (decodeJwtPayload(req)?.email as string) ?? ''
     if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('connect')) {
       res.set('Retry-After', '5')
       return res.status(503).json({ error: 'Profile sync temporarily unavailable, please retry' })
@@ -396,8 +398,8 @@ authRouter.post('/sync-profile', requireAuthOnly, async (req: Request, res, next
     // âââ FIX: Catch Prisma unique constraint violations gracefully ââââââââ
     if (msg.includes('Unique constraint') && msg.includes('email')) {
       logger.warn('sync-profile unique constraint violation on email', {
-        userId,
-        email,
+        userId: catchUserId,
+        email: catchEmail,
         error: msg,
       })
       res.status(409).json({
