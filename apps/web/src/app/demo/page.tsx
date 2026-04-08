@@ -1,130 +1,86 @@
-"use client";
+import type { Metadata } from 'next'
+import { MarketingNav, MarketingFooter } from '@/components/marketing'
+import { CheckCircle, Shield, Zap, Clock, BarChart3 } from 'lucide-react'
 
-import { useState } from "react";
+export const metadata: Metadata = {
+  title: 'Book a Demo — CoverGuard',
+  description:
+    'See CoverGuard in action. Book a personalized demo to learn how our AI-powered platform streamlines insurance tracking for real estate professionals.',
+}
 
-const roles = ["Agent/Broker", "Lender", "Investor", "Other"];
-
-const features = [
+const highlights = [
   {
-    label: "5 Risk Categories",
+    icon: Shield,
+    title: 'AI-Powered Tracking',
     description:
-      "Comprehensive coverage analysis across property, liability, auto, workers comp, and umbrella.",
+      'Automatically monitor and verify insurance certificates across your entire portfolio.',
   },
   {
-    label: "150+ Active Carriers",
+    icon: Zap,
+    title: 'Instant Compliance Alerts',
     description:
-      "Instant verification with the largest carrier network in the industry.",
+      'Get notified the moment a policy lapses, expires, or falls out of compliance.',
   },
   {
-    label: "Minutes Not Days",
+    icon: Clock,
+    title: 'Save Hours Weekly',
     description:
-      "Automated tracking replaces weeks of manual follow-ups with real-time monitoring.",
+      'Eliminate manual certificate chasing and reduce administrative overhead by up to 80%.',
   },
   {
-    label: "Free to Start",
+    icon: BarChart3,
+    title: 'Portfolio-Wide Visibility',
     description:
-      "Get started at no cost and scale as your portfolio grows.",
+      'One dashboard to track coverage status across all properties, tenants, and vendors.',
   },
-];
+]
 
 export default function DemoPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    company: "",
-    role: "",
-    phone: "",
-    message: "",
-  });
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setSubmitted(true);
-  };
-
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white to-slate-50">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-blue-50" />
-        <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+    <>
+      <MarketingNav />
+      <main className="min-h-screen bg-white">
+        {/* Hero */}
+        <section className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
+          <div className="mx-auto max-w-5xl px-4 py-20 text-center">
+            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
               See CoverGuard in Action
             </h1>
-            <p className="mt-6 text-lg leading-8 text-gray-600">
-              Schedule a personalized demo and discover how CoverGuard automates
-              insurance tracking, eliminates compliance gaps, and saves your team
-              hours every week.
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-brand-100">
+              Book a personalized demo and discover how CoverGuard helps real
+              estate professionals automate insurance tracking, eliminate
+              compliance gaps, and protect their portfolios.
             </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Form + Features */}
-      <section className="mx-auto max-w-7xl px-6 pb-24 lg:px-8">
-        <div className="grid gap-16 lg:grid-cols-2">
-          {/* Form Card */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-            {submitted ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                  <svg
-                    className="h-8 w-8 text-green-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-semibold text-gray-900">
-                  Thanks, {formData.name}!
-                </h2>
-                <p className="mt-2 text-gray-600">
-                  We&apos;ll be in touch within one business day to schedule your
-                  demo.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <h2 className="text-2xl font-semibold text-gray-900">
-                  Request Your Demo
-                </h2>
+        {/* Form + Highlights */}
+        <section className="mx-auto max-w-6xl px-4 py-20">
+          <div className="grid gap-16 lg:grid-cols-2">
+            {/* Demo Request Form */}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Request Your Demo
+              </h2>
+              <p className="mt-2 text-gray-600">
+                Fill out the form below and a member of our team will reach out
+                to schedule your personalized walkthrough.
+              </p>
 
+              <form className="mt-8 space-y-5">
                 <div>
                   <label
                     htmlFor="name"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Name <span className="text-red-500">*</span>
+                    Full Name
                   </label>
                   <input
+                    type="text"
                     id="name"
                     name="name"
-                    type="text"
                     required
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
                     placeholder="Jane Smith"
                   />
                 </div>
@@ -134,16 +90,14 @@ export default function DemoPage() {
                     htmlFor="email"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Email <span className="text-red-500">*</span>
+                    Work Email
                   </label>
                   <input
+                    type="email"
                     id="email"
                     name="email"
-                    type="email"
                     required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
                     placeholder="jane@company.com"
                   />
                 </div>
@@ -153,17 +107,15 @@ export default function DemoPage() {
                     htmlFor="company"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Company <span className="text-red-500">*</span>
+                    Company
                   </label>
                   <input
+                    type="text"
                     id="company"
                     name="company"
-                    type="text"
                     required
-                    value={formData.company}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="Acme Insurance"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    placeholder="Acme Properties"
                   />
                 </div>
 
@@ -172,24 +124,19 @@ export default function DemoPage() {
                     htmlFor="role"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Role <span className="text-red-500">*</span>
+                    Role
                   </label>
                   <select
                     id="role"
                     name="role"
                     required
-                    value={formData.role}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
                   >
-                    <option value="" disabled>
-                      Select your role
-                    </option>
-                    {roles.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
+                    <option value="">Select your role…</option>
+                    <option value="agent-broker">Agent / Broker</option>
+                    <option value="lender">Lender</option>
+                    <option value="investor">Investor</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
 
@@ -198,16 +145,15 @@ export default function DemoPage() {
                     htmlFor="phone"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Phone <span className="text-gray-400">(optional)</span>
+                    Phone{' '}
+                    <span className="text-gray-400">(optional)</span>
                   </label>
                   <input
+                    type="tel"
                     id="phone"
                     name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="+1 (555) 000-0000"
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    placeholder="(555) 123-4567"
                   />
                 </div>
 
@@ -216,64 +162,75 @@ export default function DemoPage() {
                     htmlFor="message"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Message <span className="text-gray-400">(optional)</span>
+                    Message / Notes{' '}
+                    <span className="text-gray-400">(optional)</span>
                   </label>
                   <textarea
                     id="message"
                     name="message"
                     rows={4}
-                    value={formData.message}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="Tell us about your insurance tracking needs..."
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                    placeholder="Tell us about your portfolio size, current pain points, or anything you'd like to see in the demo…"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60"
+                  className="w-full rounded-lg bg-brand-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors"
                 >
-                  {loading ? "Submitting..." : "Book Your Demo"}
+                  Book My Demo
                 </button>
               </form>
-            )}
-          </div>
+            </div>
 
-          {/* Features */}
-          <div className="flex flex-col justify-center gap-8">
-            <h3 className="text-xl font-semibold text-gray-900">
-              Why teams choose CoverGuard
-            </h3>
-            {features.map((f) => (
-              <div key={f.label} className="flex gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{f.label}</p>
-                  <p className="mt-1 text-sm text-gray-600">
-                    {f.description}
-                  </p>
+            {/* Selling Points */}
+            <div className="flex flex-col justify-center">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Why CoverGuard?
+              </h2>
+              <p className="mt-2 text-gray-600">
+                Join hundreds of real estate professionals who trust CoverGuard
+                to keep their portfolios protected.
+              </p>
+
+              <div className="mt-8 space-y-6">
+                {highlights.map((item) => (
+                  <div key={item.title} className="flex gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50">
+                      <item.icon className="h-5 w-5 text-brand-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {item.title}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-10 rounded-xl border border-brand-100 bg-brand-50 p-6">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      No commitment required
+                    </p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Get a free 30-minute walkthrough tailored to your
+                      workflow. No credit card, no pressure.
+                    </p>
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      </section>
-    </main>
-  );
+        </section>
+      </main>
+      <MarketingFooter />
+    </>
+  )
 }
 
