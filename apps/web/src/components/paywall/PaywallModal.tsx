@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Crown, Check, Zap, X } from 'lucide-react'
+import { Crown, Check, X } from 'lucide-react'
 import { PlanTier, PLANS } from '@/lib/plans'
 
 type PaywallTrigger = 'limit' | 'feature' | 'preview'
