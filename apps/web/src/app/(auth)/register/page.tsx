@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Shield, User, ArrowLeft } from 'lucide-react'
+import { Shield, User, ArrowLeft, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import NDAReadRequirement from '@/components/auth/NDAReadRequirement'
 
@@ -148,6 +148,35 @@ export default function RegisterPage() {
 
           {error && (
             <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          )}
+
+          {/* NDA ACCEPTANCE GATE - prominent banner */}
+          {!ndaAcknowledged && (
+            <div className="mb-5 rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">
+                    NDA Required Before Account Creation
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    You must read and accept the Non-Disclosure Agreement below before you can
+                    create your account with Google or email. This step cannot be skipped.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {ndaAcknowledged && (
+            <div className="mb-5 rounded-xl border-2 border-green-300 bg-green-50 p-4">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-green-600" />
+                <p className="text-sm font-semibold text-green-800">
+                  NDA Accepted \u2014 you may now create your account
+                </p>
+              </div>
+            </div>
           )}
 
           <button
