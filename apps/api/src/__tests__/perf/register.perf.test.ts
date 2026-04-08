@@ -22,6 +22,7 @@ jest.mock('../../utils/prisma', () => ({
   prisma: {
     $queryRawUnsafe: jest.fn(),
     user: {
+      findUnique: jest.fn(),
       upsert: jest.fn(),
     },
   },
@@ -69,6 +70,7 @@ const validBody = {
 
 function setupSuccessMocks() {
   mockPrisma.$queryRawUnsafe.mockResolvedValue([{ '?column?': 1 }])
+  mockPrisma.user.findUnique.mockResolvedValue(null)
   let userCounter = 0
   mockSupabase.auth.admin.createUser.mockImplementation(async () => {
     userCounter++
@@ -230,6 +232,7 @@ describe('register endpoint performance', () => {
   describe('resource efficiency', () => {
     it('does not leak mock call counts across sequential requests', async () => {
       jest.clearAllMocks()
+      setupSuccessMocks()
 
       await request(app).post('/api/auth/register').send(validBody)
       expect(mockPrisma.$queryRawUnsafe).toHaveBeenCalledTimes(1)
@@ -237,12 +240,14 @@ describe('register endpoint performance', () => {
       expect(mockPrisma.user.upsert).toHaveBeenCalledTimes(1)
 
       jest.clearAllMocks()
+      setupSuccessMocks()
       await request(app).post('/api/auth/register').send(validBody)
       expect(mockPrisma.$queryRawUnsafe).toHaveBeenCalledTimes(1)
     })
 
     it('failed DB check does not invoke downstream services', async () => {
       jest.clearAllMocks()
+      setupSuccessMocks()
       mockPrisma.$queryRawUnsafe.mockRejectedValue(new Error('no connection'))
 
       for (let i = 0; i < 10; i++) {

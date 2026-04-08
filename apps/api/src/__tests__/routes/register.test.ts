@@ -23,6 +23,7 @@ jest.mock('../../utils/prisma', () => ({
   prisma: {
     $queryRawUnsafe: jest.fn(),
     user: {
+      findUnique: jest.fn(),
       upsert: jest.fn(),
     },
   },
@@ -75,6 +76,8 @@ describe('POST /api/auth/register', () => {
     jest.clearAllMocks()
     // Default: DB is healthy
     mockPrisma.$queryRawUnsafe.mockResolvedValue([{ '?column?': 1 }])
+    // Default: no existing user with this email
+    mockPrisma.user.findUnique.mockResolvedValue(null)
   })
 
   // ── Validation ──────────────────────────────────────────────────────────
@@ -303,9 +306,9 @@ describe('POST /api/auth/register', () => {
       await request(app).post('/api/auth/register').send(validBody)
 
       const upsertCall = mockPrisma.user.upsert.mock.calls[0][0]
-      expect(upsertCall.create.termsAcceptedAt).toBeUndefined()
-      expect(upsertCall.create.ndaAcceptedAt).toBeUndefined()
-      expect(upsertCall.create.privacyAcceptedAt).toBeUndefined()
+      expect(upsertCall.create.termsAcceptedAt).toBeNull()
+      expect(upsertCall.create.ndaAcceptedAt).toBeNull()
+      expect(upsertCall.create.privacyAcceptedAt).toBeNull()
     })
 
     it('uses upsert to handle trigger race condition', async () => {

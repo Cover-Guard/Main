@@ -22,7 +22,7 @@ function toValidRole(value: unknown): ValidRole {
 }
 
 /** Decode JWT payload to extract user metadata without a network call.
- * Safe to use after requireAuth has already verified the token. */
+ *  Safe to use after requireAuth has already verified the token. */
 function decodeJwtPayload(req: Request): Record<string, unknown> | null {
   try {
     const token = req.headers.authorization?.split(' ')[1]
@@ -49,6 +49,7 @@ function getTokenExpMs(req: Request): number {
   }
 }
 
+// âââ FIX: Updated register schema to accept agreement flags ââââââââââââââââââ
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -57,9 +58,12 @@ const registerSchema = z.object({
   role: z.enum(['BUYER', 'AGENT', 'LENDER']).default('BUYER'),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
+  termsAccepted: z.boolean().optional(),
+  ndaAccepted: z.boolean().optional(),
+  privacyAccepted: z.boolean().optional(),
 })
 
-// ─── Register ───────────────────────────────────────────────────────────────
+// âââ Register âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.post('/register', async (req, res, next) => {
   try {
     const body = registerSchema.parse(req.body)
@@ -77,6 +81,24 @@ authRouter.post('/register', async (req, res, next) => {
       })
       return
     }
+
+    // âââ FIX: Check if a user with this email already exists in the DB âââââââ
+    const existingUser = await prisma.user.findUnique({
+      where: { email: body.email },
+      select: { id: true, email: true },
+    })
+
+    if (existingUser) {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'DUPLICATE_EMAIL',
+          message: 'A user with this email address already exists. Please sign in instead.',
+        },
+      })
+      return
+    }
+    // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: body.email,
@@ -102,6 +124,15 @@ authRouter.post('/register', async (req, res, next) => {
       return
     }
 
+    // âââ FIX: Build acceptance timestamps from boolean flags âââââââââââââââââ
+    const now = new Date()
+    const acceptanceData = {
+      termsAcceptedAt: body.termsAccepted ? now : null,
+      ndaAcceptedAt: body.ndaAccepted ? now : null,
+      privacyAcceptedAt: body.privacyAccepted ? now : null,
+    }
+    // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
     const profileData = {
       email: body.email,
       firstName: body.firstName,
@@ -109,6 +140,7 @@ authRouter.post('/register', async (req, res, next) => {
       role: body.role,
       company: body.company ?? null,
       licenseNumber: body.licenseNumber ?? null,
+      ...acceptanceData,                           // FIX: include timestamps
     }
 
     try {
@@ -118,6 +150,7 @@ authRouter.post('/register', async (req, res, next) => {
         create: { id: authData.user.id, ...profileData },
         select: { id: true, email: true, role: true },
       })
+
       res.status(201).json({ success: true, data: user })
     } catch (profileErr) {
       logger.error('Profile creation failed, rolling back auth user', {
@@ -137,17 +170,26 @@ authRouter.post('/register', async (req, res, next) => {
   }
 })
 
-// ─── Me ──────────────────────────────────────────────────────────────────────
+// âââ Me ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
-        id: true, email: true, firstName: true, lastName: true,
-        role: true, company: true, licenseNumber: true, avatarUrl: true,
-        termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
-        createdAt: true, updatedAt: true,
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        company: true,
+        licenseNumber: true,
+        avatarUrl: true,
+        termsAcceptedAt: true,
+        ndaAcceptedAt: true,
+        privacyAcceptedAt: true,
+        createdAt: true,
+        updatedAt: true,
       },
     })
     res.json({ success: true, data: user })
@@ -156,7 +198,7 @@ authRouter.get('/me', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Update profile ──────────────────────────────────────────────────────────
+// âââ Update profile ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const updateProfileSchema = z.object({
   firstName: z.string().min(1).max(50).optional(),
   lastName: z.string().min(1).max(50).optional(),
@@ -176,10 +218,19 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
       where: { id: userId },
       data: body,
       select: {
-        id: true, email: true, firstName: true, lastName: true,
-        role: true, company: true, licenseNumber: true, avatarUrl: true,
-        termsAcceptedAt: true, ndaAcceptedAt: true, privacyAcceptedAt: true,
-        createdAt: true, updatedAt: true,
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        company: true,
+        licenseNumber: true,
+        avatarUrl: true,
+        termsAcceptedAt: true,
+        ndaAcceptedAt: true,
+        privacyAcceptedAt: true,
+        createdAt: true,
+        updatedAt: true,
       },
     })
     res.json({ success: true, data: user })
@@ -188,7 +239,7 @@ authRouter.patch('/me', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Saved properties ────────────────────────────────────────────────────────
+// âââ Saved properties ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
@@ -197,7 +248,11 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
     const saved = await prisma.savedProperty.findMany({
       where: { userId },
       select: {
-        id: true, notes: true, tags: true, savedAt: true, clientId: true,
+        id: true,
+        notes: true,
+        tags: true,
+        savedAt: true,
+        clientId: true,
         property: { select: PROPERTY_PUBLIC_SELECT },
       },
       orderBy: { savedAt: 'desc' },
@@ -210,7 +265,7 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Accept terms / NDA / privacy ────────────────────────────────────────────
+// âââ Accept terms / NDA / privacy ââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
@@ -232,7 +287,8 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
       where: { id: userId },
       update: agreements,
       create: {
-        id: userId, email,
+        id: userId,
+        email,
         firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
         lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
         role: toValidRole(meta.role),
@@ -242,13 +298,14 @@ authRouter.post('/me/terms', requireAuth, async (req: Request, res, next) => {
       },
       select: { id: true },
     })
+
     res.json({ success: true, data: agreements })
   } catch (err) {
     next(err)
   }
 })
 
-// ─── Sync profile (OAuth fallback) ───────────────────────────────────────────
+// âââ Sync profile (OAuth fallback) âââââââââââââââââââââââââââââââââââââââââââ
 // FIX: Use requireAuthOnly instead of requireAuth to break the circular
 // dependency. requireAuth requires a DB profile to exist, but sync-profile
 // is the endpoint that CREATES the profile for new OAuth users.
@@ -260,39 +317,107 @@ authRouter.post('/sync-profile', requireAuthOnly, async (req: Request, res, next
     const email = (jwt?.email as string) ?? ''
     const fullName = meta.full_name ?? meta.name ?? ''
     const oauthAvatar = meta.avatar_url ?? meta.picture ?? null
+
+    // âââ FIX: Check if a user with this email already exists under a
+    //     different auth ID (e.g. previously registered with password,
+    //     now signing in with Google OAuth). ââââââââââââââââââââââââââââââââ
+    if (email) {
+      const existingByEmail = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      })
+
+      if (existingByEmail && existingByEmail.id !== userId) {
+        logger.warn('OAuth sync-profile blocked: email already belongs to another user', {
+          oauthUserId: userId,
+          existingUserId: existingByEmail.id,
+          email,
+        })
+        res.status(409).json({
+          success: false,
+          error: {
+            code: 'DUPLICATE_EMAIL',
+            message:
+              'An account with this email address already exists. Please sign in with your original method (email/password) or contact support to link your accounts.',
+          },
+        })
+        return
+      }
+    }
+    // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+    // âââ FIX: Read acceptance timestamps from JWT metadata if present ââââ
+    const acceptanceData = {
+      termsAcceptedAt: meta.termsAcceptedAt ? new Date(meta.termsAcceptedAt) : undefined,
+      ndaAcceptedAt: meta.ndaAcceptedAt ? new Date(meta.ndaAcceptedAt) : undefined,
+      privacyAcceptedAt: meta.privacyAcceptedAt ? new Date(meta.privacyAcceptedAt) : undefined,
+    }
+
+    // Strip undefined values so Prisma doesn't overwrite existing timestamps
+    // with undefined on update.
+    const cleanAcceptance = Object.fromEntries(
+      Object.entries(acceptanceData).filter(([, v]) => v !== undefined)
+    )
+    // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
     // Backfill avatar from OAuth provider when user has none
     const existing = await prisma.user.findUnique({
       where: { id: userId },
       select: { avatarUrl: true },
     })
+
     const user = await prisma.user.upsert({
       where: { id: userId },
-      update: existing && !existing.avatarUrl && oauthAvatar
-        ? { avatarUrl: oauthAvatar }
-        : {},
+      update: {
+        ...(existing && !existing.avatarUrl && oauthAvatar ? { avatarUrl: oauthAvatar } : {}),
+        ...cleanAcceptance,                          // FIX: backfill timestamps
+      },
       create: {
-        id: userId, email,
+        id: userId,
+        email,
         firstName: meta.firstName ?? fullName.split(' ')[0] ?? '',
         lastName: meta.lastName ?? fullName.split(' ').slice(1).join(' ') ?? '',
         role: toValidRole(meta.role),
         company: meta.company ?? null,
         licenseNumber: meta.licenseNumber ?? null,
         avatarUrl: oauthAvatar,
+        ...cleanAcceptance,                          // FIX: set timestamps on create
       },
       select: { id: true, email: true, role: true, avatarUrl: true, firstName: true, lastName: true },
     })
+
     res.json({ success: true, data: user })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
+    const catchUserId = (req as AuthenticatedRequest).userId
+    const catchEmail = (decodeJwtPayload(req)?.email as string) ?? ''
     if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('connect')) {
       res.set('Retry-After', '5')
       return res.status(503).json({ error: 'Profile sync temporarily unavailable, please retry' })
     }
+    // âââ FIX: Catch Prisma unique constraint violations gracefully ââââââââ
+    if (msg.includes('Unique constraint') && msg.includes('email')) {
+      logger.warn('sync-profile unique constraint violation on email', {
+        userId: catchUserId,
+        email: catchEmail,
+        error: msg,
+      })
+      res.status(409).json({
+        success: false,
+        error: {
+          code: 'DUPLICATE_EMAIL',
+          message:
+            'An account with this email address already exists. Please sign in with your original method or contact support.',
+        },
+      })
+      return
+    }
+    // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
     next(err)
   }
 })
 
-// ─── Delete account ───────────────────────────────────────────────────────────
+// âââ Delete account âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
@@ -339,7 +464,7 @@ authRouter.delete('/me', requireAuth, async (req: Request, res, next) => {
   }
 })
 
-// ─── Reports ─────────────────────────────────────────────────────────────────
+// âââ Reports âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
@@ -348,7 +473,10 @@ authRouter.get('/me/reports', requireAuth, async (req: Request, res, next) => {
     const reports = await prisma.propertyReport.findMany({
       where: { userId },
       select: {
-        id: true, reportType: true, generatedAt: true, propertyId: true,
+        id: true,
+        reportType: true,
+        generatedAt: true,
+        propertyId: true,
         property: { select: PROPERTY_PUBLIC_SELECT },
       },
       orderBy: { generatedAt: 'desc' },
