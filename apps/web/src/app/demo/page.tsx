@@ -39,7 +39,7 @@ export default function DemoPage() {
   return (
     <>
       <MarketingNav />
-      <main className="min-h-screen bg-white">
+      <main id="main-content" className="min-h-screen bg-white">
         {/* Hero */}
         <section className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
           <div className="mx-auto max-w-5xl px-4 py-20 text-center">
@@ -67,112 +67,126 @@ export default function DemoPage() {
                 to schedule your personalized walkthrough.
               </p>
 
-              <form className="mt-8 space-y-5">
-                <div>
-                  <label
-                    htmlFor="name"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    required
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    placeholder="Jane Smith"
-                  />
-                </div>
+              <form
+                className="mt-8 space-y-5"
+                action="https://formspree.io/f/placeholder"
+                method="POST"
+              >
+                <fieldset>
+                  <legend className="sr-only">Demo request form</legend>
 
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Work Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    required
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    placeholder="jane@company.com"
-                  />
-                </div>
+                  <div className="space-y-5">
+                    <div>
+                      <label
+                        htmlFor="demo-name"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        id="demo-name"
+                        name="name"
+                        required
+                        autoComplete="name"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                        placeholder="Jane Smith"
+                      />
+                    </div>
 
-                <div>
-                  <label
-                    htmlFor="company"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Company
-                  </label>
-                  <input
-                    type="text"
-                    id="company"
-                    name="company"
-                    required
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    placeholder="Acme Properties"
-                  />
-                </div>
+                    <div>
+                      <label
+                        htmlFor="demo-email"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Work Email
+                      </label>
+                      <input
+                        type="email"
+                        id="demo-email"
+                        name="email"
+                        required
+                        autoComplete="email"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                        placeholder="jane@company.com"
+                      />
+                    </div>
 
-                <div>
-                  <label
-                    htmlFor="role"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Role
-                  </label>
-                  <select
-                    id="role"
-                    name="role"
-                    required
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                  >
-                    <option value="">Select your role…</option>
-                    <option value="agent-broker">Agent / Broker</option>
-                    <option value="lender">Lender</option>
-                    <option value="investor">Investor</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
+                    <div>
+                      <label
+                        htmlFor="demo-company"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Company
+                      </label>
+                      <input
+                        type="text"
+                        id="demo-company"
+                        name="company"
+                        required
+                        autoComplete="organization"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                        placeholder="Acme Properties"
+                      />
+                    </div>
 
-                <div>
-                  <label
-                    htmlFor="phone"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Phone{' '}
-                    <span className="text-gray-400">(optional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
+                    <div>
+                      <label
+                        htmlFor="demo-role"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Role
+                      </label>
+                      <select
+                        id="demo-role"
+                        name="role"
+                        required
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                      >
+                        <option value="">Select your role…</option>
+                        <option value="agent-broker">Agent / Broker</option>
+                        <option value="lender">Lender</option>
+                        <option value="investor">Investor</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
 
-                <div>
-                  <label
-                    htmlFor="message"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Message / Notes{' '}
-                    <span className="text-gray-400">(optional)</span>
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    rows={4}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
-                    placeholder="Tell us about your portfolio size, current pain points, or anything you'd like to see in the demo…"
-                  />
-                </div>
+                    <div>
+                      <label
+                        htmlFor="demo-phone"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Phone{' '}
+                        <span className="text-gray-400">(optional)</span>
+                      </label>
+                      <input
+                        type="tel"
+                        id="demo-phone"
+                        name="phone"
+                        autoComplete="tel"
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="demo-message"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Message / Notes{' '}
+                        <span className="text-gray-400">(optional)</span>
+                      </label>
+                      <textarea
+                        id="demo-message"
+                        name="message"
+                        rows={4}
+                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                        placeholder="Tell us about your portfolio size, current pain points, or anything you'd like to see in the demo…"
+                      />
+                    </div>
+                  </div>
+                </fieldset>
 
                 <button
                   type="submit"
@@ -197,7 +211,7 @@ export default function DemoPage() {
                 {highlights.map((item) => (
                   <div key={item.title} className="flex gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50">
-                      <item.icon className="h-5 w-5 text-brand-600" />
+                      <item.icon className="h-5 w-5 text-brand-600" aria-hidden="true" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">
@@ -213,7 +227,7 @@ export default function DemoPage() {
 
               <div className="mt-10 rounded-xl border border-brand-100 bg-brand-50 p-6">
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
                   <div>
                     <p className="font-semibold text-gray-900">
                       No commitment required
