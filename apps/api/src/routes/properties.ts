@@ -4,7 +4,7 @@ import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateP
 import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
-import { getInsurabilityStatus } from '../services/insurabilityServiceh'
+import { getInsurabilityStatus } from '../services/insurabilityService'
 import { getPropertyPublicData } from '../services/publicPropertyDataService'
 import { getOrFetchWalkScore } from '../services/walkscoreService'
 import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } from '../utils/cache'
@@ -19,11 +19,9 @@ import type { Request, Response } from 'express'
 export const propertiesRouter = Router()
 
 // ─── Property ID param validation ────────────────────────────────────────────
-
 propertiesRouter.param('id', (req, res, next, id) => {
   if (!id || id === 'undefined' || id === 'null' || id.length > 50) {
     res.status(400).json({
-      success: false,
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
     })
     return
