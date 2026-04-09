@@ -121,7 +121,7 @@ for (const name of MANAGED_VARS) {
 // NOTE: Using console.debug instead of console.warn to reduce log noise on
 // Vercel serverless where every cold start re-triggers these warnings.
 const OPTIONAL_KEYS_WITH_FALLBACK: Array<{ key: string; feature: string }> = [
-  { key: 'RENTCAST_API_KEY', feature: 'property data via RentCast (mock fallback when not set)' },
+  { key: 'REPILERS_API_KEY', feature: 'property data via Repilers (mock fallback when not set)' },
   { key: 'FBI_UCR_API_KEY', feature: 'crime risk scoring (will use heuristic fallback)' },
 ]
 
