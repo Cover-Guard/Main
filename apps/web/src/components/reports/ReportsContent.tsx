@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { formatCurrency, formatAddress } from '@coverguard/shared'
-import { PropertyReportModal } from '@/components/property/PropertyReportModal'
+import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
 import {
   FileText,
   Search,
@@ -219,7 +219,7 @@ export function ReportsContent() {
 
       {/* Property Report Modal */}
       {selectedProperty && (
-        <PropertyReportModal
+        <PropertyRiskReportModal
           property={selectedProperty}
           open={!!selectedProperty}
           onClose={() => setSelectedProperty(null)}
