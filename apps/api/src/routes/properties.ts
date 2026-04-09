@@ -6,6 +6,7 @@ import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
 import { getPropertyPublicData } from '../services/publicPropertyDataService'
+import { getOrFetchWalkScore } from '../services/walkscoreService'
 import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { requireAuth } from '../middleware/auth'
@@ -18,11 +19,9 @@ import type { Request, Response } from 'express'
 export const propertiesRouter = Router()
 
 // ─── Property ID param validation ────────────────────────────────────────────
-
 propertiesRouter.param('id', (req, res, next, id) => {
   if (!id || id === 'undefined' || id === 'null' || id.length > 50) {
     res.status(400).json({
-      success: false,
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
     })
     return
@@ -194,6 +193,21 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
   }
 })
 
+// ── WalkScore (walkability, transit, bike) ─────────────────────────────────
+
+propertiesRouter.get('/:id/walkscore', async (req, res, next) => {
+    try {
+          const forceRefresh = req.query.refresh === 'true'
+          const data = await getOrFetchWalkScore(req.params.id, forceRefresh)
+
+          if (forceRefresh) setNoCacheHeaders(res)
+          else setCacheHeaders(res, 86400, 3600) // 24h CDN cache (scores change rarely)
+
+          res.json({ success: true, data })
+    } catch (err) {
+          next(err)
+    }
+})
 // ─── Insurance estimate ───────────────────────────────────────────────────────
 
 propertiesRouter.get('/:id/insurance', async (req, res, next) => {
