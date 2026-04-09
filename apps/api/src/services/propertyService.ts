@@ -30,44 +30,29 @@ export async function searchProperties(
   const limit = params.limit ?? 20
   const skip = (page - 1) * limit
 
-  // When a placeId is provided alongside existing filter params (city/state/zip
-  // from the frontend's parseSearchQuery), run the DB lookup and geocode in
-  // parallel. If the DB has results, skip geocoding entirely.
+  // When a placeId is provided, geocode and find/create the exact property.
+  // This ensures the searched address is always the primary result.
   if (params.placeId) {
-    const hasExistingFilter = !!(params.zip || params.state || params.city)
-
-    if (hasExistingFilter) {
-      // Optimistic parallel: attempt DB lookup with existing params while geocode runs
-      const where: Record<string, unknown> = {}
-      if (params.zip) where.zip = params.zip
-      if (params.state) where.state = params.state
-      if (params.city) where.city = { contains: params.city, mode: 'insensitive' }
-
-      const [dbResults, geocoded] = await Promise.all([
-        Promise.all([
-          prisma.property.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: PROPERTY_PUBLIC_SELECT }),
-          prisma.property.count({ where }),
-        ]),
-        geocodeByPlaceId(params.placeId),
+    const geocodedProperty = await geocodeAndCreateProperty(params.placeId, userId)
+    if (geocodedProperty) {
+      const nearbyWhere: Record<string, unknown> = {
+        zip: geocodedProperty.zip,
+        id: { not: geocodedProperty.id },
+      }
+      const [nearby, nearbyCount] = await Promise.all([
+        prisma.property.findMany({
+          where: nearbyWhere,
+          take: Math.max(limit - 1, 0),
+          orderBy: { createdAt: 'desc' },
+          select: PROPERTY_PUBLIC_SELECT,
+        }),
+        prisma.property.count({ where: nearbyWhere }),
       ])
 
-      const [properties, total] = dbResults
-      if (total > 0) {
-        const result = { properties: properties.map(prismaPropertyToDto), total, page, limit }
-        recordSearchHistory(params, userId, total)
-        return result
-      }
-
-      // DB miss — use geocoded data for fallback search
-      if (geocoded) {
-        params = { ...params, address: geocoded.address, city: geocoded.city, state: geocoded.state, zip: geocoded.zip, lat: geocoded.lat, lng: geocoded.lng }
-      }
-    } else {
-      // No existing filter — geocode first to get structured address
-      const geocoded = await geocodeByPlaceId(params.placeId)
-      if (geocoded) {
-        params = { ...params, address: geocoded.address, city: geocoded.city, state: geocoded.state, zip: geocoded.zip, lat: geocoded.lat, lng: geocoded.lng }
-      }
+      const properties = [geocodedProperty, ...nearby.map(prismaPropertyToDto)]
+      const total = 1 + nearbyCount
+      recordSearchHistory(params, userId, total)
+      return { properties, total, page: 1, limit }
     }
   }
 
