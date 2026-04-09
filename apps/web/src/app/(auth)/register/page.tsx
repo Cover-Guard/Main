@@ -6,9 +6,8 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Shield, User, ArrowLeft, AlertTriangle } from 'lucide-react'
+import { Shield, User, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import NDAReadRequirement from '@/components/auth/NDAReadRequirement'
 
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -22,11 +21,10 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export default function RegisterPage() {
-    'use no memo'
+  'use no memo'
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState(false)
-  const [ndaAcknowledged, setNdaAcknowledged] = useState(false)
 
   const {
     register,
@@ -42,7 +40,6 @@ export default function RegisterPage() {
 
   async function onSubmit(data: FormData) {
     setError(null)
-
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -51,10 +48,10 @@ export default function RegisterPage() {
       })
 
       let json: Record<string, unknown>
+
       try {
         const contentType = res.headers.get('content-type') ?? ''
         if (!contentType.includes('application/json')) {
-          // Vercel may serve an HTML error page for 5xx responses
           setError(
             res.status >= 500
               ? 'Service temporarily unavailable. Please try again in a moment.'
@@ -75,14 +72,18 @@ export default function RegisterPage() {
       }
 
       const supabase = createClient()
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password
+      })
+
       if (signInError) {
         setError('Account created but sign-in failed. Please sign in manually.')
         router.push('/login')
         return
       }
 
-      // Redirect to onboarding for terms & privacy acceptance.
+      // Redirect to onboarding for terms, privacy & NDA acceptance.
       router.push('/onboarding')
       router.refresh()
     } catch (err) {
@@ -150,39 +151,10 @@ export default function RegisterPage() {
             <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
 
-          {/* NDA ACCEPTANCE GATE - prominent banner */}
-          {!ndaAcknowledged && (
-            <div className="mb-5 rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-800">
-                    NDA Required Before Account Creation
-                  </p>
-                  <p className="mt-1 text-xs text-amber-700">
-                    You must read and accept the Non-Disclosure Agreement below before you can
-                    create your account with Google or email. This step cannot be skipped.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {ndaAcknowledged && (
-            <div className="mb-5 rounded-xl border-2 border-green-300 bg-green-50 p-4">
-              <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-green-600" />
-                <p className="text-sm font-semibold text-green-800">
-                  NDA Accepted \u2014 you may now create your account
-                </p>
-              </div>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={signUpWithGoogle}
-            disabled={oauthLoading || isSubmitting || !ndaAcknowledged}
+            disabled={oauthLoading || isSubmitting}
             className="btn-secondary mb-4 w-full py-2.5 gap-3"
           >
             <GoogleIcon />
@@ -225,7 +197,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="label">I am a\u2026</label>
+              <label className="label">I am a&hellip;</label>
               <select className="input mt-1" {...register('role')}>
                 <option value="BUYER">Home Buyer</option>
                 <option value="AGENT">Real Estate Agent</option>
@@ -240,16 +212,19 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <NDAReadRequirement acknowledged={ndaAcknowledged} onAcknowledgedChange={setNdaAcknowledged} />
-
             <p className="text-xs text-gray-500">
-              By creating an account you also agree to the{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a> and{' '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>,
+              By creating an account you agree to the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>,{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>, and{' '}
+              <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">NDA</a>,
               which you will review on the next step.
             </p>
 
-            <button type="submit" disabled={isSubmitting || oauthLoading || !ndaAcknowledged} className="btn-primary w-full py-2.5">
+            <button
+              type="submit"
+              disabled={isSubmitting || oauthLoading}
+              className="btn-primary w-full py-2.5"
+            >
               {isSubmitting ? 'Creating account\u2026' : 'Create account'}
             </button>
           </form>
