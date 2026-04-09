@@ -11,7 +11,7 @@ import {
 import type { Property, PropertyRiskProfile, RiskLevel } from '@coverguard/shared'
 import {
   MapPin,
-  Layers,
+  Layers,h
   AlertTriangle,
   Droplets,
   Flame,
@@ -19,7 +19,7 @@ import {
   Activity,
   ShieldAlert,
   Eye,
-  EyeOff,
+  EyeOff,h
 } from 'lucide-react'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
@@ -270,8 +270,8 @@ export function PropertyMap({
               gestureHandling="greedy"
               disableDefaultUI={false}
               style={{ width: '100%', height: '100%' }}
-              <MapController center={mapCenter} zoom={zoom} />
             >
+              <MapController center={mapCenter} zoom={zoom} />
               {/* ââ GIS tile overlays (real geographic data) ââââââââââââ */}
               {Array.from(activeLayers).flatMap((layer) => {
                 const services = ARCGIS_TILE_SERVICES[layer]
