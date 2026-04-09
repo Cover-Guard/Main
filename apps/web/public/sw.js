@@ -62,6 +62,7 @@ self.addEventListener('fetch', event => {
     url.hostname.endsWith('.googleapis.com') ||
     url.hostname.endsWith('.gstatic.com') ||
     url.hostname.endsWith('.google.com') ||
+    url.hostname.endsWith('.googleusercontent.com') ||
     url.hostname.endsWith('.arcgis.com') ||
     url.hostname.endsWith('.fema.gov') ||
     url.hostname.endsWith('.usda.gov') ||
