@@ -152,6 +152,25 @@ function riskLevelBadgeColor(level: RiskLevel): string {
   }
 }
 
+
+/** Imperatively re-centres the map when the computed center changes. */
+function MapController({ center, zoom }: { center: { lat: number; lng: number }; zoom: number }) {
+  const map = useMap()
+  const prevCenterRef = useRef(center)
+
+  useEffect(() => {
+    if (!map) return
+    const prev = prevCenterRef.current
+    if (prev.lat !== center.lat || prev.lng !== center.lng) {
+      map.panTo(center)
+      map.setZoom(zoom)
+      prevCenterRef.current = center
+    }
+  }, [map, center, zoom])
+
+  return null
+}
+
 export function PropertyMap({
   properties = [],
   selectedProperty,
@@ -252,6 +271,7 @@ export function PropertyMap({
               disableDefaultUI={false}
               style={{ width: '100%', height: '100%' }}
             >
+              <MapController center={mapCenter} zoom={zoom} />
               {/* ââ GIS tile overlays (real geographic data) ââââââââââââ */}
               {Array.from(activeLayers).flatMap((layer) => {
                 const services = ARCGIS_TILE_SERVICES[layer]
@@ -722,3 +742,4 @@ function MapLoadingGuard({ children }: { children: ReactNode }) {
   }
   return <>{children}</>
 }
+
