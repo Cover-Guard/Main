@@ -21,7 +21,7 @@ import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
 // ─── Startup environment validation ────────────────────────────────────────
 // config/env.ts (imported above) has already normalised prefixed Supabase vars
-// and emitted soft warnings for optional keys (RENTCAST_API_KEY, FBI_UCR_API_KEY).
+// and emitted soft warnings for optional keys (REPILERS_API_KEY, FBI_UCR_API_KEY).
 const hasDbUrl = !!(
   process.env.DATABASE_URL ??
   process.env.POSTGRES_PRISMA_URL ??
