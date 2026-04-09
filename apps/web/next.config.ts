@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
       },
     ]
   },
-  async headers() {h
+  async headers() {
     return [
       // Service worker must be served from root scope with correct headers
       {
