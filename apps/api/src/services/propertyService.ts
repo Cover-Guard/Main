@@ -73,12 +73,13 @@ export async function searchProperties(
 
   // Build DB filter
   const where: Record<string, unknown> = {}
+  if (params.address) where.address = { contains: params.address, mode: 'insensitive' }
   if (params.zip) where.zip = params.zip
   if (params.state) where.state = params.state
   if (params.city) where.city = { contains: params.city, mode: 'insensitive' }
 
   // Only attempt DB lookup when we have at least one indexed filter
-  const hasFilter = !!(params.zip || params.state || params.city)
+  const hasFilter = !!(params.address || params.zip || params.state || params.city)
 
   if (hasFilter) {
     // Run count + page fetch in parallel (both use the same WHERE)
