@@ -11,7 +11,7 @@ import {
 import type { Property, PropertyRiskProfile, RiskLevel } from '@coverguard/shared'
 import {
   MapPin,
-  Layers,h
+  Layers,
   AlertTriangle,
   Droplets,
   Flame,
@@ -19,7 +19,7 @@ import {
   Activity,
   ShieldAlert,
   Eye,
-  EyeOff,h
+  EyeOff,
 } from 'lucide-react'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
