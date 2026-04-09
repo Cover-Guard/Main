@@ -1,20 +1,22 @@
 'use client'
 
-import { type ReactNode, useState, useEffect } from 'react'
+import { type ReactNode, useSyncExternalStore } from 'react'
 import { APIProvider } from '@vis.gl/react-google-maps'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
+
+const emptySubscribe = () => () => {}
 
 interface GoogleMapsProviderProps {
   children: ReactNode
 }
 
 export function GoogleMapsProvider({ children }: GoogleMapsProviderProps) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  )
 
   // During SSR and initial hydration, render children without APIProvider
   // to prevent hydration mismatch (React error #418) caused by Google Maps
