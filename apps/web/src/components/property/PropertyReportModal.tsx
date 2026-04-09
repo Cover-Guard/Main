@@ -91,7 +91,7 @@ export function PropertyRiskReportModal({
 
   const fetchReport = useCallback(() => {
     dispatch({ type: 'FETCH' })
-    getPropertyReport(property)
+    getPropertyReport(property.id)
       .then((data: ReportData) => dispatch({ type: 'SUCCESS', data }))
       .catch((err: unknown) =>
         dispatch({
@@ -103,7 +103,7 @@ export function PropertyRiskReportModal({
   const fetchCompare = useCallback(() => {
     if (!compareProperty) return
     compareDispatch({ type: 'FETCH' })
-    getPropertyReport(compareProperty)
+    getPropertyReport(compareProperty.id)
       .then((data: ReportData) => compareDispatch({ type: 'SUCCESS', data }))
       .catch((err: unknown) =>
         compareDispatch({
