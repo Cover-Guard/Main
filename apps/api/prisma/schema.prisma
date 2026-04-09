@@ -150,6 +150,15 @@ model RiskProfile {
   generatedAt DateTime @default(now())
   expiresAt   DateTime
 
+  // WalkScore
+  walkScore              Int?
+  walkScoreDescription   String?
+  transitScore           Int?
+  transitScoreDescription String?
+  bikeScore              Int?
+  bikeScoreDescription   String?
+  walkScoreFetchedAt     DateTime?
+
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
