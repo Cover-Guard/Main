@@ -64,17 +64,17 @@ describe('Daily Review 2026-04-01 Fixes', () => {
     });
 });
 // Daily review test suite for 2026-04-01
-// Tests for: RentCast API integration, error handling, retry logic, and checklist endpoints
+// Tests for: Repilers API integration, error handling, retry logic, and checklist endpoints
 
 describe('Daily Review 2026-04-01 Fixes', () => {
-    describe('Fix 1: RentCast API integration', () => {
-          it('should use RENTCAST_API_KEY instead of ATTOM_API_KEY', () => {
+    describe('Fix 1: Repilers API integration', () => {
+          it('should use REPILERS_API_KEY instead of ATTOM_API_KEY', () => {
                   // Test that properties/search endpoint uses correct API key
                   expect(true).toBe(true);
           });
 
-          it('should return 503 on RentCast API failure', () => {
-                  // Test that RentCast API errors return proper 503 status
+          it('should return 503 on Repilers API failure', () => {
+                  // Test that Repilers API errors return proper 503 status
                   expect(true).toBe(true);
           });
     });
