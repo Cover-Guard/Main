@@ -3,6 +3,8 @@
 import type {
   PropertyRiskProfile,
   InsuranceCostEstimate as IInsuranceCostEstimate,
+  CoverageType,
+  RiskFactor,
 } from '@coverguard/shared'
 import { formatCurrency } from '@coverguard/shared'
 import {
@@ -29,54 +31,33 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   crime: ShieldAlert,
 }
 
+const CATEGORY_TO_COVERAGE: Record<string, CoverageType> = {
+  flood: 'FLOOD',
+  fire: 'FIRE',
+  earthquake: 'EARTHQUAKE',
+  wind: 'WIND_HURRICANE',
+}
+
+type RiskCategoryKey = 'flood' | 'fire' | 'earthquake' | 'wind' | 'crime'
+
 function getRiskLevel(
   profile: PropertyRiskProfile,
   category: string,
 ): { score: number; label: string } | null {
-  const risks = profile.risks ?? profile.categories
-  if (!risks) return null
-  const entry = Array.isArray(risks)
-    ? risks.find(
-        (r: { name?: string; category?: string }) =>
-          (r.name ?? r.category ?? '').toLowerCase() === category,
-      )
-    : (risks as Record<string, unknown>)[category]
-  if (!entry) return null
-  const score =
-    typeof entry === 'object' && entry !== null
-      ? ((entry as Record<string, unknown>).score as number) ??
-        ((entry as Record<string, unknown>).level as number) ?? 0
-      : 0
-  const label =
-    typeof entry === 'object' && entry !== null
-      ? ((entry as Record<string, string>).label ??
-        (entry as Record<string, string>).severity ?? '')
-      : ''
-  return { score, label }
+  const factor: RiskFactor | undefined =
+    profile[category as RiskCategoryKey] as RiskFactor | undefined
+  if (!factor) return null
+  return { score: factor.score, label: factor.level ?? '' }
 }
 
 function getCostForCategory(
   estimate: IInsuranceCostEstimate,
   category: string,
 ): number | null {
-  const breakdown = estimate.breakdown ?? estimate.costByRisk ?? estimate.categories
-  if (!breakdown) return null
-  if (Array.isArray(breakdown)) {
-    const match = breakdown.find(
-      (b: { name?: string; category?: string }) =>
-        (b.name ?? b.category ?? '').toLowerCase() === category,
-    )
-    return match
-      ? ((match as Record<string, unknown>).cost as number) ??
-          ((match as Record<string, unknown>).premium as number) ?? null
-      : null
-  }
-  const entry = (breakdown as Record<string, unknown>)[category]
-  if (typeof entry === 'number') return entry
-  if (typeof entry === 'object' && entry !== null)
-    return ((entry as Record<string, unknown>).cost as number) ??
-      ((entry as Record<string, unknown>).premium as number) ?? null
-  return null
+  const coverageType = CATEGORY_TO_COVERAGE[category]
+  if (!coverageType) return null
+  const match = estimate.coverages?.find((c) => c.type === coverageType)
+  return match?.averageAnnualPremium ?? null
 }
 
 function riskScoreColor(score: number): string {
@@ -98,6 +79,7 @@ export function RiskCostCard({ category, meta, riskProfile, costEstimate }: Risk
         </div>
         <span className={`text-sm font-semibold ${meta.color}`}>{meta.label}</span>
       </div>
+
       {risk && (
         <div className="mb-3">
           <div className="flex justify-between items-center mb-1">
@@ -114,6 +96,7 @@ export function RiskCostCard({ category, meta, riskProfile, costEstimate }: Risk
           </div>
         </div>
       )}
+
       <div className="pt-2 border-t border-gray-200/60">
         <span className="text-xs text-gray-500 block">Annual Premium</span>
         <span className="text-lg font-bold text-gray-900">
