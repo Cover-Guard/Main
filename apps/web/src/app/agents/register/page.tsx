@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Shield, Users, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import NDAReadRequirement from '@/components/auth/NDAReadRequirement'
 
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -23,18 +22,20 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export default function AgentRegisterPage() {
-    'use no memo'
+  'use no memo'
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [oauthLoading, setOauthLoading] = useState(false)
-  const [ndaAcknowledged, setNdaAcknowledged] = useState(false)
 
   const {
     register,
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { role: 'AGENT' } })
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { role: 'AGENT' }
+  })
 
   const role = watch('role')
 
@@ -48,6 +49,7 @@ export default function AgentRegisterPage() {
       })
 
       let json: Record<string, unknown>
+
       try {
         const contentType = res.headers.get('content-type') ?? ''
         if (!contentType.includes('application/json')) {
@@ -71,14 +73,18 @@ export default function AgentRegisterPage() {
       }
 
       const supabase = createClient()
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password })
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password
+      })
+
       if (signInError) {
         setError('Account created but sign-in failed. Please sign in manually.')
         router.push('/agents/login')
         return
       }
 
-      // Redirect to onboarding for terms & privacy acceptance
+      // Redirect to onboarding for terms, privacy & NDA acceptance
       router.push('/onboarding')
       router.refresh()
     } catch (err) {
@@ -91,8 +97,7 @@ export default function AgentRegisterPage() {
     setOauthLoading(true)
     try {
       const supabase = createClient()
-      const redirectTo =
-        `${window.location.origin}/api/auth/callback?next=/dashboard&role=${role}`
+      const redirectTo = `${window.location.origin}/api/auth/callback?next=/dashboard&role=${role}`
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo },
@@ -120,7 +125,7 @@ export default function AgentRegisterPage() {
           <h2 className="text-3xl font-bold text-white">Join 2,400+ agents already using CoverGuard</h2>
           <p className="mt-3 text-brand-300">Start identifying insurability issues before your clients are under contract.</p>
         </div>
-        <p className="text-xs text-brand-500">© {new Date().getFullYear()} CoverGuard</p>
+        <p className="text-xs text-brand-500">&copy; {new Date().getFullYear()} CoverGuard</p>
       </div>
 
       {/* Right form panel */}
@@ -135,7 +140,7 @@ export default function AgentRegisterPage() {
             <h1 className="text-2xl font-bold text-gray-900">Create agent account</h1>
             <p className="mt-1 text-sm text-gray-500">
               Home buyer?{' '}
-              <Link href="/register" className="text-brand-600 hover:underline">Consumer sign-up →</Link>
+              <Link href="/register" className="text-brand-600 hover:underline">Consumer sign-up &rarr;</Link>
             </p>
           </div>
 
@@ -146,11 +151,11 @@ export default function AgentRegisterPage() {
           <button
             type="button"
             onClick={signUpWithGoogle}
-            disabled={oauthLoading || isSubmitting || !ndaAcknowledged}
+            disabled={oauthLoading || isSubmitting}
             className="btn-secondary mb-4 w-full py-2.5 gap-3"
           >
             <GoogleIcon />
-            {oauthLoading ? 'Redirecting…' : 'Continue with Google'}
+            {oauthLoading ? 'Redirecting\u2026' : 'Continue with Google'}
           </button>
 
           <div className="relative mb-4">
@@ -198,7 +203,7 @@ export default function AgentRegisterPage() {
 
             <div>
               <label className="label">Company / Brokerage</label>
-              <input className="input mt-1" placeholder="e.g. Keller Williams, RE/MAX…" {...register('company')} />
+              <input className="input mt-1" placeholder="e.g. Keller Williams, RE/MAX&hellip;" {...register('company')} />
               {errors.company && <p className="mt-1 text-xs text-red-600">{errors.company.message}</p>}
             </div>
 
@@ -209,17 +214,20 @@ export default function AgentRegisterPage() {
               </div>
             )}
 
-            <NDAReadRequirement acknowledged={ndaAcknowledged} onAcknowledgedChange={setNdaAcknowledged} />
-
             <p className="text-xs text-gray-500">
-              By creating an account you also agree to the{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a> and{' '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>,
+              By creating an account you agree to the{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Terms of Service</a>,{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Privacy Policy</a>, and{' '}
+              <a href="/nda" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">NDA</a>,
               which you will review on the next step.
             </p>
 
-            <button type="submit" disabled={isSubmitting || oauthLoading || !ndaAcknowledged} className="btn-primary w-full py-2.5">
-              {isSubmitting ? 'Creating account…' : 'Create Agent Account'}
+            <button
+              type="submit"
+              disabled={isSubmitting || oauthLoading}
+              className="btn-primary w-full py-2.5"
+            >
+              {isSubmitting ? 'Creating account\u2026' : 'Create Agent Account'}
             </button>
           </form>
         </div>
