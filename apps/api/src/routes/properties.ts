@@ -4,8 +4,9 @@ import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateP
 import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
-import { getInsurabilityStatus } from '../services/insurabilityService'
+import { getInsurabilityStatus } from '../services/insurabilityServiceh'
 import { getPropertyPublicData } from '../services/publicPropertyDataService'
+import { getOrFetchWalkScore } from '../services/walkscoreService'
 import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { requireAuth } from '../middleware/auth'
@@ -194,6 +195,21 @@ propertiesRouter.get('/:id/risk', async (req, res, next) => {
   }
 })
 
+// ── WalkScore (walkability, transit, bike) ─────────────────────────────────
+
+propertiesRouter.get('/:id/walkscore', async (req, res, next) => {
+    try {
+          const forceRefresh = req.query.refresh === 'true'
+          const data = await getOrFetchWalkScore(req.params.id, forceRefresh)
+
+          if (forceRefresh) setNoCacheHeaders(res)
+          else setCacheHeaders(res, 86400, 3600) // 24h CDN cache (scores change rarely)
+
+          res.json({ success: true, data })
+    } catch (err) {
+          next(err)
+    }
+})
 // ─── Insurance estimate ───────────────────────────────────────────────────────
 
 propertiesRouter.get('/:id/insurance', async (req, res, next) => {
