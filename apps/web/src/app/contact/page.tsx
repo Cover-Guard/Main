@@ -49,10 +49,10 @@ export default function ContactPage() {
     <>
       <MarketingNav />
       <main className="min-h-screen bg-white">
-        <section className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
-          <div className="mx-auto max-w-5xl px-4 py-20 text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">Contact Us</h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-brand-100">Have a question, want a demo, or interested in partnering? We would love to hear from you.</p>
+        <section className="bg-gradient-to-b from-brand-50/50 via-white to-white pt-32 pb-16 sm:pt-40 sm:pb-20">
+          <div className="mx-auto max-w-5xl px-4 text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">Contact Us</h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">Have a question, want a demo, or interested in partnering? We would love to hear from you.</p>
           </div>
         </section>
 
