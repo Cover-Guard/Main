@@ -6,8 +6,6 @@ import { usePathname } from 'next/navigation'
 import {
   Search,
   LayoutDashboard,
-  Users,
-
   Wrench,
   BarChart2,
   Settings,
@@ -17,6 +15,7 @@ import {
   X,
   Menu,
   LogOut,
+  HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
@@ -27,12 +26,11 @@ import { createClient } from '@/lib/supabase/client'
 import type { User } from '@coverguard/shared'
 
 const navItems = [
-  { href: '/check',     label: 'Search a Property',  icon: Search,          exact: true },
+  { href: '/check',     label: 'Search',     icon: Search,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
-  { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
   { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },
-  { href: '/account',   label: 'Settings',   icon: Settings,        exact: false },
+  { href: '/help',      label: 'Help',       icon: HelpCircle,      exact: false },
 ]
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
@@ -121,7 +119,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 py-2 px-2 space-y-0.5">
             {navItems.map(({ href, label, icon: Icon, exact }) => {
               const active = isActive(href, exact)
-              const isNewCheck = label === 'Search a Property'
+              const isNewCheck = href === '/check'
               return (
                 <Link
                   key={href}
@@ -146,33 +144,53 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          {/* User profile footer */}
+          {/* User profile footer with settings */}
           {user && (
             <div className="border-t border-white/10 px-2 py-2">
               {collapsed ? (
-                <button
-                  onClick={handleSignOut}
-                  title="Sign out"
-                  className="w-full flex justify-center p-2 rounded-md text-white/50 hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 px-1 py-1">
-                  <div className="h-7 w-7 shrink-0 rounded-full bg-teal-500 flex items-center justify-center text-[10px] font-bold text-white">
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-semibold text-white truncate">{displayName}</p>
-                    <p className="text-[9px] text-white/65 capitalize truncate">{user.role?.toLowerCase()}</p>
-                  </div>
+                <div className="flex flex-col items-center gap-1">
+                  <Link
+                    href="/account"
+                    title="Settings"
+                    className="w-full flex justify-center p-2 rounded-md text-white/50 hover:text-white hover:bg-white/5 transition-colors"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Link>
                   <button
                     onClick={handleSignOut}
                     title="Sign out"
-                    className="text-white/65 hover:text-white transition-colors shrink-0"
+                    className="w-full flex justify-center p-2 rounded-md text-white/50 hover:text-white hover:bg-white/5 transition-colors"
                   >
-                    <LogOut className="h-3.5 w-3.5" />
+                    <LogOut className="h-4 w-4" />
                   </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 px-1 py-1">
+                    <div className="h-7 w-7 shrink-0 rounded-full bg-teal-500 flex items-center justify-center text-[10px] font-bold text-white">
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-semibold text-white truncate">{displayName}</p>
+                      <p className="text-[9px] text-white/65 capitalize truncate">{user.role?.toLowerCase()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Link
+                      href="/account"
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <Settings className="h-3 w-3" />
+                      Settings
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                    >
+                      <LogOut className="h-3 w-3" />
+                      Sign out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

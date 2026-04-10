@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { useRef } from 'react'
-import type { User } from '@coverguard/shared'
-import { getMe, updateMe, deleteAccount } from '@/lib/api'
+import type { User, SubscriptionState } from '@coverguard/shared'
+import { getMe, updateMe, deleteAccount, getSubscriptionState, createPortalSession } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
 import {
   Settings, Shield, FileText, Trash2, Edit2, Check, X, Loader2,
   LogOut, Eye, EyeOff, Save, Bell, ChevronDown, ChevronUp, User as UserIcon,
-  AlertTriangle, Lock, Calendar, BadgeCheck, Camera,
+  AlertTriangle, Lock, Calendar, BadgeCheck, Camera, CreditCard, ExternalLink,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'account' | 'notifications' | 'legal' | 'delete'
+type Tab = 'account' | 'subscription' | 'notifications' | 'legal' | 'delete'
 
 interface NotificationPrefs {
   riskAlerts: boolean
@@ -251,9 +251,13 @@ export function AccountSettings() {
   const [pwError, setPwError] = useState<string | null>(null)
   const [pwSaved, setPwSaved] = useState(false)
 
-  // Notifications (stored in localStorage)
+  // Notifications (persisted to Supabase user_metadata + localStorage fallback)
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS)
   const [notifSaved, setNotifSaved] = useState(false)
+
+  // Subscription
+  const [subState, setSubState] = useState<SubscriptionState | null>(null)
+  const [portalLoading, setPortalLoading] = useState(false)
 
   // Delete account
   const [deleteInput, setDeleteInput] = useState('')
@@ -274,11 +278,27 @@ export function AccountSettings() {
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load account details'))
       .finally(() => setLoading(false))
 
-    // Load notification prefs from localStorage
-    try {
-      const stored = localStorage.getItem('cg_notif_prefs')
-      if (stored) setNotifPrefs({ ...DEFAULT_NOTIF_PREFS, ...JSON.parse(stored) })
-    } catch {}
+    // Load notification prefs: try Supabase user_metadata first, then localStorage fallback
+    ;(async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user: supaUser } } = await supabase.auth.getUser()
+        const meta = supaUser?.user_metadata?.notificationPrefs
+        if (meta && typeof meta === 'object') {
+          setNotifPrefs({ ...DEFAULT_NOTIF_PREFS, ...meta })
+          return
+        }
+      } catch {}
+      try {
+        const stored = localStorage.getItem('cg_notif_prefs')
+        if (stored) setNotifPrefs({ ...DEFAULT_NOTIF_PREFS, ...JSON.parse(stored) })
+      } catch {}
+    })()
+
+    // Load subscription state
+    getSubscriptionState()
+      .then(setSubState)
+      .catch(() => setSubState(null))
   }, [])
 
   async function handleSignOut() {
@@ -344,12 +364,30 @@ export function AccountSettings() {
     }
   }
 
-  function handleNotifChange(key: keyof NotificationPrefs, val: boolean) {
+  async function handleNotifChange(key: keyof NotificationPrefs, val: boolean) {
     const updated = { ...notifPrefs, [key]: val }
     setNotifPrefs(updated)
+    // Persist to both localStorage (immediate) and Supabase user_metadata (durable)
     localStorage.setItem('cg_notif_prefs', JSON.stringify(updated))
     setNotifSaved(true)
     setTimeout(() => setNotifSaved(false), 1800)
+    try {
+      const supabase = createClient()
+      await supabase.auth.updateUser({ data: { notificationPrefs: updated } })
+    } catch {
+      // localStorage fallback is already saved above
+    }
+  }
+
+  async function handleManageSubscription() {
+    setPortalLoading(true)
+    try {
+      const { url } = await createPortalSession()
+      window.location.href = url
+    } catch {
+      // Portal session creation failed — user may not have a Stripe customer ID
+      setPortalLoading(false)
+    }
   }
 
   async function handleDeleteAccount() {
@@ -378,13 +416,14 @@ export function AccountSettings() {
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'account', label: 'Account', icon: <UserIcon className="h-4 w-4" /> },
+    { id: 'subscription', label: 'Subscription', icon: <CreditCard className="h-4 w-4" /> },
     { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
     { id: 'legal', label: 'Legal & Privacy', icon: <Shield className="h-4 w-4" /> },
     { id: 'delete', label: 'Delete Account', icon: <Trash2 className="h-4 w-4" /> },
   ]
 
   return (
-    <div className="p-6 md:p-8 max-w-3xl mx-auto">
+    <div className="p-6 md:p-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-2 mb-7">
         <Settings className="h-5 w-5 text-gray-600" />
@@ -667,6 +706,87 @@ export function AccountSettings() {
                 </button>
               </div>
             </>
+          )}
+
+          {/* ── Subscription Tab ────────────────────────────────────── */}
+          {activeTab === 'subscription' && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <SectionHeader
+                title="Subscription"
+                subtitle="Manage your plan, billing, and payment methods"
+              />
+
+              {!subState ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                </div>
+              ) : subState.subscription ? (
+                <div className="space-y-5">
+                  {/* Current plan card */}
+                  <div className="rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-semibold text-gray-900">
+                            {subState.subscription.plan} Plan
+                          </h3>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            subState.active
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : subState.subscription.status === 'PAST_DUE'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {subState.subscription.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Billing period: {fmtDate(subState.subscription.currentPeriodStart)} — {fmtDate(subState.subscription.currentPeriodEnd)}
+                        </p>
+                        {subState.subscription.cancelAtPeriodEnd && (
+                          <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Your subscription will cancel at the end of the current period
+                          </p>
+                        )}
+                      </div>
+                      <CreditCard className="h-8 w-8 text-gray-300 shrink-0" />
+                    </div>
+                  </div>
+
+                  {/* Manage button */}
+                  <button
+                    onClick={handleManageSubscription}
+                    disabled={portalLoading}
+                    className="w-full flex items-center justify-center gap-2 bg-[#0d1929] hover:bg-[#162438] text-white text-sm font-semibold px-5 py-3 rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {portalLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4" />
+                    )}
+                    Manage Subscription & Billing
+                  </button>
+                  <p className="text-[11px] text-gray-400 text-center">
+                    Opens the Stripe Customer Portal to update payment methods, change plans, or cancel.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <CreditCard className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-600">No active subscription</p>
+                  <p className="text-xs text-gray-400 mt-1 mb-4">
+                    Subscribe to unlock full access to CoverGuard features.
+                  </p>
+                  <a
+                    href="/pricing"
+                    className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+                  >
+                    View Plans
+                  </a>
+                </div>
+              )}
+            </div>
           )}
 
           {/* ── Notifications Tab ─────────────────────────────────────── */}

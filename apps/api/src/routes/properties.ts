@@ -20,7 +20,7 @@ export const propertiesRouter = Router()
 
 // ─── Property ID param validation ────────────────────────────────────────────
 propertiesRouter.param('id', (req, res, next, id) => {
-  if (!id || id === 'undefined' || id === 'null' || id.length > 50) {
+  if (!id || id === 'undefined' || id === 'null' || id.length > 200) {
     res.status(400).json({
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
     })
@@ -246,11 +246,21 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       })
       return
     }
-    // Insurance/insurability/carriers depend on risk — run in parallel now that risk is ready
+    // Insurance/insurability/carriers depend on risk — run in parallel now that risk is ready.
+    // Each is individually caught so a single failure returns partial data instead of 500.
     const [insurance, insurability, carriers] = await Promise.all([
-      getOrComputeInsuranceEstimate(id, forceRefresh),
-      getInsurabilityStatus(id, forceRefresh),
-      getCarriersForProperty(id, forceRefresh),
+      getOrComputeInsuranceEstimate(id, forceRefresh).catch((err) => {
+        logger.warn('Insurance estimate failed for report', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
+      getInsurabilityStatus(id, forceRefresh).catch((err) => {
+        logger.warn('Insurability status failed for report', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
+      getCarriersForProperty(id, forceRefresh).catch((err) => {
+        logger.warn('Carriers fetch failed for report', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
     ])
     if (forceRefresh) setNoCacheHeaders(res)
     else setCacheHeaders(res, 3600, 300)

@@ -4,7 +4,7 @@ import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { NewCheckPage } from '@/components/search/NewCheckPage'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Search a Property' }
+export const metadata: Metadata = { title: 'Search' }
 
 export default async function CheckPage() {
   const supabase = await createClient()

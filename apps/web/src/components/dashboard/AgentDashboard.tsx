@@ -1,19 +1,34 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   Search,
-  GitCompare,
-  Wrench,
   Shield,
   AlertTriangle,
-  ArrowRight,
   Users,
   BarChart3,
+  Wrench,
+  LayoutGrid,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  GitCompare,
+  Home,
+  Calendar,
+  FileText,
+  SlidersHorizontal,
+  X,
+  User as UserIcon,
 } from 'lucide-react'
-import { getSavedProperties } from '@/lib/api'
-import type { Property } from '@coverguard/shared'
+import { getSavedProperties, getClients } from '@/lib/api'
+import { formatCurrency, formatAddress } from '@coverguard/shared'
+import type { Property, Client } from '@coverguard/shared'
+import { SearchBar } from '@/components/search/SearchBar'
+import { useCompare } from '@/lib/useCompare'
+import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
+import { ClientsPanel } from '@/components/dashboard/ClientsPanel'
+import { cn } from '@/lib/utils'
 
 interface SavedPropertyRow {
   id: string
@@ -21,26 +36,104 @@ interface SavedPropertyRow {
   notes: string | null
   tags: string[]
   savedAt: string
+  clientId: string | null
   property: Property
+  client?: { id: string; firstName: string; lastName: string; email: string; status: string } | null
 }
+
+const ITEMS_PER_PAGE = 12
+
+type DashboardTab = 'properties' | 'clients'
 
 // ── Main component ─────────────────────────────────────────────────────────
 export function AgentDashboard() {
+  const [activeTab, setActiveTab] = useState<DashboardTab>('properties')
   const [properties, setProperties] = useState<SavedPropertyRow[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // View and pagination state
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [page, setPage] = useState(1)
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Filters
+  const [filterSearch, setFilterSearch] = useState('')
+  const [filterState, setFilterState] = useState('')
+  const [filterClient, setFilterClient] = useState('')
+  const [filterType, setFilterType] = useState('')
+
+  // Report modal
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+
   useEffect(() => {
-    getSavedProperties()
-      .then((data) => setProperties(data as SavedPropertyRow[]))
+    Promise.all([
+      getSavedProperties().then((data) => data as SavedPropertyRow[]),
+      getClients().catch(() => [] as Client[]),
+    ])
+      .then(([saved, clientList]) => {
+        setProperties(saved)
+        setClients(clientList)
+      })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setLoading(false))
   }, [])
 
+  // Unique states and property types for filter dropdowns
+  const uniqueStates = useMemo(() => {
+    const states = new Set(properties.map((p) => p.property?.state).filter(Boolean))
+    return Array.from(states).sort()
+  }, [properties])
+
+  const uniqueTypes = useMemo(() => {
+    const types = new Set(properties.map((p) => p.property?.propertyType).filter(Boolean))
+    return Array.from(types).sort()
+  }, [properties])
+
+  // Filter logic
+  const filtered = useMemo(() => {
+    return properties.filter((sp) => {
+      const p = sp.property
+      if (!p) return false
+
+      if (filterSearch) {
+        const q = filterSearch.toLowerCase()
+        const searchable = `${p.address} ${p.city} ${p.state} ${p.zip}`.toLowerCase()
+        if (!searchable.includes(q)) return false
+      }
+      if (filterState && p.state !== filterState) return false
+      if (filterType && p.propertyType !== filterType) return false
+      if (filterClient) {
+        if (filterClient === '_unassigned') {
+          if (sp.clientId) return false
+        } else if (sp.clientId !== filterClient) return false
+      }
+      return true
+    })
+  }, [properties, filterSearch, filterState, filterClient, filterType])
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
+  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+
+  // Reset page when filters change
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronising derived state on filter change
+  useEffect(() => { setPage(1) }, [filterSearch, filterState, filterClient, filterType])
+
+  const activeFilterCount = [filterSearch, filterState, filterClient, filterType].filter(Boolean).length
+
+  function clearFilters() {
+    setFilterSearch('')
+    setFilterState('')
+    setFilterClient('')
+    setFilterType('')
+  }
+
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+      <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Agent Dashboard</h1>
           <p className="text-sm text-emerald-600 mt-0.5">
@@ -49,27 +142,6 @@ export function AgentDashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href="/search"
-            className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <Search className="h-4 w-4" />
-            Search a Property
-          </Link>
-          <Link
-            href="/dashboard?tab=compare"
-            className="flex items-center gap-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <GitCompare className="h-4 w-4" />
-            Compare
-          </Link>
-          <Link
-            href="/clients"
-            className="flex items-center gap-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <Users className="h-4 w-4" />
-            Clients
-          </Link>
-          <Link
             href="/toolkit"
             className="flex items-center gap-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
           >
@@ -77,6 +149,47 @@ export function AgentDashboard() {
             Toolkit
           </Link>
         </div>
+      </div>
+
+      {/* Dashboard Tabs */}
+      <div className="flex items-center gap-1 mb-5 border-b border-gray-200 pb-0">
+        <button
+          onClick={() => setActiveTab('properties')}
+          className={cn(
+            'flex items-center gap-1.5 px-4 py-2.5 rounded-t-md text-sm font-medium transition-colors border-b-2 -mb-px',
+            activeTab === 'properties'
+              ? 'border-teal-600 text-teal-700 bg-teal-50/60'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <Shield className="h-4 w-4" />
+          Properties
+        </button>
+        <button
+          onClick={() => setActiveTab('clients')}
+          className={cn(
+            'flex items-center gap-1.5 px-4 py-2.5 rounded-t-md text-sm font-medium transition-colors border-b-2 -mb-px',
+            activeTab === 'clients'
+              ? 'border-teal-600 text-teal-700 bg-teal-50/60'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          )}
+        >
+          <Users className="h-4 w-4" />
+          Clients
+        </button>
+      </div>
+
+      {/* Clients Tab */}
+      {activeTab === 'clients' && (
+        <ClientsPanel />
+      )}
+
+      {/* Properties Tab */}
+      {activeTab !== 'properties' ? null : (<>
+
+      {/* Search bar with typeahead */}
+      <div className="mb-6">
+        <SearchBar className="max-w-full" />
       </div>
 
       {/* Error banner */}
@@ -92,116 +205,360 @@ export function AgentDashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="SAVED PROPERTIES"
-          value={loading ? '—' : properties.length}
-          icon={<Shield className="h-5 w-5 text-blue-500" />}
-        />
+        <StatCard label="SAVED PROPERTIES" value={loading ? '—' : properties.length} icon={<Shield className="h-5 w-5 text-blue-500" />} />
+        <StatCard label="CLIENTS" value={loading ? '—' : clients.length} icon={<Users className="h-5 w-5 text-purple-400" />} />
         <Link href="/analytics" className="block">
-          <StatCard
-            label="ANALYTICS"
-            value="View"
-            icon={<BarChart3 className="h-5 w-5 text-green-500" />}
-          />
-        </Link>
-        <Link href="/clients" className="block">
-          <StatCard
-            label="CLIENTS"
-            value="Manage"
-            icon={<Users className="h-5 w-5 text-purple-400" />}
-          />
+          <StatCard label="ANALYTICS" value="View" icon={<BarChart3 className="h-5 w-5 text-green-500" />} />
         </Link>
         <Link href="/search" className="block">
-          <StatCard
-            label="SEARCH"
-            value="Search"
-            icon={<Search className="h-5 w-5 text-teal-500" />}
-          />
+          <StatCard label="SEARCH" value="Search" icon={<Search className="h-5 w-5 text-teal-500" />} />
         </Link>
       </div>
 
-      {/* Recent properties */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-800">
-            Recent Saved Properties
-          </h3>
-          <Link
-            href="/search"
-            className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-          >
-            View all <ArrowRight className="h-3 w-3" />
-          </Link>
+      {/* Toolbar: filter toggle, view mode, count */}
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">Saved Properties</h2>
+          <span className="text-sm text-gray-400">{filtered.length} total</span>
         </div>
-
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 rounded-lg bg-gray-100 animate-pulse" />
-            ))}
-          </div>
-        ) : properties.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-sm text-gray-400">No saved properties yet.</p>
-            <Link
-              href="/search"
-              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              'flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg border transition-colors',
+              showFilters || activeFilterCount > 0
+                ? 'border-teal-300 bg-teal-50 text-teal-700'
+                : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-teal-500 text-[10px] font-bold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={cn('p-1.5 transition-colors', viewMode === 'grid' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50')}
+              title="Grid view"
             >
-              <Search className="h-4 w-4" />
-              Run your first check
-            </Link>
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn('p-1.5 transition-colors', viewMode === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50')}
+              title="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
           </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {properties.slice(0, 5).map((sp) => {
-              const address = sp.property?.address ?? sp.propertyId
-              const sub = [sp.property?.city, sp.property?.state].filter(Boolean).join(', ')
+        </div>
+      </div>
+
+      {/* Filters row */}
+      {showFilters && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 p-4 bg-white rounded-xl border border-gray-200">
+          <div className="flex-1 min-w-[180px]">
+            <input
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              placeholder="Search address, city, ZIP…"
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
+            />
+          </div>
+          <select
+            value={filterState}
+            onChange={(e) => setFilterState(e.target.value)}
+            className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-teal-400"
+          >
+            <option value="">All States</option>
+            {uniqueStates.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-teal-400"
+          >
+            <option value="">All Types</option>
+            {uniqueTypes.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+          </select>
+          <select
+            value={filterClient}
+            onChange={(e) => setFilterClient(e.target.value)}
+            className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-teal-400"
+          >
+            <option value="">All Clients</option>
+            <option value="_unassigned">Unassigned</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+          </select>
+          {activeFilterCount > 0 && (
+            <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+              <X className="h-3 w-3" /> Clear all
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Content */}
+      {loading ? (
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className={cn('rounded-xl bg-gray-100 animate-pulse', viewMode === 'grid' ? 'h-56' : 'h-20')} />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Shield className="h-14 w-14 text-gray-200 mb-4" />
+          <p className="text-base font-semibold text-gray-500">
+            {activeFilterCount > 0 ? 'No properties match your filters' : 'No saved properties yet'}
+          </p>
+          <p className="text-sm text-gray-400 mt-1">
+            {activeFilterCount > 0 ? 'Try adjusting your filters or search criteria.' : 'Search for a property and save it to track it here.'}
+          </p>
+          {activeFilterCount > 0 ? (
+            <button onClick={clearFilters} className="mt-4 text-sm font-medium text-teal-600 hover:underline">Clear filters</button>
+          ) : (
+            <Link href="/search" className="mt-5 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors">
+              <Search className="h-4 w-4" /> Search Properties
+            </Link>
+          )}
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {paginated.map((sp) => (
+            <DashboardCard key={sp.id} saved={sp} onViewReport={() => setSelectedProperty(sp.property)} />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {paginated.map((sp) => (
+            <DashboardListRow key={sp.id} saved={sp} onViewReport={() => setSelectedProperty(sp.property)} />
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+          <p className="text-sm text-gray-500">
+            Page {page} of {totalPages} — showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+              let pageNum: number
+              if (totalPages <= 5) {
+                pageNum = i + 1
+              } else if (page <= 3) {
+                pageNum = i + 1
+              } else if (page >= totalPages - 2) {
+                pageNum = totalPages - 4 + i
+              } else {
+                pageNum = page - 2 + i
+              }
               return (
-                <div key={sp.id} className="flex items-center gap-3 py-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-                    <Shield className="h-4 w-4 text-blue-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{address}</p>
-                    {sub && <p className="text-xs text-gray-400 truncate">{sub}</p>}
-                  </div>
-                  {sp.savedAt && (
-                    <span className="text-[10px] text-gray-400 shrink-0 hidden sm:block">
-                      {new Date(sp.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={cn(
+                    'h-9 w-9 rounded-lg text-sm font-medium transition-colors',
+                    page === pageNum ? 'bg-gray-900 text-white' : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
                   )}
-                  <Link
-                    href={`/properties/${sp.propertyId}`}
-                    className="flex items-center gap-1 text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 shrink-0"
-                  >
-                    View <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
+                >
+                  {pageNum}
+                </button>
               )
             })}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      </>)}
+
+      {/* Report modal */}
+      {selectedProperty && (
+        <PropertyRiskReportModal
+          property={selectedProperty}
+          open
+          onClose={() => setSelectedProperty(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Grid Card ─────────────────────────────────────────────────────────────
+function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onViewReport: () => void }) {
+  const { ids, toggle, canAdd } = useCompare()
+  const p = saved.property
+  const isCompared = ids.includes(p.id)
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all flex flex-col">
+      <Link href={`/properties/${saved.propertyId}`} className="block p-4 flex-1">
+        <h3 className="font-semibold text-gray-900 text-sm truncate">{p.address}</h3>
+        <p className="text-xs text-gray-500 truncate">{formatAddress(p)}</p>
+
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+          {p.propertyType && (
+            <span className="flex items-center gap-1">
+              <Home className="h-3 w-3 text-gray-400" />
+              {p.propertyType.replace(/_/g, ' ')}
+            </span>
+          )}
+          {p.yearBuilt && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-gray-400" />
+              {p.yearBuilt}
+            </span>
+          )}
+          {p.bedrooms && (
+            <span>{p.bedrooms}bd / {p.bathrooms}ba</span>
+          )}
+        </div>
+
+        {p.estimatedValue && (
+          <div className="mt-3">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Est. value</div>
+            <div className="text-base font-bold text-gray-900">{formatCurrency(p.estimatedValue)}</div>
           </div>
         )}
+
+        {/* Client badge */}
+        {saved.client && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-purple-600">
+            <UserIcon className="h-3 w-3" />
+            <span className="truncate">{saved.client.firstName} {saved.client.lastName}</span>
+          </div>
+        )}
+
+        {/* Tags */}
+        {saved.tags && saved.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {saved.tags.slice(0, 3).map((tag) => (
+              <span key={tag} className="bg-blue-50 text-blue-700 text-[10px] font-medium px-1.5 py-0.5 rounded-full">{tag}</span>
+            ))}
+          </div>
+        )}
+      </Link>
+
+      {/* Actions footer */}
+      <div className="border-t border-gray-100 px-4 py-2 flex items-center justify-between">
+        <button
+          onClick={onViewReport}
+          className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Report
+        </button>
+        <button
+          onClick={() => toggle(p.id)}
+          disabled={!isCompared && !canAdd}
+          className={cn(
+            'flex items-center gap-1 text-xs transition-colors',
+            isCompared ? 'text-teal-600 font-medium' : canAdd ? 'text-gray-500 hover:text-teal-600' : 'text-gray-300 cursor-not-allowed'
+          )}
+        >
+          <GitCompare className="h-3.5 w-3.5" />
+          {isCompared ? 'Compared' : 'Compare'}
+        </button>
       </div>
     </div>
   )
 }
 
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string
-  value: number | string
-  icon: React.ReactNode
-}) {
+// ── List Row ─────────────────────────────────────────────────────────────
+function DashboardListRow({ saved, onViewReport }: { saved: SavedPropertyRow; onViewReport: () => void }) {
+  const { ids, toggle, canAdd } = useCompare()
+  const p = saved.property
+  const isCompared = ids.includes(p.id)
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-sm hover:border-gray-300 transition-all px-5 py-3 flex items-center gap-4">
+      <Link href={`/properties/${saved.propertyId}`} className="flex-1 min-w-0 flex items-center gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+          <Shield className="h-5 w-5 text-blue-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{p.address}</p>
+          <p className="text-xs text-gray-400 truncate">{formatAddress(p)}</p>
+        </div>
+      </Link>
+
+      {/* Client */}
+      {saved.client && (
+        <div className="hidden md:flex items-center gap-1.5 text-xs text-purple-600 shrink-0">
+          <UserIcon className="h-3 w-3" />
+          <span>{saved.client.firstName} {saved.client.lastName}</span>
+        </div>
+      )}
+
+      {/* Value */}
+      {p.estimatedValue && (
+        <div className="hidden sm:block text-right shrink-0">
+          <div className="text-sm font-semibold text-gray-900">{formatCurrency(p.estimatedValue)}</div>
+          <div className="text-[10px] text-gray-400">est. value</div>
+        </div>
+      )}
+
+      {/* Date */}
+      {saved.savedAt && (
+        <span className="text-[10px] text-gray-400 shrink-0 hidden lg:block">
+          {new Date(saved.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </span>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onViewReport}
+          className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 border border-teal-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition-colors"
+        >
+          <FileText className="h-3 w-3" /> Report
+        </button>
+        <button
+          onClick={() => toggle(p.id)}
+          disabled={!isCompared && !canAdd}
+          className={cn(
+            'flex items-center gap-1 text-xs border px-3 py-1.5 rounded-lg transition-colors',
+            isCompared
+              ? 'border-teal-300 bg-teal-50 text-teal-600 font-medium'
+              : canAdd
+                ? 'border-gray-200 text-gray-500 hover:text-teal-600 hover:border-teal-200'
+                : 'border-gray-100 text-gray-300 cursor-not-allowed'
+          )}
+        >
+          <GitCompare className="h-3 w-3" />
+          {isCompared ? 'Compared' : 'Compare'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Stat Card ─────────────────────────────────────────────────────────────
+function StatCard({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-            {label}
-          </p>
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
         </div>
         <div className="mt-0.5">{icon}</div>

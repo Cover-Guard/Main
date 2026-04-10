@@ -21,8 +21,8 @@ export function SavePropertyButton({ propertyId, className = '' }: SavePropertyB
     getSavedProperties()
       .then((list: unknown) => {
         if (cancelled) return
-        const arr = list as Array<{ propertyId: string }>
-        setSaved(arr.some((s) => s.propertyId === propertyId))
+        const arr = list as Array<{ propertyId?: string; property?: { id: string } }>
+        setSaved(arr.some((s) => (s.propertyId ?? s.property?.id) === propertyId))
       })
       .catch(() => {
         if (cancelled) return
