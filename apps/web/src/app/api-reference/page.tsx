@@ -20,10 +20,10 @@ export default function ApiReferencePage() {
     <>
       <MarketingNav />
       <main className="min-h-screen bg-white">
-        <section className="bg-gradient-to-br from-brand-700 via-brand-800 to-brand-900 text-white">
-          <div className="mx-auto max-w-5xl px-4 py-20 text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">API Reference</h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-brand-100">Build on top of CoverGuard. Access property risk data, carrier availability, and quote workflows programmatically.</p>
+        <section className="bg-gradient-to-b from-brand-50/50 via-white to-white pt-32 pb-16 sm:pt-40 sm:pb-20">
+          <div className="mx-auto max-w-5xl px-4 text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">API Reference</h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">Build on top of CoverGuard. Access property risk data, carrier availability, and quote workflows programmatically.</p>
           </div>
         </section>
         <section className="mx-auto max-w-5xl px-4 py-16">
