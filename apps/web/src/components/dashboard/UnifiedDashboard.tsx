@@ -189,10 +189,10 @@ const MOCK_HAZARD_MIX = [
 
 // Risk distribution
 const MOCK_RISK_DIST = [
-  { level: 'Low', count: 38, color: '#22c55e' },
-  { level: 'Moderate', count: 24, color: '#3b82f6' },
-  { level: 'High', count: 12, color: '#ef4444' },
-  { level: 'Very High', count: 6, color: '#b91c1c' },
+  { label: 'Low', count: 38, color: '#22c55e' },
+  { label: 'Moderate', count: 24, color: '#3b82f6' },
+  { label: 'High', count: 12, color: '#ef4444' },
+  { label: 'Very High', count: 6, color: '#b91c1c' },
 ]
 
 const MOCK_QUOTE_DIST = [
@@ -460,11 +460,15 @@ function DonutChart({
   const cx = size / 2
   const cy = size / 2
 
-  let cumulative = 0
-  const paths = segments.map((seg) => {
-    const start = cumulative / total
-    cumulative += seg.count
-    const end = cumulative / total
+  const prefixSums = segments.reduce<number[]>((acc, seg) => {
+    const prev = acc.length === 0 ? 0 : acc[acc.length - 1]
+    acc.push(prev + seg.count)
+    return acc
+  }, [])
+  const paths = segments.map((seg, idx) => {
+    const priorSum = idx === 0 ? 0 : prefixSums[idx - 1]
+    const start = priorSum / total
+    const end = prefixSums[idx] / total
     const a0 = start * 2 * Math.PI - Math.PI / 2
     const a1 = end * 2 * Math.PI - Math.PI / 2
     const large = end - start > 0.5 ? 1 : 0
@@ -767,10 +771,10 @@ function AnalyticsStrip() {
             <DonutChart segments={MOCK_RISK_DIST} size={100} />
             <ul className="flex-1 space-y-1">
               {MOCK_RISK_DIST.map((r) => (
-                <li key={r.level} className="flex items-center justify-between text-[11px]">
+                <li key={r.label} className="flex items-center justify-between text-[11px]">
                   <span className="flex items-center gap-1.5 text-gray-600">
                     <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
-                    {r.level}
+                    {r.label}
                   </span>
                   <span className="font-semibold text-gray-900">{r.count}</span>
                 </li>
