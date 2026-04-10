@@ -112,7 +112,7 @@ describe('GetStartedPage', () => {
 
     it('renders the Individual card heading', async () => {
       await renderPage()
-      expect(screen.getByText('Individual')).toBeInTheDocument()
+      expect(screen.getByText('Home Buyer')).toBeInTheDocument()
     })
 
     it('renders the Agent card description', async () => {
@@ -130,9 +130,9 @@ describe('GetStartedPage', () => {
       expect(screen.getByText('Continue as Agent')).toBeInTheDocument()
     })
 
-    it('renders "Continue as Individual" link text', async () => {
+    it('renders "Continue as Home Buyer" link text', async () => {
       await renderPage()
-      expect(screen.getByText('Continue as Individual')).toBeInTheDocument()
+      expect(screen.getByText('Continue as Home Buyer')).toBeInTheDocument()
     })
 
     it('renders a link to /agents/login', async () => {
@@ -171,9 +171,9 @@ describe('GetStartedPage', () => {
       expect(screen.getByText(/Not sure\?/)).toBeInTheDocument()
     })
 
-    it('renders the "Individual accounts" fallback link', async () => {
+    it('renders the "Home Buyer accounts" fallback link', async () => {
       await renderPage()
-      expect(screen.getByText('Individual accounts')).toBeInTheDocument()
+      expect(screen.getByText('Home Buyer accounts')).toBeInTheDocument()
     })
 
     it('renders "work great for most users" text', async () => {
@@ -240,7 +240,7 @@ describe('GetStartedPage', () => {
 
     it('does not render Individual card when redirecting', async () => {
       await expect(renderPage()).rejects.toThrow('NEXT_REDIRECT')
-      expect(screen.queryByText('Individual')).not.toBeInTheDocument()
+      expect(screen.queryByText('Home Buyer')).not.toBeInTheDocument()
     })
 
     it('does not render CoverGuard brand when redirecting', async () => {
@@ -352,7 +352,7 @@ describe('GetStartedPage', () => {
         },
       })
       await renderPage()
-      expect(screen.getByText('Individual')).toBeInTheDocument()
+      expect(screen.getByText('Home Buyer')).toBeInTheDocument()
     })
   })
 
@@ -405,7 +405,7 @@ describe('GetStartedPage', () => {
     it.each(errorTypes)('renders Individual card when createClient throws %s', async (_desc, error) => {
       mockSupabaseThrows(error)
       await renderPage()
-      expect(screen.getByText('Individual')).toBeInTheDocument()
+      expect(screen.getByText('Home Buyer')).toBeInTheDocument()
     })
 
     it.each(errorTypes)('renders navigation links when createClient throws %s', async (_desc, error) => {
@@ -449,7 +449,7 @@ describe('GetStartedPage', () => {
       mockGetUserThrows(error)
       await renderPage()
       expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
-      expect(screen.getByText('Individual')).toBeInTheDocument()
+      expect(screen.getByText('Home Buyer')).toBeInTheDocument()
     })
   })
 
@@ -516,7 +516,7 @@ describe('GetStartedPage', () => {
     it('first h2 is Individual', async () => {
       await renderPage()
       const headings = screen.getAllByRole('heading', { level: 2 })
-      expect(headings[0]).toHaveTextContent('Individual')
+      expect(headings[0]).toHaveTextContent('Home Buyer')
     })
 
     it('second h2 is Residential Agent / Broker', async () => {
@@ -699,8 +699,8 @@ describe('GetStartedPage', () => {
     const uniqueTexts = [
       'How would you like to use CoverGuard?',
       'Continue as Agent',
-      'Continue as Individual',
-      'Individual accounts',
+      'Continue as Home Buyer',
+      'Home Buyer accounts',
     ]
 
     it.each(uniqueTexts)('page contains text: "%s"', async (text) => {
@@ -710,7 +710,7 @@ describe('GetStartedPage', () => {
 
     const textsWithMultipleMatches = [
       'Agent',
-      'Individual',
+      'Home Buyer',
       'CoverGuard',
     ]
 
@@ -755,12 +755,12 @@ describe('GetStartedPage', () => {
       'How would you like to use CoverGuard?',
       'Select your account type to get started',
       'Agent',
-      'Individual',
+      'Home Buyer',
       'Continue as Agent',
-      'Continue as Individual',
+      'Continue as Home Buyer',
       'CoverGuard',
       'Not sure?',
-      'Individual accounts',
+      'Home Buyer accounts',
     ]
 
     it.each(textsAbsentOnRedirect)('"%s" is not rendered when redirecting', async (text) => {
@@ -790,9 +790,9 @@ describe('GetStartedPage', () => {
       expect(metadata.description).toContain('agent')
     })
 
-    it('metadata description mentions individual', async () => {
+    it('metadata description mentions home buyer', async () => {
       const { metadata } = await import('@/app/get-started/page')
-      expect(metadata.description).toContain('individual')
+      expect(metadata.description).toContain('home buyer')
     })
 
     it('metadata title contains CoverGuard', async () => {
@@ -868,7 +868,7 @@ describe('GetStartedPage', () => {
       mockSupabaseClient(null)
       for (let i = 0; i < 10; i++) {
         const { unmount } = await renderPage()
-        expect(screen.getByText('Individual')).toBeInTheDocument()
+        expect(screen.getByText('Home Buyer')).toBeInTheDocument()
         unmount()
       }
       expect(mockCreateClient).toHaveBeenCalledTimes(10)
@@ -1055,7 +1055,7 @@ describe('GetStartedPage', () => {
       mockSupabaseThrows(error)
       await renderPage()
       expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
-      expect(screen.getByText('Individual')).toBeInTheDocument()
+      expect(screen.getByText('Home Buyer')).toBeInTheDocument()
     })
   })
 
@@ -1138,9 +1138,9 @@ describe('GetStartedPage', () => {
     const elementsToVerify: Array<[string, () => void]> = [
       ['heading', () => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()],
       ['agent heading', () => expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()],
-      ['individual heading', () => expect(screen.getByText('Individual')).toBeInTheDocument()],
+      ['individual heading', () => expect(screen.getByText('Home Buyer')).toBeInTheDocument()],
       ['continue agent', () => expect(screen.getByText('Continue as Agent')).toBeInTheDocument()],
-      ['continue individual', () => expect(screen.getByText('Continue as Individual')).toBeInTheDocument()],
+      ['continue individual', () => expect(screen.getByText('Continue as Home Buyer')).toBeInTheDocument()],
       ['building icon', () => expect(screen.getByTestId('icon-building2')).toBeInTheDocument()],
       ['user icon', () => expect(screen.getByTestId('icon-user')).toBeInTheDocument()],
       ['shield icon', () => expect(screen.getByTestId('coverguard-shield')).toBeInTheDocument()],

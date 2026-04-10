@@ -27,7 +27,7 @@ export default function AgentsPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-100 px-4 py-1.5 mb-8">
-              <span className="text-sm font-medium text-brand-700">For Real Estate Agents</span>
+              <span className="text-sm font-medium text-brand-700">Real Estate Agents</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 leading-[1.1]">
               The insurance check your clients deserve —
@@ -39,10 +39,10 @@ export default function AgentsPage() {
             </p>
             <div className="mt-10 flex flex-col sm:flex-row gap-4">
               <Link
-                href="/get-started"
+                href="/pricing"
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-base font-semibold text-white hover:bg-brand-700 transition-colors shadow-lg shadow-brand-600/25"
               >
-                Check a Property Free
+                See Agent Pricing
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
@@ -54,7 +54,7 @@ export default function AgentsPage() {
               </Link>
             </div>
             <p className="mt-6 text-sm text-gray-500">
-              Free to start · No credit card required · Results in 90 seconds
+              Transparent pricing · Free trial available · Results in 90 seconds
             </p>
           </div>
         </div>
@@ -108,11 +108,18 @@ export default function AgentsPage() {
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/get-started"
+              href="/pricing"
               className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-base font-semibold text-brand-900 hover:bg-brand-50 transition-colors"
             >
-              Check a Property Free
+              See Agent Pricing
               <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-lg border border-brand-300 bg-transparent px-6 py-3 text-base font-semibold text-white hover:bg-brand-900 transition-colors"
+            >
+              <Calendar className="h-4 w-4" />
+              Book a Demo
             </Link>
           </div>
         </div>

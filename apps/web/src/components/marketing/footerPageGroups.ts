@@ -8,11 +8,11 @@ export const footerPageGroups: Record<string, FooterLink[]> = {
     { label: 'Agent Dashboard', href: '/product/agent-dashboard' },
   ],
   Solutions: [
-    { label: 'For Individuals', href: '/get-started' },
-    { label: 'For Residential Agents', href: '/agents' },
-    { label: 'For CRE Brokers', href: '/commercial' },
-    { label: 'For Lenders', href: '/lenders' },
-    { label: 'For Insurance', href: '/insurance' },
+    { label: 'Home Buyers', href: '/buyers' },
+    { label: 'Residential Agents', href: '/agents' },
+    { label: 'CRE Brokers', href: '/commercial' },
+    { label: 'Lenders', href: '/lenders' },
+    { label: 'Insurance Brokers', href: '/insurance' },
   ],
   Company: [
     { label: 'Pricing', href: '/pricing' },
