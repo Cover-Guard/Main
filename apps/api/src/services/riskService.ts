@@ -13,6 +13,8 @@ import {
   fetchSinkholeRisk,
   fetchDamHazard,
   fetchSuperfundProximity,
+  fetchOpenFemaDisasterHistory,
+  type FemaDisasterHistory,
   fetchEsriFloodHazard,
   fetchEsriLandslideRisk,
   fetchEsriSocialVulnerability,
@@ -295,6 +297,7 @@ export async function getOrComputeRiskProfile(
       floodData, fireData, earthquakeData, windData, crimeData,
       elevation, historicalEq, fuelModel, nriData, sinkholeData, damData, superfundData,
       esriFloodHazard, esriLandslide, esriSvi,
+      femaDisasters,
     ] = await Promise.all([
       // Primary sources
       safe(fetchFloodRisk(property.lat, property.lng, property.zip ?? ''), { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }, 'FEMA Flood'),
@@ -314,6 +317,8 @@ export async function getOrComputeRiskProfile(
       safe(fetchEsriFloodHazard(property.lat, property.lng), null, 'Esri Flood Hazard'),
       safe(fetchEsriLandslideRisk(property.lat, property.lng), null, 'Esri Landslide'),
       safe(fetchEsriSocialVulnerability(property.lat, property.lng), null, 'Esri CDC SVI'),
+      // Federal disaster declaration history (last 10 years, state-level)
+      safe(fetchOpenFemaDisasterHistory(property.lat, property.lng, property.state), null, 'OpenFEMA Disasters'),
     ])
 
     // Enhance flood score with elevation data (low elevation = higher risk)
@@ -442,6 +447,7 @@ export async function getOrComputeRiskProfile(
       esriFloodHazard,
       esriLandslide,
       esriSvi,
+      femaDisasters,
     })
     riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
     return dto
@@ -465,6 +471,7 @@ interface EnrichmentData {
   esriFloodHazard?: EsriFloodHazardResult | null
   esriLandslide?: EsriLandslideResult | null
   esriSvi?: EsriSviResult | null
+  femaDisasters?: FemaDisasterHistory | null
 }
 
 function prismaProfileToDto(
