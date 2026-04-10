@@ -79,29 +79,29 @@ export function HowItWorks() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                title: 'For Individuals',
+                title: 'Home Buyers',
                 description: 'Buying a home? Check property risks and insurance availability before you make an offer. Start free — your first 3 reports are on us.',
                 tag: 'Free to Start',
               },
               {
-                title: 'For Residential Agents & Brokers',
+                title: 'Residential Agents & Brokers',
                 description: 'Run a pre-offer insurability check on every listing. Stop deals from falling through at the closing table because of insurance surprises.',
                 tag: 'Most Popular',
               },
               {
-                title: 'For CRE Agents & Brokers',
+                title: 'CRE Agents & Brokers',
                 description: 'Evaluate commercial property risk, environmental exposure, and carrier availability for commercial deals — before investor due diligence.',
                 tag: 'Commercial',
               },
               {
-                title: 'For Lenders',
+                title: 'Lenders',
                 description: 'Verify insurability before loan commitment. Eliminate last-minute closing delays caused by properties that can\'t secure adequate coverage.',
                 tag: 'Lender Portal',
               },
               {
-                title: 'For Insurance Companies',
+                title: 'Insurance Brokers',
                 description: 'Pre-qualify inbound leads, screen portfolios for risk exposure, and integrate CoverGuard risk data into your underwriting workflow via API.',
-                tag: 'Insurance Pro',
+                tag: 'Broker Ready',
               },
             ].map((card) => (
               <div key={card.title} className="rounded-2xl bg-white border border-gray-200 p-6 hover:border-brand-200 hover:shadow-md transition-all duration-300">

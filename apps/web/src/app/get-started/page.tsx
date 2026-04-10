@@ -7,16 +7,16 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Get Started — CoverGuard',
-  description: 'Choose how you want to use CoverGuard — as an individual, residential agent, CRE broker, lender, or insurance professional.',
+  description: 'Choose how you want to use CoverGuard — as a home buyer, residential agent, CRE broker, lender, or insurance broker.',
 }
 
 const userTypes = [
   {
     icon: User,
-    title: 'Individual',
+    title: 'Home Buyer',
     description: 'For home buyers and homeowners. Start with 3 free property reports — check risk, insurance costs, and carrier availability.',
     href: '/login',
-    cta: 'Continue as Individual',
+    cta: 'Continue as Home Buyer',
     tag: 'Free to start',
   },
   {
@@ -45,10 +45,10 @@ const userTypes = [
   },
   {
     icon: Shield,
-    title: 'Insurance Company',
-    description: 'For insurance agents, carriers, and MGAs. Pre-qualify leads, screen portfolios, and integrate risk data into your underwriting workflow.',
+    title: 'Insurance Broker',
+    description: 'For independent brokers and agencies. Pre-qualify leads, screen books of business, and see live carrier availability before you shop submissions.',
     href: '/login',
-    cta: 'Continue as Insurance Pro',
+    cta: 'Continue as Insurance Broker',
     tag: null,
   },
 ]
@@ -148,7 +148,7 @@ export default async function GetStartedPage() {
           <p className="mt-8 text-center text-sm text-gray-500">
             Not sure?{' '}
             <Link href="/login" className="text-brand-600 hover:text-brand-700 font-medium">
-              Individual accounts
+              Home Buyer accounts
             </Link>{' '}
             start free with 3 property reports — perfect for getting started.
           </p>

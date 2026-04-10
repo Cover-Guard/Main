@@ -3,11 +3,11 @@ import { ArrowRight, Shield, TrendingUp, Building2, Landmark, ShieldCheck, User 
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 
 const audiences = [
-  { icon: User, label: 'Individuals' },
+  { icon: User, label: 'Home Buyers' },
   { icon: Building2, label: 'Residential Agents' },
   { icon: Building2, label: 'CRE Brokers' },
   { icon: Landmark, label: 'Lenders' },
-  { icon: ShieldCheck, label: 'Insurance' },
+  { icon: ShieldCheck, label: 'Insurance Brokers' },
 ]
 
 export function Hero() {
@@ -36,7 +36,7 @@ export function Hero() {
           {/* Subheadline */}
           <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
             CoverGuard checks flood, fire, earthquake, wind, and crime risk — plus shows which carriers are still writing —
-            in 90 seconds. Built for agents, brokers, lenders, and insurance professionals. Individuals start free.
+            in 90 seconds. Built for agents, brokers, lenders, and insurance professionals. Home buyers start free.
           </p>
 
           {/* Audience badges */}

@@ -12,11 +12,11 @@ import { createClient } from '@/lib/supabase/client'
 /* ------------------------------------------------------------------ */
 
 const segments = [
-  { key: 'individual', label: 'Individuals', icon: User },
+  { key: 'home_buyer', label: 'Home Buyers', icon: User },
   { key: 'residential', label: 'Residential Agents', icon: Building2 },
   { key: 'cre', label: 'CRE Brokers', icon: Warehouse },
   { key: 'lender', label: 'Lenders', icon: Landmark },
-  { key: 'insurance', label: 'Insurance', icon: Shield },
+  { key: 'insurance', label: 'Insurance Brokers', icon: Shield },
 ] as const
 
 type SegmentKey = (typeof segments)[number]['key']
@@ -38,7 +38,7 @@ interface Plan {
 }
 
 const plansBySegment: Record<SegmentKey, Plan[]> = {
-  individual: [
+  home_buyer: [
     {
       name: 'Free',
       description: 'For homeowners and buyers exploring a property before they commit.',
@@ -56,7 +56,7 @@ const plansBySegment: Record<SegmentKey, Plan[]> = {
       ],
     },
     {
-      name: 'Individual Pro',
+      name: 'Home Buyer Pro',
       description: 'For active home buyers who need more reports and deeper insights.',
       price: '$29',
       period: '/month',
@@ -258,7 +258,7 @@ const PRICE_IDS: Record<string, string | undefined> = {
 }
 
 export default function PricingPage() {
-  const [activeSegment, setActiveSegment] = useState<SegmentKey>('individual')
+  const [activeSegment, setActiveSegment] = useState<SegmentKey>('home_buyer')
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [failedPlan, setFailedPlan] = useState<string | null>(null)
@@ -331,7 +331,7 @@ export default function PricingPage() {
                 Plans for every role in real estate
               </h1>
               <p className="mt-4 text-lg text-gray-600">
-                Whether you&apos;re a homeowner, agent, broker, lender, or insurance professional — CoverGuard has a plan built for you. Individuals start free with up to 3 property reports.
+                Whether you&apos;re a home buyer, agent, broker, lender, or insurance broker — CoverGuard has a plan built for you. Home buyers start free with up to 3 property reports.
               </p>
             </div>
 
@@ -433,7 +433,7 @@ export default function PricingPage() {
             </div>
 
             {/* Free tier callout */}
-            {activeSegment !== 'individual' && (
+            {activeSegment !== 'home_buyer' && (
               <div className="mt-12 text-center rounded-2xl bg-brand-50 border border-brand-100 p-8 max-w-2xl mx-auto">
                 <h3 className="text-lg font-semibold text-gray-900">Not ready to commit?</h3>
                 <p className="mt-2 text-sm text-gray-600">
