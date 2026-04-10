@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateProperty } from '../services/propertyService'
+import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateProperty, resolvePropertyId } from '../services/propertyService'
 import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
@@ -229,7 +229,19 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
 propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
-    const id = req.params.id
+    // Resolve slug/external IDs (e.g. RentCast address slugs) to the canonical
+    // DB id before calling downstream services, which all use findUniqueOrThrow
+    // on `id` and would otherwise throw for slug lookups.
+    const rawId = req.params.id
+    const resolvedId = await resolvePropertyId(rawId)
+    if (!resolvedId) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+    const id = resolvedId
     // Fetch property + compute risk + public data in parallel
     const [property, risk, publicData] = await Promise.all([
       getPropertyById(id),

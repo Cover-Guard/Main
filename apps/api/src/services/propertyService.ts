@@ -91,33 +91,51 @@ export async function searchProperties(
 
   recordSearchHistory(params, userId, result.total)
 
-  // Warm the L1 cache immediately (synchronous, <1ms)
-  for (const prop of result.properties) {
-    propertyCache.set(prop.id, prop)
-  }
-
   // Batch-upsert results into DB synchronously so the properties exist when
   // the user immediately opens a report (risk, carriers, etc. need the DB row).
   if (result.properties.length > 0) {
     const upsertable = result.properties.filter((p) => p.parcelId)
     if (upsertable.length > 0) {
       try {
-        await prisma.$transaction(
+        const upserted = await prisma.$transaction(
           upsertable.map((p) => {
             const data = dtoToPrismaData(p)
             return prisma.property.upsert({
               where: { parcelId: p.parcelId! },
               update: data,
               create: { id: p.id, ...data },
+              select: { id: true, parcelId: true },
             })
           }),
         )
+        // Remap the returned DTO IDs to the canonical DB IDs. The incoming
+        // external-provider id (e.g. a RentCast address slug) may differ
+        // from the DB row id when the row was created earlier via the
+        // placeId/geocode flow (randomUUID) and is now being re-upserted
+        // by parcelId — the update branch preserves the original DB id.
+        // Without this remap the client would request /report using the
+        // slug, which no longer matches any row and returns 404.
+        const idByParcel = new Map(upserted.map((u) => [u.parcelId, u.id]))
+        for (const p of result.properties) {
+          if (p.parcelId) {
+            const canonicalId = idByParcel.get(p.parcelId)
+            if (canonicalId && canonicalId !== p.id) {
+              p.id = canonicalId
+            }
+          }
+        }
       } catch (err) {
         logger.error('Failed to cache search results in DB', {
           error: err instanceof Error ? err.message : err,
         })
       }
     }
+  }
+
+  // Refresh the L1 cache with the (possibly remapped) canonical IDs so
+  // subsequent lookups by id hit the cache directly.
+  for (const prop of result.properties) {
+    propertyCache.set(prop.id, prop)
   }
 
   return result
@@ -287,15 +305,36 @@ export async function getPropertyById(id: string): Promise<Property | null> {
   const cached = propertyCache.get(id)
   if (cached) return cached
 
-  const prop = await prisma.property.findUnique({
-    where: { id },
+  // Resolve the incoming identifier to a DB row. Search results may surface
+  // external-provider IDs (e.g. RentCast address slugs) that differ from the
+  // canonical DB UUID when a row was created earlier via the placeId flow
+  // and later upserted by parcelId. Fall back to parcelId lookup so slug
+  // IDs still resolve instead of 404-ing.
+  const prop = await prisma.property.findFirst({
+    where: { OR: [{ id }, { parcelId: id }] },
     select: PROPERTY_PUBLIC_SELECT,
   })
   if (!prop) return null
 
   const dto = prismaPropertyToDto(prop)
   propertyCache.set(id, dto)
+  // Also cache under the canonical id so downstream lookups hit L1.
+  if (dto.id !== id) propertyCache.set(dto.id, dto)
   return dto
+}
+
+/**
+ * Resolve an incoming property identifier (DB id, or external slug stored
+ * as parcelId) to the canonical DB id. Returns null if no row matches.
+ */
+export async function resolvePropertyId(id: string): Promise<string | null> {
+  const cached = propertyCache.get(id)
+  if (cached) return cached.id
+  const row = await prisma.property.findFirst({
+    where: { OR: [{ id }, { parcelId: id }] },
+    select: { id: true },
+  })
+  return row?.id ?? null
 }
 
 function prismaPropertyToDto(
