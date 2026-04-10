@@ -191,15 +191,15 @@ export function AIAdvisor() {
 
       <button
         onClick={() => setOpen(!open)}
-        className="h-12 w-12 rounded-full bg-[#0d1929] hover:bg-[#162438] shadow-xl flex items-center justify-center transition-colors border border-white/10"
+        className="h-16 w-16 rounded-full bg-[#0d1929] hover:bg-[#162438] shadow-2xl flex items-center justify-center transition-all hover:scale-105 border-2 border-teal-500/30"
         title="AI Advisor"
         aria-label="Open AI Advisor"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
         <div className="relative flex items-center justify-center">
-          <CoverGuardShield className="h-5 w-5" />
-          <span className="absolute -bottom-1.5 -right-1.5 text-[7px] font-bold text-white/90 leading-none bg-teal-500 rounded px-0.5">
+          <CoverGuardShield className="h-8 w-8" />
+          <span className="absolute -bottom-2 -right-2 text-[9px] font-bold text-white leading-none bg-teal-500 rounded-md px-1 py-0.5 shadow-sm">
             AI
           </span>
         </div>

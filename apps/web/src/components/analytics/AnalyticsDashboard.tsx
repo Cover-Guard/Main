@@ -20,6 +20,7 @@ import {
   Mountain,
   ShieldAlert,
   DollarSign,
+  ChevronDown,
 } from 'lucide-react'
 
 // ── Donut SVG ───────────────────────────────────────────────────────────────
@@ -223,8 +224,6 @@ function RiskBadge({ level }: { level: string }) {
   )
 }
 
-type TopLevelTab = 'overview' | 'regional' | 'reports'
-
 const RISK_COLORS: Record<string, string> = {
   LOW: '#22c55e', MODERATE: '#3b82f6', HIGH: '#ef4444', VERY_HIGH: '#dc2626', EXTREME: '#7c3aed',
 }
@@ -233,12 +232,41 @@ const riskScoreMap: Record<string, number> = {
   LOW: 85, MODERATE: 65, HIGH: 45, VERY_HIGH: 25, EXTREME: 10,
 }
 
+// ── Collapsible Section ──────────────────────────────────────────────────
+function CollapsibleSection({
+  title,
+  icon,
+  defaultOpen = true,
+  children,
+}: {
+  title: string
+  icon: React.ReactNode
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="mb-6">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 w-full text-left group mb-3"
+      >
+        <span className="flex items-center justify-center h-6 w-6 rounded-md bg-gray-100 group-hover:bg-gray-200 transition-colors">
+          <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${open ? '' : '-rotate-90'}`} />
+        </span>
+        {icon}
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────
-export function AnalyticsDashboard({ initialTab }: { initialTab?: TopLevelTab }) {
+export function AnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<TopLevelTab>(initialTab ?? 'overview')
 
   useEffect(() => {
     getAnalytics()
@@ -247,11 +275,11 @@ export function AnalyticsDashboard({ initialTab }: { initialTab?: TopLevelTab })
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading && tab !== 'reports') return <AnalyticsSkeleton />
+  if (loading) return <AnalyticsSkeleton />
 
   if (error) {
     return (
-      <div className="p-8 max-w-5xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
           <AlertTriangle className="mx-auto h-8 w-8 text-red-400 mb-2" />
           <p className="font-semibold text-red-700">Failed to load analytics</p>
@@ -268,41 +296,30 @@ export function AnalyticsDashboard({ initialTab }: { initialTab?: TopLevelTab })
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <Activity className="h-6 w-6 text-blue-600" />
         <h1 className="text-2xl font-bold text-gray-900">Analytics &amp; Reports</h1>
       </div>
-      <p className="text-sm text-gray-500 mb-5">
+      <p className="text-sm text-gray-500 mb-6">
         Key metrics, pipeline insights, regional risk trends, and saved property reports
       </p>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 border-b border-gray-200 pb-0">
-        <TabButton active={tab === 'overview'} onClick={() => setTab('overview')} icon={<Activity className="h-3.5 w-3.5" />}>
-          Overview
-        </TabButton>
-        <TabButton active={tab === 'regional'} onClick={() => setTab('regional')} icon={<TrendingUp className="h-3.5 w-3.5" />}>
-          Regional Trends
-        </TabButton>
-        <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} icon={<FileText className="h-3.5 w-3.5" />}>
-          Reports
-        </TabButton>
-      </div>
+      {/* Overview Section */}
+      <CollapsibleSection title="Overview" icon={<Activity className="h-4 w-4 text-emerald-500" />}>
+        {data && <OverviewTab data={data} />}
+      </CollapsibleSection>
 
-      {/* Reports tab */}
-      {tab === 'reports' && (
-        <div className="-mx-8 -mt-6">
-          <ReportsContent />
-        </div>
-      )}
+      {/* Regional Trends Section */}
+      <CollapsibleSection title="Regional Trends" icon={<TrendingUp className="h-4 w-4 text-blue-500" />}>
+        {data && <RegionalTab data={data} />}
+      </CollapsibleSection>
 
-      {/* Overview tab */}
-      {tab === 'overview' && data && <OverviewTab data={data} />}
-
-      {/* Regional Trends tab */}
-      {tab === 'regional' && data && <RegionalTab data={data} />}
+      {/* Reports Section */}
+      <CollapsibleSection title="Reports" icon={<FileText className="h-4 w-4 text-orange-500" />}>
+        <ReportsContent />
+      </CollapsibleSection>
     </div>
   )
 }
@@ -717,32 +734,6 @@ function ScoreCell({ score }: { score: number }) {
   return <span className={`text-xs ${color}`}>{score}</span>
 }
 
-function TabButton({
-  active,
-  onClick,
-  icon,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-t-md text-sm font-medium transition-colors border-b-2 -mb-px ${
-        active
-          ? 'border-blue-600 text-blue-700 bg-blue-50/60'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      {icon}
-      {children}
-    </button>
-  )
-}
-
 function MiniStat({
   label,
   sub,
@@ -781,7 +772,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function AnalyticsSkeleton() {
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-4">
+    <div className="p-8 max-w-7xl mx-auto space-y-4">
       <div className="h-8 w-48 bg-gray-100 animate-pulse rounded mb-2" />
       <div className="h-4 w-72 bg-gray-100 animate-pulse rounded mb-6" />
       <div className="grid grid-cols-4 gap-3">

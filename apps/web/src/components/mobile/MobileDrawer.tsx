@@ -6,11 +6,10 @@ import { usePathname } from 'next/navigation'
 import {
   Shield,
   LayoutDashboard,
-  Users,
-
   Wrench,
   BarChart2,
   Settings,
+  HelpCircle,
   X,
   LogOut,
 } from 'lucide-react'
@@ -19,11 +18,11 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 const navItems = [
-  { href: '/check',     label: 'Search a Property',  icon: Shield,          exact: true },
+  { href: '/check',     label: 'Search',     icon: Shield,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
-  { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
   { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },
+  { href: '/help',      label: 'Help',       icon: HelpCircle,      exact: false },
   { href: '/account',   label: 'Settings',   icon: Settings,        exact: false },
 ]
 
@@ -117,7 +116,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           <div className="space-y-0.5">
             {navItems.map(({ href, label, icon: Icon, exact }) => {
               const active = isActive(href, exact)
-              const isNewCheck = label === 'Search a Property'
+              const isNewCheck = href === '/check'
               return (
                 <Link
                   key={href}

@@ -249,11 +249,13 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
       where: { userId },
       select: {
         id: true,
+        propertyId: true,
         notes: true,
         tags: true,
         savedAt: true,
         clientId: true,
         property: { select: PROPERTY_PUBLIC_SELECT },
+        client: { select: { id: true, firstName: true, lastName: true, email: true, status: true } },
       },
       orderBy: { savedAt: 'desc' },
       take: limit,

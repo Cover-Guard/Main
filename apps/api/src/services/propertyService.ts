@@ -96,24 +96,27 @@ export async function searchProperties(
     propertyCache.set(prop.id, prop)
   }
 
-  // Batch-upsert results into DB as fire-and-forget — the response already
-  // contains the data, so the user doesn't need to wait for DB writes.
-  // This saves ~10-100ms (N upserts through pgBouncer) from the response time.
+  // Batch-upsert results into DB synchronously so the properties exist when
+  // the user immediately opens a report (risk, carriers, etc. need the DB row).
   if (result.properties.length > 0) {
     const upsertable = result.properties.filter((p) => p.parcelId)
     if (upsertable.length > 0) {
-      prisma.$transaction(
-        upsertable.map((p) => {
-          const data = dtoToPrismaData(p)
-          return prisma.property.upsert({
-            where: { parcelId: p.parcelId! },
-            update: data,
-            create: { id: p.id, ...data },
-          })
-        }),
-      ).catch((err) => logger.error('Failed to cache search results in DB', {
-        error: err instanceof Error ? err.message : err,
-      }))
+      try {
+        await prisma.$transaction(
+          upsertable.map((p) => {
+            const data = dtoToPrismaData(p)
+            return prisma.property.upsert({
+              where: { parcelId: p.parcelId! },
+              update: data,
+              create: { id: p.id, ...data },
+            })
+          }),
+        )
+      } catch (err) {
+        logger.error('Failed to cache search results in DB', {
+          error: err instanceof Error ? err.message : err,
+        })
+      }
     }
   }
 

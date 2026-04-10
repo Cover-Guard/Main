@@ -60,8 +60,8 @@ export function ActiveCarriers({ data, propertyId, propertyAddress }: ActiveCarr
         ))}
       </div>
 
-      <div className="border-t border-gray-100 bg-gray-50 px-5 py-3 text-xs text-gray-400">
-        Carrier data updated {new Date(data.lastUpdated).toLocaleDateString()}. Always verify availability directly with the carrier.
+      <div className="border-t border-gray-100 bg-gray-50 px-5 py-3 text-xs text-gray-400" suppressHydrationWarning>
+        Carrier data updated {new Date(data.lastUpdated).toISOString().split('T')[0]}. Always verify availability directly with the carrier.
       </div>
 
       {/* Quote request modal */}

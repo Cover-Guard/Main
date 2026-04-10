@@ -71,7 +71,7 @@
   ],
   "shortcuts": [
     {
-      "name": "Search a Property",
+      "name": "Search",
       "short_name": "Search",
       "description": "Search a property for insurability",
       "url": "/",

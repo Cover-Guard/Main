@@ -41,7 +41,7 @@ export function SearchResults({ properties, query }: SearchResultsProps) {
             {selectedProperty && (
                 <PropertyRiskReportModal
                     property={selectedProperty}
-                    open={!!selectedProperty}
+                    open
                     onClose={() => setSelectedProperty(null)}
                 />
             )}
