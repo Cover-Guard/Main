@@ -29,6 +29,12 @@ export function MarketingNav() {
 
           {/* Desktop nav links */}
           <nav className="hidden md:flex items-center gap-8">
+            <Link
+              href="/"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Home
+            </Link>
             {Object.entries(navDropdowns).map(([group, links]) => (
               <div
                 key={group}
@@ -100,6 +106,13 @@ export function MarketingNav() {
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white max-h-[80vh] overflow-y-auto">
           <div className="px-4 py-4 space-y-4">
+            <Link
+              href="/"
+              className="block text-sm font-medium text-gray-700 hover:text-gray-900 py-2"
+              onClick={() => setMobileOpen(false)}
+            >
+              Home
+            </Link>
             {Object.entries(navDropdowns).map(([group, links]) => (
               <details key={group} className="group">
                 <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-gray-700 py-2 [&::-webkit-details-marker]:hidden">
