@@ -29,14 +29,14 @@ export function Hero() {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 leading-[1.1]">
-            Know if a property is insurable
-            <span className="text-brand-600"> before the deal closes</span>
+            We score the property risk.
+            <span className="block text-brand-600">Then we tell you who&apos;s still writing it.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            CoverGuard checks flood, fire, earthquake, wind, and crime risk — plus shows which carriers are still writing —
-            in 90 seconds. Built for agents, brokers, lenders, and insurance professionals. Home buyers start free.
+            Flood, fire, wind, earthquake, and crime — scored from federal data. Carrier appetite — mapped to the ZIP.
+            Cost-to-insure — quoted in the report. All in 90 seconds, before the deal closes.
           </p>
 
           {/* Audience badges */}
@@ -58,12 +58,18 @@ export function Hero() {
               Check a Property Free
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <a
-              href="#product"
+            <Link
+              href="/contact"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand-600 bg-white px-6 py-3 text-base font-semibold text-brand-700 hover:bg-brand-50 transition-colors"
+            >
+              Book a Demo
+            </Link>
+            <Link
+              href="/pricing"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              See How It Works
-            </a>
+              See Pricing
+            </Link>
           </div>
 
           {/* Trust indicators */}
