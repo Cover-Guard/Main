@@ -1586,3 +1586,83 @@ export async function fetchSuperfundProximity(lat: number, lng: number): Promise
   }
   return null
 }
+
+// ─── OpenFEMA Disaster Declarations ──────────────────────────────────────────
+// Federal disaster declarations are a strong leading indicator that an area
+// has experienced (and may again experience) major perils. Carriers monitor
+// declaration history when shaping appetite for a region. We pull the last
+// ~10 years of state-level declarations and bucket them by the four risk
+// layers we already model so the rest of the pipeline can read them.
+
+const FEMA_INCIDENT_TO_LAYER: Record<string, 'flood' | 'fire' | 'wind' | 'earthquake' | 'other'> = {
+  Flood: 'flood',
+  'Coastal Storm': 'flood',
+  'Severe Storm': 'flood',
+  'Severe Storm(s)': 'flood',
+  'Severe Ice Storm': 'flood',
+  'Dam/Levee Break': 'flood',
+  Mud: 'flood',
+  Tsunami: 'flood',
+  Fire: 'fire',
+  'Wildfire': 'fire',
+  Hurricane: 'wind',
+  Tornado: 'wind',
+  Typhoon: 'wind',
+  'Tropical Storm': 'wind',
+  'Severe Storm - Tornado': 'wind',
+  Earthquake: 'earthquake',
+}
+
+export interface FemaDisasterHistory {
+  totalDeclarations: number
+  byLayer: { flood: number; fire: number; wind: number; earthquake: number; other: number }
+  recentIncidents: Array<{ incidentType: string; declarationDate: string; title: string }>
+  windowYears: number
+}
+
+export async function fetchOpenFemaDisasterHistory(
+  lat: number,
+  lng: number,
+  state: string,
+): Promise<FemaDisasterHistory | null> {
+  if (!state) return null
+  const windowYears = 10
+  const cutoff = new Date()
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - windowYears)
+  const cutoffIso = cutoff.toISOString().slice(0, 10)
+  const url =
+    'https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries?' +
+    `$filter=state eq '${state.toUpperCase()}' and declarationDate ge '${cutoffIso}'` +
+    '&$orderby=declarationDate desc&$top=200&$select=incidentType,declarationDate,declarationTitle'
+  try {
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return null
+    const json = (await res.json()) as {
+      DisasterDeclarationsSummaries?: Array<{
+        incidentType?: string
+        declarationDate?: string
+        declarationTitle?: string
+      }>
+    }
+    const rows = json.DisasterDeclarationsSummaries ?? []
+    const byLayer = { flood: 0, fire: 0, wind: 0, earthquake: 0, other: 0 }
+    for (const row of rows) {
+      const layer = FEMA_INCIDENT_TO_LAYER[row.incidentType ?? ''] ?? 'other'
+      byLayer[layer] += 1
+    }
+    const recentIncidents = rows.slice(0, 5).map((r) => ({
+      incidentType: r.incidentType ?? 'Unknown',
+      declarationDate: (r.declarationDate ?? '').slice(0, 10),
+      title: r.declarationTitle ?? '',
+    }))
+    return {
+      totalDeclarations: rows.length,
+      byLayer,
+      recentIncidents,
+      windowYears,
+    }
+  } catch (err) {
+    logger.warn('OpenFEMA DisasterDeclarationsSummaries unavailable', { err, state })
+    return null
+  }
+}
