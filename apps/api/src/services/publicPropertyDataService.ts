@@ -27,7 +27,7 @@ import type {
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
-const REPILERS_API_KEY = process.env.REPILERS_API_KEY || ''
+const RENTCAST_API_KEY = process.env.RENTCAST_API_KEY || ''
 const WALK_SCORE_KEY = process.env.WALK_SCORE_API_KEY || ''
 const ATTOM_BASE_URL = 'https://api.gateway.attomdata.com/propertyapi/v1.0.0'
 
@@ -177,7 +177,7 @@ interface AttomExpandedProfile {
 }
 
 async function fetchAttomExpanded(address: string, zip: string): Promise<AttomExpandedProfile | null> {
-  if (!REPILERS_API_KEY) return null
+  if (!RENTCAST_API_KEY) return null
 
   try {
     const url = new URL(`${ATTOM_BASE_URL}/property/expandedprofile`)
@@ -185,7 +185,7 @@ async function fetchAttomExpanded(address: string, zip: string): Promise<AttomEx
     url.searchParams.set('address2', zip)
 
     const res = await fetch(url.toString(), {
-      headers: { apikey: REPILERS_API_KEY, accept: 'application/json' },
+      headers: { apikey: RENTCAST_API_KEY, accept: 'application/json' },
       signal: AbortSignal.timeout(10_000),
     })
 
@@ -217,7 +217,7 @@ interface AttomSaleHistoryResponse {
 }
 
 async function fetchAttomSaleHistory(address: string, zip: string): Promise<PropertySaleHistory[]> {
-  if (!REPILERS_API_KEY) return []
+  if (!RENTCAST_API_KEY) return []
 
   try {
     const url = new URL(`${ATTOM_BASE_URL}/saleshistory/detail`)
@@ -225,7 +225,7 @@ async function fetchAttomSaleHistory(address: string, zip: string): Promise<Prop
     url.searchParams.set('address2', zip)
 
     const res = await fetch(url.toString(), {
-      headers: { apikey: REPILERS_API_KEY, accept: 'application/json' },
+      headers: { apikey: RENTCAST_API_KEY, accept: 'application/json' },
       signal: AbortSignal.timeout(10_000),
     })
 
