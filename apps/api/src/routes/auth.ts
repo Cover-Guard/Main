@@ -255,6 +255,7 @@ authRouter.get('/me/saved', requireAuth, async (req: Request, res, next) => {
         savedAt: true,
         clientId: true,
         property: { select: PROPERTY_PUBLIC_SELECT },
+        client: { select: { id: true, firstName: true, lastName: true, email: true, status: true } },
       },
       orderBy: { savedAt: 'desc' },
       take: limit,

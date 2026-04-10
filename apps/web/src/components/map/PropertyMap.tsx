@@ -18,6 +18,7 @@ import {
   Wind,
   Activity,
   ShieldAlert,
+  Shield,
   Eye,
   EyeOff,
 } from 'lucide-react'
@@ -29,6 +30,8 @@ interface PropertyMapProps {
   selectedProperty?: Property | null
   riskProfile?: PropertyRiskProfile | null
   onSelectProperty?: (property: Property) => void
+  /** Called when user clicks on the map (not on a marker). Provides lat/lng for reverse geocoding. */
+  onMapClick?: (latLng: { lat: number; lng: number }) => void
   center?: { lat: number; lng: number }
   zoom?: number
   className?: string
@@ -137,6 +140,54 @@ const LAYER_COVERAGE_NOTES: Partial<Record<RiskLayer, string>> = {
   crime: 'Crime data aggregated by county. Circle indicates local risk intensity.',
 }
 
+// ─── Mock risk data for demo when no real risk profile is provided ──────────
+const MOCK_RISK_PROFILE: Record<RiskLayer, { score: number; level: RiskLevel }> = {
+  flood:      { score: 62, level: 'MODERATE' },
+  fire:       { score: 78, level: 'HIGH' },
+  wind:       { score: 45, level: 'MODERATE' },
+  earthquake: { score: 28, level: 'LOW' },
+  crime:      { score: 55, level: 'MODERATE' },
+}
+
+// ─── Sub table of contents: key aspects for each risk layer ──────────────
+const RISK_LAYER_ASPECTS: Record<RiskLayer, Array<{ label: string; description: string }>> = {
+  flood: [
+    { label: 'Zone Type', description: 'FEMA flood zone classification (A, AE, V, X)' },
+    { label: 'Base Flood Elev.', description: 'Expected water height in 100-yr flood' },
+    { label: 'Insurance Req.', description: 'Whether federal flood insurance is required' },
+    { label: 'Historical Claims', description: 'Past NFIP claims in the area' },
+    { label: 'Drainage Rating', description: 'Local stormwater infrastructure capacity' },
+  ],
+  fire: [
+    { label: 'WUI Zone', description: 'Wildland-Urban Interface classification' },
+    { label: 'Vegetation Density', description: 'Fuel load and fire spread potential' },
+    { label: 'Fire History', description: 'Historical wildfire occurrences nearby' },
+    { label: 'Defensible Space', description: 'Clearance around structures' },
+    { label: 'Response Time', description: 'Nearest fire station distance' },
+  ],
+  wind: [
+    { label: 'Hurricane Cat.', description: 'Maximum expected hurricane category' },
+    { label: 'Storm Surge', description: 'SLOSH model inundation depth' },
+    { label: 'Wind Speed Design', description: 'ASCE 7 basic wind speed for the area' },
+    { label: 'Roof Rating', description: 'Wind resistance of roof assembly' },
+    { label: 'Coastal Distance', description: 'Distance from coastline in miles' },
+  ],
+  earthquake: [
+    { label: 'Seismic Zone', description: 'USGS seismic hazard classification' },
+    { label: 'Peak Acceleration', description: 'Probable ground acceleration (PGA)' },
+    { label: 'Soil Class', description: 'Foundation soil type affecting amplification' },
+    { label: 'Fault Proximity', description: 'Distance to nearest known fault line' },
+    { label: 'Building Code', description: 'Seismic design category compliance' },
+  ],
+  crime: [
+    { label: 'Violent Crime', description: 'Per capita violent crime rate vs. national avg' },
+    { label: 'Property Crime', description: 'Per capita property crime rate' },
+    { label: 'Trend Direction', description: 'Rising, stable, or declining crime trend' },
+    { label: 'Social Vulnerability', description: 'CDC SVI composite score' },
+    { label: 'Neighborhood Watch', description: 'Community safety program presence' },
+  ],
+}
+
 function riskLevelBadgeColor(level: RiskLevel): string {
   switch (level) {
     case 'LOW':
@@ -176,12 +227,15 @@ export function PropertyMap({
   selectedProperty,
   riskProfile,
   onSelectProperty,
+  onMapClick,
   center,
   zoom = 13,
   className = '',
 }: PropertyMapProps) {
   const [activeLayers, setActiveLayers] = useState<Set<RiskLayer>>(new Set())
   const [popupInfo, setPopupInfo] = useState<Property | null>(null)
+  const [expandedLayerInfo, setExpandedLayerInfo] = useState<RiskLayer | null>(null)
+  const [clickedPin, setClickedPin] = useState<{ lat: number; lng: number; address?: string } | null>(null)
   const [layerToast, setLayerToast] = useState<{
     layer: RiskLayer
     action: 'on' | 'off'
@@ -189,6 +243,18 @@ export function PropertyMap({
   } | null>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastKeyRef = useRef(0)
+  const [browserLocation, setBrowserLocation] = useState<{ lat: number; lng: number } | null>(null)
+
+  // Request browser geolocation on mount for default center
+  useEffect(() => {
+    if (!center && !selectedProperty && properties.length === 0 && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setBrowserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => { /* Permission denied or unavailable — use fallback */ },
+        { timeout: 5000, maximumAge: 300000 },
+      )
+    }
+  }, [center, selectedProperty, properties.length])
 
   // Clean up toast timer on unmount
   useEffect(() => {
@@ -204,22 +270,30 @@ export function PropertyMap({
       : null) ??
     (properties[0]
       ? { lat: properties[0].lat, lng: properties[0].lng }
-      : { lat: 37.7749, lng: -122.4194 })
+      : null) ??
+    browserLocation ??
+    { lat: 37.7749, lng: -122.4194 }
+
+  // Use real risk profile or mock data for demo
+  const effectiveRiskProfile = riskProfile ?? null
+  const useMock = !riskProfile
 
   const getRiskScore = useCallback(
     (layer: RiskLayer): number | null => {
-      if (!riskProfile) return null
-      return riskProfile[layer].score
+      if (effectiveRiskProfile) return effectiveRiskProfile[layer].score
+      if (useMock) return MOCK_RISK_PROFILE[layer].score
+      return null
     },
-    [riskProfile],
+    [effectiveRiskProfile, useMock],
   )
 
   const getRiskLevel = useCallback(
     (layer: RiskLayer): RiskLevel | null => {
-      if (!riskProfile) return null
-      return riskProfile[layer].level
+      if (effectiveRiskProfile) return effectiveRiskProfile[layer].level
+      if (useMock) return MOCK_RISK_PROFILE[layer].level
+      return null
     },
-    [riskProfile],
+    [effectiveRiskProfile, useMock],
   )
 
   const activeLayersRef = useRef(activeLayers)
@@ -270,6 +344,25 @@ export function PropertyMap({
               gestureHandling="greedy"
               disableDefaultUI={false}
               style={{ width: '100%', height: '100%' }}
+              onClick={(e) => {
+                const lat = e.detail?.latLng?.lat
+                const lng = e.detail?.latLng?.lng
+                if (lat != null && lng != null) {
+                  setClickedPin({ lat, lng })
+                  onMapClick?.({ lat, lng })
+                  // Reverse geocode to get address
+                  if (typeof google !== 'undefined' && google.maps?.Geocoder) {
+                    new google.maps.Geocoder().geocode(
+                      { location: { lat, lng } },
+                      (results, status) => {
+                        if (status === 'OK' && results?.[0]) {
+                          setClickedPin({ lat, lng, address: results[0].formatted_address })
+                        }
+                      },
+                    )
+                  }
+                }
+              }}
             >
               <MapController center={mapCenter} zoom={zoom} />
               {/* ââ GIS tile overlays (real geographic data) ââââââââââââ */}
@@ -361,16 +454,55 @@ export function PropertyMap({
                   </div>
                 </InfoWindow>
               )}
+
+              {/* Clicked pin — user clicked on map to explore a location */}
+              {clickedPin && (
+                <>
+                  <AdvancedMarker position={{ lat: clickedPin.lat, lng: clickedPin.lng }}>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-teal-600 bg-teal-600 text-white shadow-lg animate-bounce">
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                  </AdvancedMarker>
+                  <InfoWindow
+                    position={{ lat: clickedPin.lat, lng: clickedPin.lng }}
+                    onCloseClick={() => setClickedPin(null)}
+                    pixelOffset={[0, -48]}
+                  >
+                    <div className="p-1 min-w-[180px]">
+                      <p className="font-semibold text-gray-900 text-sm">
+                        {clickedPin.address ?? 'Loading address\u2026'}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {clickedPin.lat.toFixed(5)}, {clickedPin.lng.toFixed(5)}
+                      </p>
+                      <a
+                        href={`/check?lat=${clickedPin.lat}&lng=${clickedPin.lng}${clickedPin.address ? `&address=${encodeURIComponent(clickedPin.address)}` : ''}`}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md px-2.5 py-1.5 transition-colors"
+                      >
+                        <Shield className="h-3 w-3" />
+                        Run Risk Report
+                      </a>
+                    </div>
+                  </InfoWindow>
+                </>
+              )}
             </Map>
           </MapLoadingGuard>
       </MapErrorBoundary>
 
-      {/* ââ Risk layer control panel âââââââââââââââââââââââââââââââ */}
+            {/* ── Risk layer control panel ─────────────────────────── */}
       <div className="absolute bottom-4 left-4 z-10 max-h-[calc(100%-2rem)] overflow-y-auto">
-        <div className="rounded-xl border border-gray-200 bg-white/95 backdrop-blur-sm p-3 shadow-lg w-56">
-          <div className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-            <Layers className="h-3.5 w-3.5" />
-            Risk Layers
+        <div className="rounded-xl border border-gray-200 bg-white/95 backdrop-blur-sm p-3 shadow-lg w-64">
+          <div className="mb-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <Layers className="h-3.5 w-3.5" />
+              Risk Layers
+            </div>
+            {useMock && (
+              <span className="text-[9px] font-medium text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">
+                Demo Data
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">
@@ -380,109 +512,109 @@ export function PropertyMap({
               const score = getRiskScore(layer)
               const level = getRiskLevel(layer)
               const isActive = activeLayers.has(layer)
+              const isExpanded = expandedLayerInfo === layer
 
               return (
-                <button
-                  key={layer}
-                  onClick={() => toggleLayer(layer)}
-                  className={`group flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all ${
-                    isActive
-                      ? 'shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                  style={
-                    isActive
-                      ? {
-                          backgroundColor: `${config.color}10`,
-                          color: config.color,
-                          boxShadow: `inset 0 0 0 1px ${config.color}40`,
-                        }
-                      : {}
-                  }
-                  title={config.description}
-                >
-                  {/* Toggle eye icon */}
-                  <div className="shrink-0">
-                    {isActive ? (
-                      <Eye
-                        className="h-3.5 w-3.5"
-                        style={{ color: config.color }}
-                      />
-                    ) : (
-                      <EyeOff className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-500" />
-                    )}
-                  </div>
-
-                  {/* Layer icon + label */}
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <Icon
-                      className="h-3.5 w-3.5 shrink-0"
-                      style={{
-                        color: isActive ? config.color : undefined,
-                      }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium block truncate">
-                        {config.label}
-                      </span>
-                      {isActive && (
-                        <span className="text-[10px] opacity-70 block truncate">
-                          {config.description}
-                        </span>
+                <div key={layer}>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => toggleLayer(layer)}
+                      className={`group flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-all flex-1 ${
+                        isActive
+                          ? 'shadow-sm'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                      style={
+                        isActive
+                          ? {
+                              backgroundColor: `${config.color}10`,
+                              color: config.color,
+                              boxShadow: `inset 0 0 0 1px ${config.color}40`,
+                            }
+                          : {}
+                      }
+                      title={config.description}
+                    >
+                      <div className="shrink-0">
+                        {isActive ? (
+                          <Eye className="h-3.5 w-3.5" style={{ color: config.color }} />
+                        ) : (
+                          <EyeOff className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-500" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: isActive ? config.color : undefined }} />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium block truncate">{config.label}</span>
+                          {isActive && (
+                            <span className="text-[10px] opacity-70 block truncate">{config.description}</span>
+                          )}
+                        </div>
+                      </div>
+                      {score !== null && (
+                        <div className="shrink-0 flex flex-col items-end gap-0.5">
+                          <span
+                            className="rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+                            style={isActive ? { backgroundColor: `${config.color}20`, color: config.color } : { backgroundColor: '#f3f4f6', color: '#6b7280' }}
+                          >
+                            {score}
+                          </span>
+                          {level && isActive && (
+                            <span className={`rounded px-1 py-0.5 text-[9px] font-semibold ${riskLevelBadgeColor(level)}`}>
+                              {level.replace('_', ' ')}
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </div>
+                    </button>
+                    <button
+                      onClick={() => setExpandedLayerInfo(isExpanded ? null : layer)}
+                      className={`shrink-0 h-7 w-7 rounded-md flex items-center justify-center text-[10px] transition-colors ${
+                        isExpanded ? 'bg-gray-200 text-gray-700' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                      }`}
+                      title={`${isExpanded ? 'Hide' : 'Show'} ${config.label} details`}
+                    >
+                      \u24d8
+                    </button>
                   </div>
-
-                  {/* Score badge */}
-                  {score !== null && (
-                    <div className="shrink-0 flex flex-col items-end gap-0.5">
-                      <span
-                        className="rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
-                        style={
-                          isActive
-                            ? {
-                                backgroundColor: `${config.color}20`,
-                                color: config.color,
-                              }
-                            : {
-                                backgroundColor: '#f3f4f6',
-                                color: '#6b7280',
-                              }
-                        }
-                      >
-                        {score}
-                      </span>
-                      {level && isActive && (
-                        <span
-                          className={`rounded px-1 py-0.5 text-[9px] font-semibold ${riskLevelBadgeColor(level)}`}
-                        >
-                          {level.replace('_', ' ')}
-                        </span>
-                      )}
+                  {isExpanded && (
+                    <div className="ml-3 mr-1 mt-1 mb-2 rounded-lg border border-gray-100 bg-gray-50/80 p-2.5">
+                      <p className="text-[10px] font-semibold text-gray-600 mb-1.5">
+                        {config.label} — Key Factors
+                      </p>
+                      <div className="space-y-1.5">
+                        {RISK_LAYER_ASPECTS[layer].map((aspect) => (
+                          <div key={aspect.label} className="flex gap-1.5">
+                            <span
+                              className="shrink-0 h-1.5 w-1.5 rounded-full mt-1"
+                              style={{ backgroundColor: config.color }}
+                            />
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-semibold text-gray-700">{aspect.label}: </span>
+                              <span className="text-[10px] text-gray-500">{aspect.description}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
 
-          {/* Legend note */}
           {activeLayers.size > 0 && (
             <div className="mt-2.5 border-t border-gray-100 pt-2 flex flex-col gap-1">
               <p className="text-[10px] text-gray-400 leading-relaxed">
-                Map overlays show real geographic risk zones from public data
-                sources. Circles indicate risk intensity centered on the
-                property.
+                {useMock
+                  ? 'Showing demo risk data. Search for a property to see real risk analysis.'
+                  : 'Map overlays show real geographic risk zones from public data sources. Circles indicate risk intensity centered on the property.'}
               </p>
-              {/* Coverage notes for active layers with limited data */}
               {Array.from(activeLayers).map((l) => {
                 const note = LAYER_COVERAGE_NOTES[l]
                 if (!note) return null
                 return (
-                  <p
-                    key={`note-${l}`}
-                    className="text-[10px] text-amber-500/80 leading-relaxed flex items-start gap-1"
-                  >
+                  <p key={`note-${l}`} className="text-[10px] text-amber-500/80 leading-relaxed flex items-start gap-1">
                     <AlertTriangle className="h-2.5 w-2.5 shrink-0 mt-0.5" />
                     {note}
                   </p>
