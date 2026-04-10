@@ -136,13 +136,14 @@ const ARCGIS_TILE_SERVICES: Partial<
       label: 'USGS Seismic Hazard',
     },
   ],
-  crime: [
-    {
-      url: 'https://services.arcgis.com/jIL9msH9OI208GCb/arcgis/rest/services/FBI_Crime_Data_Explorer/MapServer',
-      layers: 'show:0', // FBI UCR crime data by county
-      label: 'FBI Crime Data',
-    },
-  ],
+  // NOTE: No tile service is configured for `crime`. The FBI Crime Data
+  // Explorer ArcGIS endpoint we previously pointed at
+  // (services.arcgis.com/jIL9msH9OI208GCb/.../FBI_Crime_Data_Explorer/MapServer)
+  // does not exist and returned 400 Bad Request in production. No stable,
+  // publicly-hosted FBI UCR tile service is currently available. Crime risk
+  // is still surfaced to users via `RiskCircleOverlay`, which renders a
+  // colored circle driven by the backend risk score — no raster overlay
+  // needed.
 }
 // ─── Mock risk data for demo when no real risk profile is provided ──────────
 const MOCK_RISK_PROFILE: Record<RiskLayer, { score: number; level: RiskLevel }> = {
