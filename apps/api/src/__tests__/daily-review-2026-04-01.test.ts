@@ -11,7 +11,7 @@ describe('Daily Review 2026-04-01 Fixes', () => {
           it('should return 503 on RentCast API failure', () => {
                   // Test that RentCast API errors return proper 503 status
                   expect(true).toBe(true);
-          });h
+          });
     });
 
     describe('Fix 2: Retry utility with exponential backoff', () => {
