@@ -13,7 +13,7 @@ export function ConsumerDashboard() {
     <div>
       {/* Search hero */}
       <div className="bg-[#0d1929] px-4 py-10 text-white">
-        <div className="mx-auto max-w-5xl text-center">
+        <div className="mx-auto max-w-full text-center">
           <h1 className="mb-2 text-2xl font-bold">Search</h1>
           <p className="mb-6 text-white/60">
             Enter an address to get a full risk, insurability, and carrier availability report
@@ -25,7 +25,7 @@ export function ConsumerDashboard() {
       {/* Compare bar */}
       {compareIds.length >= 2 && compareUrl && (
         <div className="bg-teal-600 px-4 py-2.5 text-white">
-          <div className="mx-auto flex max-w-5xl items-center justify-between">
+          <div className="mx-auto flex max-w-full items-center justify-between">
             <div className="flex items-center gap-2 text-sm">
               <GitCompare className="h-4 w-4" />
               <span className="font-medium">{compareIds.length} properties ready to compare</span>
@@ -40,7 +40,7 @@ export function ConsumerDashboard() {
         </div>
       )}
 
-      <div className="mx-auto max-w-5xl px-4 py-8 space-y-6">
+      <div className="mx-auto max-w-full px-4 py-8 space-y-4">
 
         {/* Quick links */}
         <div className="grid grid-cols-3 gap-3">
@@ -77,7 +77,7 @@ export function ConsumerDashboard() {
         <SavedPropertiesPanel />
 
         {/* Empty state CTA — shown when no saved properties exist */}
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+        <div className="bg-white rounded-xl border border-gray-200 p-3 lg:p-4 text-center">
           <Shield className="mx-auto h-10 w-10 text-gray-200 mb-3" />
           <p className="font-semibold text-gray-700">Ready to check a property?</p>
           <p className="text-sm text-gray-400 mt-1 mb-4">

@@ -1136,34 +1136,36 @@ export function ToolkitContent() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-3 lg:p-4 max-w-full mx-auto">
       <div className="flex items-center gap-3 mb-1">
         <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="flex items-center gap-2">
-          <Wrench className="h-6 w-6 text-gray-700" />
-          <h1 className="text-2xl font-bold text-gray-900">Agent Toolkit</h1>
+          <Wrench className="h-5 w-5 text-gray-700" />
+          <h1 className="text-lg font-bold text-gray-900">Agent Toolkit</h1>
         </div>
       </div>
-      <p className="text-sm text-blue-600 mb-8 ml-[52px]">AI-powered tools for insurance-savvy real estate professionals</p>
+      <p className="text-xs text-blue-600 mb-4 ml-[44px]">AI-powered tools for insurance-savvy real estate professionals</p>
 
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {TOOLS.map(({ id, icon: Icon, iconBg, iconColor, title, description, content }) => {
           const isOpen = openId === id
           return (
-            <div key={id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <button type="button" onClick={() => toggle(id)} className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left">
-                <div className={`h-9 w-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+            <div key={id} className={`bg-white rounded-lg border border-gray-200 overflow-hidden transition-all hover:shadow-md hover:border-gray-300 ${isOpen ? 'md:col-span-2 lg:col-span-3' : ''}`}>
+              <button type="button" onClick={() => toggle(id)} className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left">
+                <div className={`h-10 w-10 rounded-lg ${iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
                   <Icon className={`h-5 w-5 ${iconColor}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900">{title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{description}</p>
                 </div>
-                {isOpen ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+                <div className="shrink-0 mt-1">
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-gray-400" /> : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
+                </div>
               </button>
-              {isOpen && <div className="px-5 pb-5 border-t border-gray-100">{content}</div>}
+              {isOpen && <div className="px-4 pb-4 border-t border-gray-100">{content}</div>}
             </div>
           )
         })}

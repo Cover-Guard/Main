@@ -115,7 +115,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <div className="flex h-full flex-col overflow-hidden">
         {/* Search bar */}
         <div className="shrink-0 border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
-          <div className="mx-auto max-w-5xl">
+          <div className="mx-auto max-w-full">
             <SearchBar defaultValue={q ?? ''} />
           </div>
         </div>
@@ -126,7 +126,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         {/* ── Desktop: side-by-side list + map ─────────────────────── */}
         <div className="hidden flex-1 overflow-hidden md:flex">
           {/* Left: results list */}
-          <div className="w-[420px] shrink-0 overflow-y-auto px-4 py-6 lg:w-[480px]">
+          <div className="w-[420px] shrink-0 overflow-y-auto px-4 py-3 lg:w-[480px]">
             {resultsList}
           </div>
 
