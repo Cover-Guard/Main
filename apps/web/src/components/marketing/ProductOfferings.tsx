@@ -19,22 +19,25 @@ const risks = [
 
 const offerings = [
   {
+    step: 'STEP 01',
     icon: AlertTriangle,
-    title: 'Pre-Offer Insurability Check',
+    title: 'Property Risk — Done Right',
     description:
-      'Run a full insurability check before a deal moves forward — not after. CoverGuard pulls from FEMA, USGS, NOAA, Cal Fire, and FBI to surface deal-killing risks before anyone is under contract. Used by agents, lenders, and insurers alike.',
+      'Composite risk scoring from FEMA flood maps, USGS earthquake zones, NOAA wind/hail history, Cal Fire & USFS wildfire data, and FBI crime stats. One score, five hazards, sourced from federal data — not a black-box vendor model.',
   },
   {
+    step: 'STEP 02',
     icon: Building2,
-    title: 'Real-Time Carrier Availability',
+    title: 'Carrier Availability — In That ZIP',
     description:
-      'State Farm, Allstate, and Farmers have pulled out of California, Florida, and Texas. See exactly which carriers are still actively writing in a specific ZIP code and risk profile — in real time. Essential for agents, brokers, lenders, and insurance professionals.',
+      'State Farm, Allstate, and Farmers have pulled out of California, Florida, and Texas. We map carrier appetite to the exact ZIP and risk profile — so you know who is still writing before you waste a quote request. Updated continuously.',
   },
   {
+    step: 'STEP 03',
     icon: Clock,
-    title: 'Risk to Quote in 90 Seconds',
+    title: 'Quotes & Cost-to-Insure',
     description:
-      'From address lookup to binding quote request — in one platform. CoverGuard aggregates 8+ government data sources and connects to active carriers, cutting the insurance discovery process from days to under two minutes. Free for individuals — up to 3 reports.',
+      'From address lookup to a binding-ready quote in 90 seconds. CoverGuard turns the risk score and carrier list into an estimated annual premium and a one-click quote request — so the deal team knows the cost-to-insure before any offer is signed.',
   },
 ]
 
@@ -44,13 +47,13 @@ export function ProductOfferings() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <div className="text-center max-w-3xl mx-auto">
-          <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider">Product</p>
+          <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider">How it works</p>
           <h2 className="mt-3 text-3xl sm:text-4xl font-bold text-gray-900">
-            Everything you need before the deal is done
+            Property risk → Carrier availability → Quote
           </h2>
           <p className="mt-4 text-lg text-gray-600">
-            With carriers exiting markets across the US, insurance has become the #1 deal killer.
-            CoverGuard gives agents, brokers, lenders, and insurers the intelligence to stay ahead of it.
+            Three steps. One platform. Built so agents, brokers, lenders, and insurers
+            never get blindsided by a deal-killing insurance issue again.
           </p>
         </div>
 
@@ -74,7 +77,10 @@ export function ProductOfferings() {
               key={offering.title}
               className="relative rounded-2xl border border-gray-200 bg-white p-8 hover:border-brand-200 hover:shadow-lg transition-all duration-300 group"
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 group-hover:bg-brand-100 transition-colors">
+              <span className="inline-block rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold tracking-wider text-brand-700">
+                {offering.step}
+              </span>
+              <div className="mt-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 group-hover:bg-brand-100 transition-colors">
                 <offering.icon className="h-6 w-6 text-brand-600" />
               </div>
               <h3 className="mt-5 text-xl font-semibold text-gray-900">{offering.title}</h3>
