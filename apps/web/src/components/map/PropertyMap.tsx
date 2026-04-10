@@ -103,11 +103,12 @@ const ARCGIS_TILE_SERVICES: Partial<
       layers: 'show:20', // Layer 20 = S_Fld_Haz_Ar (Flood Hazard Zones)
       label: 'FEMA NFHL',
     },
-    {
-      url: 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Flood_Hazard_Reduced_Set/FeatureServer',
-      layers: 'show:0', // Esri USA Flood Hazard Areas (Living Atlas)
-      label: 'Esri Flood Hazard',
-    },
+    // NOTE: FeatureServer does NOT support the `export` (tile) operation —
+    // only MapServer does. The previous Esri Living Atlas FeatureServer URL
+    // returned 400 Bad Request on every tile. FEMA NFHL above provides the
+    // authoritative coverage, so we drop the Esri fallback entirely rather
+    // than pointing at a non-existent MapServer. If a secondary source is
+    // needed, use the NFHL S_Fld_Haz_Ar layer or a hosted tile service.
   ],
   fire: [
     {
