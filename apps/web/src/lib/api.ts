@@ -275,6 +275,12 @@ export async function deletePropertyChecklist(propertyId: string, checklistId: s
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export async function getAnalytics(): Promise<AnalyticsSummary> {
+  // Demo mode short-circuit: return a fully-populated mock dataset so the
+  // analytics dashboard looks populated for first-run and marketing views.
+  const { isDemoMode, buildMockAnalytics } = await import('./mockData')
+  if (isDemoMode()) {
+    return buildMockAnalytics()
+  }
   return apiFetch('/api/analytics')
 }
 
