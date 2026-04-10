@@ -9,8 +9,11 @@ export function CTABanner() {
           Stop losing deals to insurance surprises
         </h2>
         <p className="mt-4 text-lg text-brand-200 max-w-2xl mx-auto">
-          With State Farm, Allstate, and Farmers exiting major markets, insurance is killing deals at closing.
-          CoverGuard puts the insurability check where it belongs — before your client makes an offer.
+          With carriers exiting major markets, insurance is killing deals at closing.
+          CoverGuard puts the insurability check where it belongs — before anyone signs on the dotted line.
+        </p>
+        <p className="mt-4 text-sm text-brand-300 max-w-xl mx-auto">
+          Whether you&apos;re a home buyer, agent, broker, lender, or insurer — CoverGuard gives you the risk intelligence to move forward with confidence. Individuals get 3 free reports to get started.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
@@ -29,7 +32,7 @@ export function CTABanner() {
           </Link>
         </div>
         <p className="mt-6 text-sm text-brand-400">
-          Free to start — no credit card required. Used by 500+ agents across 38 states.
+          Free to start — no credit card required. Used by 500+ professionals across 38 states.
         </p>
       </div>
     </section>

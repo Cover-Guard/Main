@@ -42,8 +42,8 @@ export function HowItWorks() {
             From address to insured — in minutes
           </h2>
           <p className="mt-4 text-lg text-gray-600">
-            CoverGuard fits directly into your existing workflow. Run the check before the offer.
-            Know the risk. Close with confidence.
+            CoverGuard fits directly into your existing workflow — whether you&apos;re buying a home,
+            closing a deal, approving a loan, or writing a policy.
           </p>
         </div>
 
@@ -71,33 +71,48 @@ export function HowItWorks() {
           ))}
         </div>
 
-        {/* Use-case cards */}
-        <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              title: 'For Real Estate Agents',
-              description: 'Run a pre-offer insurability check on every listing. Stop deals from falling through at the closing table because of insurance surprises.',
-              tag: 'Most Popular',
-            },
-            {
-              title: 'For Insurance Brokers',
-              description: 'Identify insurable properties instantly. See which carriers are actively writing in any ZIP and pre-qualify leads before spending time on quotes.',
-              tag: 'Insurance Pro',
-            },
-            {
-              title: 'For Mortgage Lenders',
-              description: 'Verify insurability before loan commitment. Eliminate last-minute closing delays caused by properties that can\'t secure adequate coverage.',
-              tag: 'Lender Portal',
-            },
-          ].map((card) => (
-            <div key={card.title} className="rounded-2xl bg-white border border-gray-200 p-6 hover:border-brand-200 hover:shadow-md transition-all duration-300">
-              <span className="inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
-                {card.tag}
-              </span>
-              <h3 className="mt-4 text-lg font-semibold text-gray-900">{card.title}</h3>
-              <p className="mt-2 text-sm text-gray-600 leading-relaxed">{card.description}</p>
-            </div>
-          ))}
+        {/* Use-case cards — one per industry segment */}
+        <div className="mt-20">
+          <h3 className="text-center text-xl font-semibold text-gray-900 mb-8">
+            Built for every role in real estate
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                title: 'For Individuals',
+                description: 'Buying a home? Check property risks and insurance availability before you make an offer. Start free — your first 3 reports are on us.',
+                tag: 'Free to Start',
+              },
+              {
+                title: 'For Residential Agents & Brokers',
+                description: 'Run a pre-offer insurability check on every listing. Stop deals from falling through at the closing table because of insurance surprises.',
+                tag: 'Most Popular',
+              },
+              {
+                title: 'For CRE Agents & Brokers',
+                description: 'Evaluate commercial property risk, environmental exposure, and carrier availability for commercial deals — before investor due diligence.',
+                tag: 'Commercial',
+              },
+              {
+                title: 'For Lenders',
+                description: 'Verify insurability before loan commitment. Eliminate last-minute closing delays caused by properties that can\'t secure adequate coverage.',
+                tag: 'Lender Portal',
+              },
+              {
+                title: 'For Insurance Companies',
+                description: 'Pre-qualify inbound leads, screen portfolios for risk exposure, and integrate CoverGuard risk data into your underwriting workflow via API.',
+                tag: 'Insurance Pro',
+              },
+            ].map((card) => (
+              <div key={card.title} className="rounded-2xl bg-white border border-gray-200 p-6 hover:border-brand-200 hover:shadow-md transition-all duration-300">
+                <span className="inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+                  {card.tag}
+                </span>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">{card.title}</h3>
+                <p className="mt-2 text-sm text-gray-600 leading-relaxed">{card.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
