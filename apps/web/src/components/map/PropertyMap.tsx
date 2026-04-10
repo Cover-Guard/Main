@@ -45,38 +45,50 @@ const RISK_LAYER_CONFIG: Record<
     label: string
     color: string
     icon: typeof Droplets
-    description: string
+    shows: string
+    source: string
+    coverage: string
   }
 > = {
   flood: {
-    label: 'Flood Zones',
+    label: 'Flood',
     color: '#3b82f6',
     icon: Droplets,
-    description: 'FEMA NFHL + Esri USA Flood Hazard',
+    shows: 'FEMA-designated flood hazard zones and 100-year floodplains.',
+    source: 'FEMA National Flood Hazard Layer',
+    coverage: 'Not all areas are FEMA-mapped — unmapped parcels show no overlay.',
   },
   fire: {
-    label: 'Fire Hazard',
+    label: 'Wildfire',
     color: '#ef4444',
     icon: Flame,
-    description: 'USDA Wildfire Risk + USFS WUI (Esri)',
+    shows: 'Wildfire hazard potential and wildland-urban interface zones.',
+    source: 'USDA Wildfire Risk to Communities + USFS WUI',
+    coverage: 'Highest detail in forested and wildland-adjacent areas.',
   },
   wind: {
-    label: 'Wind / Hurricane',
+    label: 'Hurricane',
     color: '#a855f7',
     icon: Wind,
-    description: 'NOAA SLOSH + Esri Hurricane Tracks',
+    shows: 'Category-3 hurricane storm surge inundation zones.',
+    source: 'NOAA SLOSH model',
+    coverage: 'Coastal regions only — inland areas show no overlay.',
   },
   earthquake: {
     label: 'Earthquake',
     color: '#f97316',
     icon: Activity,
-    description: 'USGS Seismic Hazard (Esri-hosted)',
+    shows: 'Probable ground-shaking intensity from seismic hazard modeling.',
+    source: 'USGS 2014 National Seismic Hazard Model',
+    coverage: 'Shading can be subtle in low-risk regions.',
   },
   crime: {
     label: 'Crime',
     color: '#6b7280',
     icon: ShieldAlert,
-    description: 'FBI Crime + CDC SVI (Esri)',
+    shows: 'Reported violent and property crime rates by jurisdiction.',
+    source: 'FBI Crime Data Explorer',
+    coverage: 'Aggregated by county — circle shows local intensity.',
   },
 }
 // âââ ArcGIS Tile Service URLs ââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -131,15 +143,6 @@ const ARCGIS_TILE_SERVICES: Partial<
     },
   ],
 }
-// Coverage notes shown when a layer may not have visible data in some areas
-const LAYER_COVERAGE_NOTES: Partial<Record<RiskLayer, string>> = {
-  flood: 'FEMA flood maps may not cover all areas. No overlay = unmapped zone.',
-  fire: 'WUI zones highlight where wildland meets development. Remote areas may show no overlay.',
-  wind: 'Cat-3 storm surge covers coastal zones only. Inland areas will show no overlay.',
-  earthquake: 'Seismic hazard shading may be subtle in low-risk regions.',
-  crime: 'Crime data aggregated by county. Circle indicates local risk intensity.',
-}
-
 // ─── Mock risk data for demo when no real risk profile is provided ──────────
 const MOCK_RISK_PROFILE: Record<RiskLayer, { score: number; level: RiskLevel }> = {
   flood:      { score: 62, level: 'MODERATE' },
@@ -147,45 +150,6 @@ const MOCK_RISK_PROFILE: Record<RiskLayer, { score: number; level: RiskLevel }> 
   wind:       { score: 45, level: 'MODERATE' },
   earthquake: { score: 28, level: 'LOW' },
   crime:      { score: 55, level: 'MODERATE' },
-}
-
-// ─── Sub table of contents: key aspects for each risk layer ──────────────
-const RISK_LAYER_ASPECTS: Record<RiskLayer, Array<{ label: string; description: string }>> = {
-  flood: [
-    { label: 'Zone Type', description: 'FEMA flood zone classification (A, AE, V, X)' },
-    { label: 'Base Flood Elev.', description: 'Expected water height in 100-yr flood' },
-    { label: 'Insurance Req.', description: 'Whether federal flood insurance is required' },
-    { label: 'Historical Claims', description: 'Past NFIP claims in the area' },
-    { label: 'Drainage Rating', description: 'Local stormwater infrastructure capacity' },
-  ],
-  fire: [
-    { label: 'WUI Zone', description: 'Wildland-Urban Interface classification' },
-    { label: 'Vegetation Density', description: 'Fuel load and fire spread potential' },
-    { label: 'Fire History', description: 'Historical wildfire occurrences nearby' },
-    { label: 'Defensible Space', description: 'Clearance around structures' },
-    { label: 'Response Time', description: 'Nearest fire station distance' },
-  ],
-  wind: [
-    { label: 'Hurricane Cat.', description: 'Maximum expected hurricane category' },
-    { label: 'Storm Surge', description: 'SLOSH model inundation depth' },
-    { label: 'Wind Speed Design', description: 'ASCE 7 basic wind speed for the area' },
-    { label: 'Roof Rating', description: 'Wind resistance of roof assembly' },
-    { label: 'Coastal Distance', description: 'Distance from coastline in miles' },
-  ],
-  earthquake: [
-    { label: 'Seismic Zone', description: 'USGS seismic hazard classification' },
-    { label: 'Peak Acceleration', description: 'Probable ground acceleration (PGA)' },
-    { label: 'Soil Class', description: 'Foundation soil type affecting amplification' },
-    { label: 'Fault Proximity', description: 'Distance to nearest known fault line' },
-    { label: 'Building Code', description: 'Seismic design category compliance' },
-  ],
-  crime: [
-    { label: 'Violent Crime', description: 'Per capita violent crime rate vs. national avg' },
-    { label: 'Property Crime', description: 'Per capita property crime rate' },
-    { label: 'Trend Direction', description: 'Rising, stable, or declining crime trend' },
-    { label: 'Social Vulnerability', description: 'CDC SVI composite score' },
-    { label: 'Neighborhood Watch', description: 'Community safety program presence' },
-  ],
 }
 
 function riskLevelBadgeColor(level: RiskLevel): string {
@@ -535,7 +499,7 @@ export function PropertyMap({
                             }
                           : {}
                       }
-                      title={config.description}
+                      title={config.shows}
                     >
                       <div className="shrink-0">
                         {isActive ? (
@@ -546,57 +510,46 @@ export function PropertyMap({
                       </div>
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: isActive ? config.color : undefined }} />
-                        <div className="min-w-0 flex-1">
-                          <span className="font-medium block truncate">{config.label}</span>
-                          {isActive && (
-                            <span className="text-[10px] opacity-70 block truncate">{config.description}</span>
-                          )}
-                        </div>
+                        <span className="font-medium truncate">{config.label}</span>
                       </div>
                       {score !== null && (
-                        <div className="shrink-0 flex flex-col items-end gap-0.5">
-                          <span
-                            className="rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
-                            style={isActive ? { backgroundColor: `${config.color}20`, color: config.color } : { backgroundColor: '#f3f4f6', color: '#6b7280' }}
-                          >
-                            {score}
-                          </span>
-                          {level && isActive && (
-                            <span className={`rounded px-1 py-0.5 text-[9px] font-semibold ${riskLevelBadgeColor(level)}`}>
-                              {level.replace('_', ' ')}
-                            </span>
-                          )}
-                        </div>
+                        <span
+                          className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+                          style={isActive ? { backgroundColor: `${config.color}20`, color: config.color } : { backgroundColor: '#f3f4f6', color: '#6b7280' }}
+                        >
+                          {score}
+                        </span>
+                      )}
+                      {level && isActive && (
+                        <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold ${riskLevelBadgeColor(level)}`}>
+                          {level.replace('_', ' ')}
+                        </span>
                       )}
                     </button>
                     <button
                       onClick={() => setExpandedLayerInfo(isExpanded ? null : layer)}
-                      className={`shrink-0 h-7 w-7 rounded-md flex items-center justify-center text-[10px] transition-colors ${
+                      className={`shrink-0 h-7 w-7 rounded-md flex items-center justify-center text-xs font-semibold transition-colors ${
                         isExpanded ? 'bg-gray-200 text-gray-700' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                       }`}
                       title={`${isExpanded ? 'Hide' : 'Show'} ${config.label} details`}
+                      aria-label={`${isExpanded ? 'Hide' : 'Show'} ${config.label} details`}
                     >
-                      \u24d8
+                      i
                     </button>
                   </div>
                   {isExpanded && (
-                    <div className="ml-3 mr-1 mt-1 mb-2 rounded-lg border border-gray-100 bg-gray-50/80 p-2.5">
-                      <p className="text-[10px] font-semibold text-gray-600 mb-1.5">
-                        {config.label} — Key Factors
-                      </p>
-                      <div className="space-y-1.5">
-                        {RISK_LAYER_ASPECTS[layer].map((aspect) => (
-                          <div key={aspect.label} className="flex gap-1.5">
-                            <span
-                              className="shrink-0 h-1.5 w-1.5 rounded-full mt-1"
-                              style={{ backgroundColor: config.color }}
-                            />
-                            <div className="min-w-0">
-                              <span className="text-[10px] font-semibold text-gray-700">{aspect.label}: </span>
-                              <span className="text-[10px] text-gray-500">{aspect.description}</span>
-                            </div>
-                          </div>
-                        ))}
+                    <div className="ml-3 mr-1 mt-1 mb-2 rounded-lg border border-gray-100 bg-gray-50/80 p-2.5 space-y-1.5">
+                      <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">What it shows</p>
+                        <p className="text-[10px] text-gray-600 leading-snug">{config.shows}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">Source</p>
+                        <p className="text-[10px] text-gray-600 leading-snug">{config.source}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400">Coverage</p>
+                        <p className="text-[10px] text-gray-600 leading-snug">{config.coverage}</p>
                       </div>
                     </div>
                   )}
@@ -606,23 +559,11 @@ export function PropertyMap({
           </div>
 
           {activeLayers.size > 0 && (
-            <div className="mt-2.5 border-t border-gray-100 pt-2 flex flex-col gap-1">
-              <p className="text-[10px] text-gray-400 leading-relaxed">
-                {useMock
-                  ? 'Showing demo risk data. Search for a property to see real risk analysis.'
-                  : 'Map overlays show real geographic risk zones from public data sources. Circles indicate risk intensity centered on the property.'}
-              </p>
-              {Array.from(activeLayers).map((l) => {
-                const note = LAYER_COVERAGE_NOTES[l]
-                if (!note) return null
-                return (
-                  <p key={`note-${l}`} className="text-[10px] text-amber-500/80 leading-relaxed flex items-start gap-1">
-                    <AlertTriangle className="h-2.5 w-2.5 shrink-0 mt-0.5" />
-                    {note}
-                  </p>
-                )
-              })}
-            </div>
+            <p className="mt-2.5 border-t border-gray-100 pt-2 text-[10px] text-gray-400 leading-relaxed">
+              {useMock
+                ? 'Demo data — search a property for real risk analysis.'
+                : 'Tap the i button on any layer to see what it shows and where the data comes from.'}
+            </p>
           )}
         </div>
       </div>
@@ -672,13 +613,11 @@ export function PropertyMap({
                 {layerToast.action === 'on' ? ' enabled' : ' disabled'}
               </span>
             </div>
-            {/* Coverage note for layers with limited geographic data */}
-            {layerToast.action === 'on' &&
-              LAYER_COVERAGE_NOTES[layerToast.layer] && (
-                <p className="mt-1 text-[10px] opacity-70 leading-relaxed">
-                  {LAYER_COVERAGE_NOTES[layerToast.layer]}
-                </p>
-              )}
+            {layerToast.action === 'on' && (
+              <p className="mt-1 text-[10px] opacity-70 leading-relaxed">
+                {RISK_LAYER_CONFIG[layerToast.layer].coverage}
+              </p>
+            )}
           </div>
         </div>
       )}
