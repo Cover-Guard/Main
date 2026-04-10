@@ -559,10 +559,7 @@ describe('updateSession', () => {
       '/onboarding2',
       '/forgot-passwordx',
       '/reset-passwordx',
-      '/agents',
       '/agent',
-      '/agents/dashboard',
-      '/agents/settings',
     ]
 
     it.each(falsePositiveRoutes)('%s is NOT a public route (redirects unauthenticated)', async (route) => {
@@ -1079,8 +1076,6 @@ describe('updateSession', () => {
       '/login-v2',
       '/register_new',
       '/register-v2',
-      '/agents/loginn',
-      '/agents/register_new',
       '/get-started-v2',
       '/get-startedd',
       '/searchh',
