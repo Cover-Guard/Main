@@ -92,6 +92,21 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
+      fontSize: {
+        // UX rework type scale — legible by default
+        display:      ['28px', { lineHeight: '32px', fontWeight: '700' }],
+        heading:      ['20px', { lineHeight: '24px', fontWeight: '700' }],
+        subheading:   ['16px', { lineHeight: '20px', fontWeight: '600' }],
+        body:         ['14px', { lineHeight: '20px' }],
+        caption:      ['12px', { lineHeight: '16px' }],
+        'stat-value': ['32px', { lineHeight: '36px', fontWeight: '700' }],
+        'stat-label': ['12px', { lineHeight: '16px', fontWeight: '600' }],
+      },
+      boxShadow: {
+        panel: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
+        'panel-hover':
+          '0 4px 6px -1px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.06)',
+      },
       keyframes: {
         'accordion-down': {
           from: { height: '0' },
