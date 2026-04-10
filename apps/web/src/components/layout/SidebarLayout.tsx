@@ -27,7 +27,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { User } from '@coverguard/shared'
 
 const navItems = [
-  { href: '/check',     label: 'Search a Property',  icon: Search,          exact: true },
+  { href: '/check',     label: 'Search',  icon: Search,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/clients',   label: 'Clients',    icon: Users,           exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
@@ -121,7 +121,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 py-2 px-2 space-y-0.5">
             {navItems.map(({ href, label, icon: Icon, exact }) => {
               const active = isActive(href, exact)
-              const isNewCheck = label === 'Search a Property'
+              const isNewCheck = href === '/check'
               return (
                 <Link
                   key={href}

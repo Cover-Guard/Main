@@ -20,7 +20,7 @@ export const propertiesRouter = Router()
 
 // ─── Property ID param validation ────────────────────────────────────────────
 propertiesRouter.param('id', (req, res, next, id) => {
-  if (!id || id === 'undefined' || id === 'null' || id.length > 50) {
+  if (!id || id === 'undefined' || id === 'null' || id.length > 200) {
     res.status(400).json({
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
     })

@@ -14,7 +14,7 @@ export function ConsumerDashboard() {
       {/* Search hero */}
       <div className="bg-[#0d1929] px-4 py-10 text-white">
         <div className="mx-auto max-w-3xl text-center">
-          <h1 className="mb-2 text-2xl font-bold">Search a Property</h1>
+          <h1 className="mb-2 text-2xl font-bold">Search</h1>
           <p className="mb-6 text-white/60">
             Enter an address to get a full risk, insurability, and carrier availability report
           </p>

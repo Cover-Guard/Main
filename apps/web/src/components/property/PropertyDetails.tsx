@@ -15,7 +15,7 @@ export function PropertyDetails({ property }: PropertyDetailsProps) {
     { label: 'Lot Size', value: property.lotSize ? formatAcres(property.lotSize) : null },
     { label: 'Estimated Value', value: property.estimatedValue ? formatCurrency(property.estimatedValue) : null },
     { label: 'Last Sale Price', value: property.lastSalePrice ? formatCurrency(property.lastSalePrice) : null },
-    { label: 'Last Sale Date', value: property.lastSaleDate ? new Date(property.lastSaleDate).toLocaleDateString() : null },
+    { label: 'Last Sale Date', value: property.lastSaleDate ? new Date(property.lastSaleDate).toISOString().split('T')[0] : null },
     { label: 'County', value: property.county },
     { label: 'Parcel ID', value: property.parcelId },
     { label: 'Coordinates', value: `${property.lat.toFixed(5)}, ${property.lng.toFixed(5)}` },

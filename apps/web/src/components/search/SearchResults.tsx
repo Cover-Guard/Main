@@ -38,11 +38,13 @@ export function SearchResults({ properties, query }: SearchResultsProps) {
                 ))}
             </div>
 
-            <PropertyRiskReportModal
-                property={selectedProperty}
-                open={!!selectedProperty}
-                onClose={() => setSelectedProperty(null)}
-            />
+            {selectedProperty && (
+                <PropertyRiskReportModal
+                    property={selectedProperty}
+                    open
+                    onClose={() => setSelectedProperty(null)}
+                />
+            )}
         </div>
     )
 }
