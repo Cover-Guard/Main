@@ -99,16 +99,20 @@ const ARCGIS_TILE_SERVICES: Partial<
 > = {
   flood: [
     {
-      url: 'https://hazards.fema.gov/gis/nfhl/rest/services/FIRMette/NFHLREST_FIRMette/MapServer',
-      layers: 'show:20', // Layer 20 = S_Fld_Haz_Ar (Flood Hazard Zones)
+      // The previous URL (hazards.fema.gov/gis/nfhl/.../FIRMette/NFHLREST_FIRMette)
+      // returned HTTP 404 on every tile — that path does not exist. The
+      // authoritative public FEMA NFHL MapServer lives at /arcgis/rest/...,
+      // and on that service "Flood Hazard Zones" (S_Fld_Haz_Ar) is layer 28
+      // (layer 20 on this service is "Water Lines" — a different dataset).
+      url: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer',
+      layers: 'show:28', // 28 = Flood Hazard Zones (S_Fld_Haz_Ar)
       label: 'FEMA NFHL',
     },
     // NOTE: FeatureServer does NOT support the `export` (tile) operation —
     // only MapServer does. The previous Esri Living Atlas FeatureServer URL
     // returned 400 Bad Request on every tile. FEMA NFHL above provides the
     // authoritative coverage, so we drop the Esri fallback entirely rather
-    // than pointing at a non-existent MapServer. If a secondary source is
-    // needed, use the NFHL S_Fld_Haz_Ar layer or a hosted tile service.
+    // than pointing at a non-existent MapServer.
   ],
   fire: [
     {
@@ -122,11 +126,22 @@ const ARCGIS_TILE_SERVICES: Partial<
       label: 'USDA Wildfire Risk',
     },
   ],
+  // INTERIM: NOAA retired the `FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer`
+  // SLOSH Cat-3 service (now returns 404 service-not-found). As an
+  // approximate proxy we use NOAA's Coastal Flood Hazard Composite, which
+  // combines SLOSH storm surge, FEMA flood zones, and sea-level-rise into a
+  // per-state coastal flood exposure raster. Layers 0–34 are per-state
+  // rasters (AL, AS, CA, CT, DC, DE, FL, GA, GU, HI, IL, IN, LA, MA, MD, ME,
+  // MI, MN, MP, MS, NC, NH, NJ, NY, OH, OR, PA, PR, RI, SC, TX, VA, VI, WA,
+  // WI); we request all of them since the service renders only the ones
+  // covering the current bbox. This is NOT hurricane-surge-specific — swap
+  // for a real SLOSH MOM source when one is hosted.
   wind: [
     {
-      url: 'https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer',
-      layers: 'show:0', // SLOSH MOM Cat-3 hurricane storm surge
-      label: 'NOAA SLOSH Cat-3',
+      url: 'https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_CoastalFloodHazardComposite/MapServer',
+      layers:
+        'show:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34',
+      label: 'NOAA Coastal Flood Hazard Composite',
     },
   ],
   earthquake: [
@@ -287,7 +302,15 @@ export function PropertyMap({
     toastTimerRef.current = setTimeout(() => setLayerToast(null), 2500)
   }, [])
 
-  const riskCenter = selectedProperty ?? properties[0] ?? null
+  // Prefer a real property when we have one, but fall back to the current
+  // map center (or the clicked pin) so layers with no tile service — or
+  // layers whose tile service has no coverage at the viewed location — still
+  // render a visible score circle instead of silently doing nothing.
+  const riskCenter =
+    selectedProperty ??
+    properties[0] ??
+    (clickedPin ? { lat: clickedPin.lat, lng: clickedPin.lng } : null) ??
+    mapCenter
 
   if (!GOOGLE_MAPS_KEY) {
     return (
