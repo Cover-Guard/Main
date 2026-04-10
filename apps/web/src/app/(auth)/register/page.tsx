@@ -14,7 +14,7 @@ const schema = z.object({
   lastName: z.string().min(1, 'Required'),
   email: z.string().email('Invalid email'),
   password: z.string().min(8, 'Must be at least 8 characters'),
-  role: z.enum(['BUYER', 'AGENT', 'LENDER']),
+  role: z.enum(['BUYER', 'AGENT', 'LENDER', 'INSURANCE']),
   company: z.string().optional(),
 })
 
@@ -199,13 +199,14 @@ export default function RegisterPage() {
             <div>
               <label className="label">I am a&hellip;</label>
               <select className="input mt-1" {...register('role')}>
-                <option value="BUYER">Home Buyer</option>
-                <option value="AGENT">Real Estate Agent</option>
+                <option value="BUYER">Home Buyer / Individual</option>
+                <option value="AGENT">Real Estate Agent / Broker</option>
                 <option value="LENDER">Lender / Underwriter</option>
+                <option value="INSURANCE">Insurance Agent / Carrier</option>
               </select>
             </div>
 
-            {(role === 'AGENT' || role === 'LENDER') && (
+            {(role === 'AGENT' || role === 'LENDER' || role === 'INSURANCE') && (
               <div>
                 <label className="label">Company</label>
                 <input className="input mt-1" {...register('company')} />

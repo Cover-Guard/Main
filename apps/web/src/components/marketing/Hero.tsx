@@ -1,6 +1,14 @@
 import Link from 'next/link'
-import { ArrowRight, Shield, TrendingUp } from 'lucide-react'
+import { ArrowRight, Shield, TrendingUp, Building2, Landmark, ShieldCheck, User } from 'lucide-react'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
+
+const audiences = [
+  { icon: User, label: 'Individuals' },
+  { icon: Building2, label: 'Residential Agents' },
+  { icon: Building2, label: 'CRE Brokers' },
+  { icon: Landmark, label: 'Lenders' },
+  { icon: ShieldCheck, label: 'Insurance' },
+]
 
 export function Hero() {
   return (
@@ -22,15 +30,24 @@ export function Hero() {
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 leading-[1.1]">
             Know if a property is insurable
-            <span className="text-brand-600"> before your client </span>
-            makes an offer
+            <span className="text-brand-600"> before the deal closes</span>
           </h1>
 
           {/* Subheadline */}
           <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
             CoverGuard checks flood, fire, earthquake, wind, and crime risk — plus shows which carriers are still writing —
-            in 90 seconds. Built for real estate agents, insurance brokers, and lenders.
+            in 90 seconds. Built for agents, brokers, lenders, and insurance professionals. Individuals start free.
           </p>
+
+          {/* Audience badges */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            {audiences.map((a) => (
+              <div key={a.label} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">
+                <a.icon className="h-3.5 w-3.5 text-brand-600" />
+                {a.label}
+              </div>
+            ))}
+          </div>
 
           {/* CTAs */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -51,7 +68,7 @@ export function Hero() {
 
           {/* Trust indicators */}
           <p className="mt-8 text-sm text-gray-500">
-            Trusted by 500+ real estate agents and lenders across 38 states
+            Trusted by 500+ real estate professionals across 38 states — agents, brokers, lenders & insurers
           </p>
         </div>
 

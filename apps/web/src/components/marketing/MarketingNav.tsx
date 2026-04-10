@@ -8,6 +8,7 @@ import { footerPageGroups } from './footerPageGroups'
 
 const navDropdowns = {
   Product: footerPageGroups.Product,
+  Solutions: footerPageGroups.Solutions,
   Company: footerPageGroups.Company,
   Resources: footerPageGroups.Resources,
 }
@@ -60,6 +61,12 @@ export function MarketingNav() {
                 )}
               </div>
             ))}
+            <Link
+              href="/pricing"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Pricing
+            </Link>
           </nav>
 
           {/* Desktop auth buttons */}
@@ -113,6 +120,13 @@ export function MarketingNav() {
                 </div>
               </details>
             ))}
+            <Link
+              href="/pricing"
+              className="block text-sm font-medium text-gray-700 hover:text-gray-900 py-2"
+              onClick={() => setMobileOpen(false)}
+            >
+              Pricing
+            </Link>
             <div className="pt-3 border-t border-gray-100 space-y-2">
               <Link
                 href="/get-started"

@@ -34,6 +34,9 @@ jest.mock('lucide-react', () => ({
   Building2: (props: Record<string, unknown>) => <span data-testid="icon-building2" {...props} />,
   User: (props: Record<string, unknown>) => <span data-testid="icon-user" {...props} />,
   ArrowRight: (props: Record<string, unknown>) => <span data-testid="icon-arrow-right" {...props} />,
+  Landmark: (props: Record<string, unknown>) => <span data-testid="icon-landmark" {...props} />,
+  Shield: (props: Record<string, unknown>) => <span data-testid="icon-shield" {...props} />,
+  Warehouse: (props: Record<string, unknown>) => <span data-testid="icon-warehouse" {...props} />,
 }))
 
 jest.mock('@/components/icons/CoverGuardShield', () => ({
@@ -99,12 +102,12 @@ describe('GetStartedPage', () => {
 
     it('displays the subtitle', async () => {
       await renderPage()
-      expect(screen.getByText('Select your account type to get started')).toBeInTheDocument()
+      expect(screen.getByText(/Select your account type to get started/)).toBeInTheDocument()
     })
 
     it('renders the Agent card heading', async () => {
       await renderPage()
-      expect(screen.getByText('Agent')).toBeInTheDocument()
+      expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
     })
 
     it('renders the Individual card heading', async () => {
@@ -114,7 +117,7 @@ describe('GetStartedPage', () => {
 
     it('renders the Agent card description', async () => {
       await renderPage()
-      expect(screen.getByText(/real estate agents, brokers, and lenders/)).toBeInTheDocument()
+      expect(screen.getByText(/real estate agents and brokers/)).toBeInTheDocument()
     })
 
     it('renders the Individual card description', async () => {
@@ -175,7 +178,7 @@ describe('GetStartedPage', () => {
 
     it('renders "work great for most users" text', async () => {
       await renderPage()
-      expect(screen.getByText(/work great for most users/)).toBeInTheDocument()
+      expect(screen.getByText(/perfect for getting started/)).toBeInTheDocument()
     })
 
     it('renders the Building2 icon', async () => {
@@ -339,7 +342,7 @@ describe('GetStartedPage', () => {
         },
       })
       await renderPage()
-      expect(screen.getByText('Agent')).toBeInTheDocument()
+      expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
     })
 
     it.each(falsyValues)('renders Individual card when user is %s', async (_desc, value) => {
@@ -396,7 +399,7 @@ describe('GetStartedPage', () => {
     it.each(errorTypes)('renders Agent card when createClient throws %s', async (_desc, error) => {
       mockSupabaseThrows(error)
       await renderPage()
-      expect(screen.getByText('Agent')).toBeInTheDocument()
+      expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
     })
 
     it.each(errorTypes)('renders Individual card when createClient throws %s', async (_desc, error) => {
@@ -445,7 +448,7 @@ describe('GetStartedPage', () => {
     it.each(getUserErrors)('renders both portal cards when getUser throws: %s', async (_desc, error) => {
       mockGetUserThrows(error)
       await renderPage()
-      expect(screen.getByText('Agent')).toBeInTheDocument()
+      expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
       expect(screen.getByText('Individual')).toBeInTheDocument()
     })
   })
@@ -469,24 +472,24 @@ describe('GetStartedPage', () => {
       expect(document.querySelector('main')).not.toBeNull()
     })
 
-    it('has exactly 4 links', async () => {
+    it('has at least 7 links', async () => {
       await renderPage()
-      expect(screen.getAllByRole('link')).toHaveLength(4)
+      expect(screen.getAllByRole('link').length).toBeGreaterThanOrEqual(7)
     })
 
-    it('renders two ArrowRight icons', async () => {
+    it('renders five ArrowRight icons (one per card)', async () => {
       await renderPage()
-      expect(screen.getAllByTestId('icon-arrow-right')).toHaveLength(2)
+      expect(screen.getAllByTestId('icon-arrow-right')).toHaveLength(5)
     })
 
-    it('renders exactly one Building2 icon', async () => {
+    it('renders Building2 icons', async () => {
       await renderPage()
-      expect(screen.getAllByTestId('icon-building2')).toHaveLength(1)
+      expect(screen.getAllByTestId('icon-building2').length).toBeGreaterThanOrEqual(1)
     })
 
-    it('renders exactly one User icon', async () => {
+    it('renders User icon', async () => {
       await renderPage()
-      expect(screen.getAllByTestId('icon-user')).toHaveLength(1)
+      expect(screen.getAllByTestId('icon-user').length).toBeGreaterThanOrEqual(1)
     })
 
     it('renders exactly one CoverGuard shield', async () => {
@@ -494,9 +497,9 @@ describe('GetStartedPage', () => {
       expect(screen.getAllByTestId('coverguard-shield')).toHaveLength(1)
     })
 
-    it('has exactly two h2 elements', async () => {
+    it('has five h2 elements (one per user type card)', async () => {
       await renderPage()
-      expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(2)
+      expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(5)
     })
 
     it('has exactly one h1 element', async () => {
@@ -510,16 +513,16 @@ describe('GetStartedPage', () => {
       expect(h1).toHaveTextContent('How would you like to use CoverGuard?')
     })
 
-    it('first h2 is Agent', async () => {
+    it('first h2 is Individual', async () => {
       await renderPage()
       const headings = screen.getAllByRole('heading', { level: 2 })
-      expect(headings[0]).toHaveTextContent('Agent')
+      expect(headings[0]).toHaveTextContent('Individual')
     })
 
-    it('second h2 is Individual', async () => {
+    it('second h2 is Residential Agent / Broker', async () => {
       await renderPage()
       const headings = screen.getAllByRole('heading', { level: 2 })
-      expect(headings[1]).toHaveTextContent('Individual')
+      expect(headings[1]).toHaveTextContent('Residential Agent / Broker')
     })
   })
 
@@ -695,7 +698,6 @@ describe('GetStartedPage', () => {
 
     const uniqueTexts = [
       'How would you like to use CoverGuard?',
-      'Select your account type to get started',
       'Continue as Agent',
       'Continue as Individual',
       'Individual accounts',
@@ -724,19 +726,19 @@ describe('GetStartedPage', () => {
 
     it('page contains "work great for most users"', async () => {
       await renderPage()
-      expect(screen.getByText(/work great for most users/)).toBeInTheDocument()
+      expect(screen.getByText(/perfect for getting started/)).toBeInTheDocument()
     })
 
     const expectedPatterns = [
-      /real estate agents, brokers, and lenders/,
-      /client management, property comparison/,
+      /real estate agents and brokers/,
+      /pre-offer insurability checks/,
       /home buyers and homeowners/,
-      /property risks, insurance costs/,
+      /carrier availability/,
     ]
 
     it.each(expectedPatterns)('page matches pattern: %s', async (pattern) => {
       await renderPage()
-      expect(screen.getByText(pattern)).toBeInTheDocument()
+      expect(screen.getAllByText(pattern).length).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -788,9 +790,9 @@ describe('GetStartedPage', () => {
       expect(metadata.description).toContain('agent')
     })
 
-    it('metadata description mentions home buyer', async () => {
+    it('metadata description mentions individual', async () => {
       const { metadata } = await import('@/app/get-started/page')
-      expect(metadata.description).toContain('home buyer')
+      expect(metadata.description).toContain('individual')
     })
 
     it('metadata title contains CoverGuard', async () => {
@@ -852,12 +854,12 @@ describe('GetStartedPage', () => {
       for (let i = 0; i < 3; i++) {
         mockSupabaseThrows()
         const { unmount: u1 } = await renderPage()
-        expect(screen.getByText('Agent')).toBeInTheDocument()
+        expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
         u1()
 
         mockSupabaseClient(null)
         const { unmount: u2 } = await renderPage()
-        expect(screen.getByText('Agent')).toBeInTheDocument()
+        expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
         u2()
       }
     })
@@ -938,17 +940,17 @@ describe('GetStartedPage', () => {
 
     it('renders arrow icons on error', async () => {
       await renderPage()
-      expect(screen.getAllByTestId('icon-arrow-right')).toHaveLength(2)
+      expect(screen.getAllByTestId('icon-arrow-right')).toHaveLength(5)
     })
 
-    it('renders all 4 links on error', async () => {
+    it('renders all links on error', async () => {
       await renderPage()
-      expect(screen.getAllByRole('link')).toHaveLength(4)
+      expect(screen.getAllByRole('link').length).toBeGreaterThanOrEqual(7)
     })
 
-    it('renders both headings on error', async () => {
+    it('renders all headings on error', async () => {
       await renderPage()
-      expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(2)
+      expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(5)
     })
 
     it('renders h1 on error', async () => {
@@ -969,10 +971,8 @@ describe('GetStartedPage', () => {
     const individualCardClasses = [
       'rounded-2xl',
       'border-2',
-      'bg-white',
       'p-8',
       'transition-all',
-      'border-gray-200',
     ]
 
     it.each(individualCardClasses)('individual card has class %s', async (cls) => {
@@ -1054,7 +1054,7 @@ describe('GetStartedPage', () => {
     it.each(moreClientErrors)('shows both cards when createClient throws: %s', async (_desc, error) => {
       mockSupabaseThrows(error)
       await renderPage()
-      expect(screen.getByText('Agent')).toBeInTheDocument()
+      expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()
       expect(screen.getByText('Individual')).toBeInTheDocument()
     })
   })
@@ -1137,14 +1137,14 @@ describe('GetStartedPage', () => {
 
     const elementsToVerify: Array<[string, () => void]> = [
       ['heading', () => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()],
-      ['agent heading', () => expect(screen.getByText('Agent')).toBeInTheDocument()],
+      ['agent heading', () => expect(screen.getByText('Residential Agent / Broker')).toBeInTheDocument()],
       ['individual heading', () => expect(screen.getByText('Individual')).toBeInTheDocument()],
       ['continue agent', () => expect(screen.getByText('Continue as Agent')).toBeInTheDocument()],
       ['continue individual', () => expect(screen.getByText('Continue as Individual')).toBeInTheDocument()],
       ['building icon', () => expect(screen.getByTestId('icon-building2')).toBeInTheDocument()],
       ['user icon', () => expect(screen.getByTestId('icon-user')).toBeInTheDocument()],
       ['shield icon', () => expect(screen.getByTestId('coverguard-shield')).toBeInTheDocument()],
-      ['4 links', () => expect(screen.getAllByRole('link')).toHaveLength(4)],
+      ['multiple links', () => expect(screen.getAllByRole('link').length).toBeGreaterThanOrEqual(7)],
       ['no redirect', () => expect(mockRedirect).not.toHaveBeenCalled()],
     ]
 

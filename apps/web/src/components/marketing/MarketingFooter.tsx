@@ -6,7 +6,7 @@ export function MarketingFooter() {
   return (
     <footer className="bg-gray-900 text-gray-400">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
@@ -14,7 +14,7 @@ export function MarketingFooter() {
               <span className="text-lg font-bold text-white">CoverGuard</span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed">
-              Property insurability intelligence for agents, buyers, and lenders.
+              Property insurability intelligence for individuals, agents, brokers, lenders, and insurers.
             </p>
           </div>
 

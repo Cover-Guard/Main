@@ -11,7 +11,7 @@ import type { AuthenticatedRequest } from '../middleware/auth'
 
 export const authRouter = Router()
 
-const VALID_ROLES = ['BUYER', 'AGENT', 'LENDER', 'ADMIN'] as const
+const VALID_ROLES = ['BUYER', 'AGENT', 'LENDER', 'INSURANCE', 'ADMIN'] as const
 type ValidRole = (typeof VALID_ROLES)[number]
 
 function toValidRole(value: unknown): ValidRole {
@@ -55,7 +55,7 @@ const registerSchema = z.object({
   password: z.string().min(8),
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
-  role: z.enum(['BUYER', 'AGENT', 'LENDER']).default('BUYER'),
+  role: z.enum(['BUYER', 'AGENT', 'LENDER', 'INSURANCE']).default('BUYER'),
   company: z.string().optional(),
   licenseNumber: z.string().optional(),
   termsAccepted: z.boolean().optional(),

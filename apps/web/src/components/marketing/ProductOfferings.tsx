@@ -22,19 +22,19 @@ const offerings = [
     icon: AlertTriangle,
     title: 'Pre-Offer Insurability Check',
     description:
-      'Run a full insurability check before your client makes an offer — not after. CoverGuard pulls from FEMA, USGS, NOAA, Cal Fire, and FBI to surface deal-killing risks before you\'re under contract. Stop losing deals at the closing table.',
+      'Run a full insurability check before a deal moves forward — not after. CoverGuard pulls from FEMA, USGS, NOAA, Cal Fire, and FBI to surface deal-killing risks before anyone is under contract. Used by agents, lenders, and insurers alike.',
   },
   {
     icon: Building2,
     title: 'Real-Time Carrier Availability',
     description:
-      'State Farm, Allstate, and Farmers have pulled out of California, Florida, and Texas. See exactly which carriers are still actively writing in a specific ZIP code and risk profile — in real time. No more calling around to find out who\'s left.',
+      'State Farm, Allstate, and Farmers have pulled out of California, Florida, and Texas. See exactly which carriers are still actively writing in a specific ZIP code and risk profile — in real time. Essential for agents, brokers, lenders, and insurance professionals.',
   },
   {
     icon: Clock,
     title: 'Risk to Quote in 90 Seconds',
     description:
-      'From address lookup to binding quote request — in one platform. CoverGuard aggregates 8+ government data sources and connects to active carriers, cutting the insurance discovery process from days to under two minutes.',
+      'From address lookup to binding quote request — in one platform. CoverGuard aggregates 8+ government data sources and connects to active carriers, cutting the insurance discovery process from days to under two minutes. Free for individuals — up to 3 reports.',
   },
 ]
 
@@ -50,7 +50,7 @@ export function ProductOfferings() {
           </h2>
           <p className="mt-4 text-lg text-gray-600">
             With carriers exiting markets across the US, insurance has become the #1 deal killer.
-            CoverGuard gives agents the intelligence to stay ahead of it.
+            CoverGuard gives agents, brokers, lenders, and insurers the intelligence to stay ahead of it.
           </p>
         </div>
 

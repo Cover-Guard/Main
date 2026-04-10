@@ -7,6 +7,13 @@ export const footerPageGroups: Record<string, FooterLink[]> = {
     { label: 'Quote Requests', href: '/product/quote-requests' },
     { label: 'Agent Dashboard', href: '/product/agent-dashboard' },
   ],
+  Solutions: [
+    { label: 'For Individuals', href: '/get-started' },
+    { label: 'For Residential Agents', href: '/agents' },
+    { label: 'For CRE Brokers', href: '/commercial' },
+    { label: 'For Lenders', href: '/lenders' },
+    { label: 'For Insurance', href: '/insurance' },
+  ],
   Company: [
     { label: 'Pricing', href: '/pricing' },
     { label: 'Investors', href: '/investors' },
