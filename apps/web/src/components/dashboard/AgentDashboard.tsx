@@ -131,7 +131,7 @@ export function AgentDashboard() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-3 lg:p-4 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
         <div>
@@ -188,7 +188,7 @@ export function AgentDashboard() {
       {activeTab !== 'properties' ? null : (<>
 
       {/* Search bar with typeahead */}
-      <div className="mb-6">
+      <div className="mb-3">
         <SearchBar className="max-w-full" />
       </div>
 
@@ -204,7 +204,7 @@ export function AgentDashboard() {
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <StatCard label="SAVED PROPERTIES" value={loading ? '—' : properties.length} icon={<Shield className="h-5 w-5 text-blue-500" />} />
         <StatCard label="CLIENTS" value={loading ? '—' : clients.length} icon={<Users className="h-5 w-5 text-purple-400" />} />
         <Link href="/analytics" className="block">
@@ -304,13 +304,13 @@ export function AgentDashboard() {
 
       {/* Content */}
       {loading ? (
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4' : 'space-y-3'}>
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3' : 'space-y-3'}>
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className={cn('rounded-xl bg-gray-100 animate-pulse', viewMode === 'grid' ? 'h-56' : 'h-20')} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-10 text-center">
           <Shield className="h-14 w-14 text-gray-200 mb-4" />
           <p className="text-base font-semibold text-gray-500">
             {activeFilterCount > 0 ? 'No properties match your filters' : 'No saved properties yet'}
@@ -327,7 +327,7 @@ export function AgentDashboard() {
           )}
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {paginated.map((sp) => (
             <DashboardCard key={sp.id} saved={sp} onViewReport={() => setSelectedProperty(sp.property)} />
           ))}
@@ -404,14 +404,38 @@ export function AgentDashboard() {
 }
 
 // ── Grid Card ─────────────────────────────────────────────────────────────
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
+
+function getStreetViewUrl(p: Property, width = 400, height = 180) {
+  const location = p.lat && p.lng
+    ? `${p.lat},${p.lng}`
+    : `${p.address ?? ''}, ${p.city ?? ''}, ${p.state ?? ''} ${p.zip ?? ''}`
+  return `https://maps.googleapis.com/maps/api/streetview?size=${width}x${height}&location=${encodeURIComponent(location)}&key=${GOOGLE_MAPS_KEY}&source=outdoor`
+}
+
 function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onViewReport: () => void }) {
   const { ids, toggle, canAdd } = useCompare()
   const p = saved.property
   const isCompared = ids.includes(p.id)
+  const [imgErr, setImgErr] = useState(false)
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all flex flex-col">
-      <Link href={`/properties/${saved.propertyId}`} className="block p-4 flex-1">
+      {/* Street View Image */}
+      {GOOGLE_MAPS_KEY && !imgErr && (
+        <Link href={`/properties/${saved.propertyId}`} className="block">
+          <div className="relative h-32 w-full bg-gray-100 overflow-hidden">
+            <img
+              src={getStreetViewUrl(p)}
+              alt={`Street view of ${p.address ?? 'property'}`}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={() => setImgErr(true)}
+            />
+          </div>
+        </Link>
+      )}
+      <Link href={`/properties/${saved.propertyId}`} className="block p-3 flex-1">
         <h3 className="font-semibold text-gray-900 text-sm truncate">{p.address}</h3>
         <p className="text-xs text-gray-500 truncate">{formatAddress(p)}</p>
 

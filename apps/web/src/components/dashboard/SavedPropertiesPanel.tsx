@@ -37,7 +37,7 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
 
   if (error) {
     return (
-      <div className="card p-6 text-center" role="alert" aria-live="polite">
+      <div className="card p-3 text-center" role="alert" aria-live="polite">
         <AlertTriangle className="mx-auto mb-2 h-7 w-7 text-red-400" />
         <p className="font-medium text-red-600">Could not load saved properties</p>
         <p className="mt-1 text-sm text-gray-400">Service temporarily unavailable. Please try again.</p>

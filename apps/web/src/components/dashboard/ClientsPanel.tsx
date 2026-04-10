@@ -383,19 +383,19 @@ export function ClientsPanel() {
           ))}
         </div>
       ) : loadError ? (
-        <div className="card p-8 text-center">
+        <div className="card p-4 text-center">
           <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-red-400" />
           <p className="font-medium text-red-600">Could not load clients</p>
           <p className="mt-1 text-sm text-gray-400">{loadError}</p>
         </div>
       ) : clients.length === 0 ? (
-        <div className="card p-10 text-center text-gray-400">
+        <div className="card p-8 text-center text-gray-400">
           <User className="mx-auto mb-3 h-10 w-10 opacity-30" />
           <p className="font-medium">No clients yet</p>
           <p className="mt-1 text-sm">Add your first client to start tracking their property searches.</p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="card p-10 text-center text-gray-400">
+        <div className="card p-8 text-center text-gray-400">
           <Search className="mx-auto mb-3 h-8 w-8 opacity-30" />
           <p className="font-medium">No clients match</p>
           <p className="mt-1 text-sm">Try adjusting your search or filter.</p>

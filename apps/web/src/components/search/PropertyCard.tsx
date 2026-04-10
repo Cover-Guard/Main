@@ -1,10 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { MapPin, Home, Calendar, DollarSign, GitCompare, Shield, ArrowRight, FileText } from 'lucide-react'
+import { MapPin, Home, Calendar, DollarSign, GitCompare, Shield, FileText, ImageOff } from 'lucide-react'
 import type { Property } from '@coverguard/shared'
 import { formatCurrency, formatAddress, formatSquareFeet } from '@coverguard/shared'
 import { useCompare } from '@/lib/useCompare'
+
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
+
+function getStreetViewUrl(property: Property, width = 400, height = 200) {
+    const location = property.lat && property.lng
+        ? `${property.lat},${property.lng}`
+        : `${property.address ?? ''}, ${property.city ?? ''}, ${property.state ?? ''} ${property.zip ?? ''}`
+    return `https://maps.googleapis.com/maps/api/streetview?size=${width}x${height}&location=${encodeURIComponent(location)}&key=${GOOGLE_MAPS_KEY}&source=outdoor`
+}
 
 interface PropertyCardProps {
     property: Property
@@ -14,21 +24,44 @@ interface PropertyCardProps {
 export function PropertyCard({ property, onViewReport }: PropertyCardProps) {
     const { ids, toggle, canAdd } = useCompare()
     const isCompared = ids.includes(property.id)
+    const [imgError, setImgError] = useState(false)
 
     return (
         <div className="card overflow-hidden transition-all hover:shadow-md hover:border-gray-300">
-            <Link href={`/properties/${property.id}`} className="block p-5">
-                <div className="flex items-start justify-between gap-4">
+            {/* Street View Image */}
+            {GOOGLE_MAPS_KEY && !imgError && (
+                <Link href={`/properties/${property.id}`} className="block">
+                    <div className="relative h-36 w-full bg-gray-100 overflow-hidden">
+                        <img
+                            src={getStreetViewUrl(property)}
+                            alt={`Street view of ${property.address ?? 'property'}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={() => setImgError(true)}
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
+                    </div>
+                </Link>
+            )}
+            {(imgError || !GOOGLE_MAPS_KEY) && (
+                <Link href={`/properties/${property.id}`} className="block">
+                    <div className="h-24 w-full bg-gray-50 flex items-center justify-center">
+                        <ImageOff className="h-6 w-6 text-gray-300" />
+                    </div>
+                </Link>
+            )}
+            <Link href={`/properties/${property.id}`} className="block p-4">
+                <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-2">
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900 truncate">{property.address}</h3>
-                                <p className="text-sm text-gray-500">{formatAddress(property)}</p>
+                                <h3 className="font-semibold text-gray-900 truncate text-sm">{property.address}</h3>
+                                <p className="text-xs text-gray-500">{formatAddress(property)}</p>
                             </div>
                         </div>
 
                         {/* Insurability CTA badge */}
-                        <span className="shrink-0 flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-semibold text-teal-700 mt-1.5">
                             <Shield className="h-2.5 w-2.5" />
                             Check Risk
                         </span>
@@ -81,7 +114,7 @@ export function PropertyCard({ property, onViewReport }: PropertyCardProps) {
             </Link>
 
             {onViewReport && (
-                <div className="border-t border-gray-100 px-5 py-2.5 flex items-center justify-between">
+                <div className="border-t border-gray-100 px-4 py-2 flex items-center justify-between">
                     <button
                         onClick={(e) => {
                             e.preventDefault()
@@ -114,7 +147,7 @@ export function PropertyCard({ property, onViewReport }: PropertyCardProps) {
             )}
 
             {!onViewReport && (
-                <div className="border-t border-gray-100 px-5 py-2.5">
+                <div className="border-t border-gray-100 px-4 py-2">
                     <button
                         onClick={(e) => {
                             e.preventDefault()

@@ -27,7 +27,7 @@ interface SavedPropertyRow {
   property: Property
 }
 
-export function ReportsContent() {
+export function ReportsContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [saved, setSaved] = useState<SavedPropertyRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -63,51 +63,53 @@ export function ReportsContent() {
   })
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className={embedded ? '' : 'p-4 lg:p-5 max-w-full mx-auto'}>
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <FileText className="h-6 w-6 text-gray-700" />
-            <h1 className="text-2xl font-bold text-gray-900">Property Reports</h1>
+      {!embedded && (
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="h-5 w-5 text-gray-700" />
+              <h1 className="text-lg font-bold text-gray-900">Property Reports</h1>
+            </div>
+            <p className="text-xs text-gray-500">
+              All properties you&apos;ve saved — access full risk, insurability, and carrier reports.
+            </p>
           </div>
-          <p className="text-sm text-gray-500">
-            All properties you&apos;ve saved — access full risk, insurability, and carrier reports.
-          </p>
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Search className="h-3.5 w-3.5" />
+            Search
+          </Link>
         </div>
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-        >
-          <Search className="h-4 w-4" />
-          Search
-        </Link>
-      </div>
+      )}
 
       {/* Search bar */}
-      <div className="mb-5">
-        <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-emerald-400 focus-within:border-emerald-400">
-          <Search className="h-4 w-4 text-gray-400 shrink-0" />
+      <div className="mb-3">
+        <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-teal-400 focus-within:border-teal-400">
+          <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by address, city, or state…"
-            className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
+            placeholder="Filter by address, city, or state..."
+            className="flex-1 text-xs outline-none bg-transparent placeholder:text-gray-400"
           />
         </div>
       </div>
 
       {/* Count */}
       {!loading && (
-        <p className="text-xs text-gray-400 mb-4">
+        <p className="text-[10px] text-gray-400 mb-2">
           {filtered.length} of {saved.length} report{saved.length !== 1 ? 's' : ''}
         </p>
       )}
 
       {/* Content */}
       {loadError ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <AlertTriangle className="h-12 w-12 text-red-300 mb-3" />
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          <AlertTriangle className="h-8 w-8 text-red-300 mb-2" />
           <p className="font-semibold text-red-600">Failed to load reports</p>
           <p className="text-sm text-gray-400 mt-1">{loadError}</p>
           <button
@@ -124,8 +126,8 @@ export function ReportsContent() {
           ))}
         </div>
       ) : saved.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Shield className="h-14 w-14 text-gray-200 mb-4" />
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <Shield className="h-10 w-10 text-gray-200 mb-3" />
           <p className="text-base font-semibold text-gray-500">No saved reports yet</p>
           <p className="text-sm text-gray-400 mt-1">
             Run a property check and save properties to generate reports.
@@ -139,19 +141,19 @@ export function ReportsContent() {
           </Link>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="py-16 text-center">
+        <div className="py-8 text-center">
           <p className="text-sm text-gray-400">No properties match &ldquo;{search}&rdquo;</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {filtered.map((row) => {
             const p = row.property
             return (
               <div
                 key={row.id}
-                className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
+                className="bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all"
               >
-                <div className="p-5">
+                <div className="p-3">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 truncate">{p.address}</h3>

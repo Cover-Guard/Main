@@ -341,6 +341,8 @@ export function PropertyMap({
               defaultCenter={mapCenter}
               defaultZoom={zoom}
               mapId="coverguard-property-map"
+              mapTypeId="satellite"
+              tilt={0}
               gestureHandling="greedy"
               disableDefaultUI={false}
               style={{ width: '100%', height: '100%' }}
@@ -476,7 +478,7 @@ export function PropertyMap({
                         {clickedPin.lat.toFixed(5)}, {clickedPin.lng.toFixed(5)}
                       </p>
                       <a
-                        href={`/check?lat=${clickedPin.lat}&lng=${clickedPin.lng}${clickedPin.address ? `&address=${encodeURIComponent(clickedPin.address)}` : ''}`}
+                        href={clickedPin.address ? `/search?q=${encodeURIComponent(clickedPin.address)}` : `/check?lat=${clickedPin.lat}&lng=${clickedPin.lng}`}
                         className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-md px-2.5 py-1.5 transition-colors"
                       >
                         <Shield className="h-3 w-3" />

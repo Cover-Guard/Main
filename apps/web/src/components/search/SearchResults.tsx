@@ -16,7 +16,7 @@ export function SearchResults({ properties, query }: SearchResultsProps) {
 
     if (properties.length === 0) {
         return (
-            <div className="py-16 text-center">
+            <div className="py-8 text-center">
                 <p className="text-lg font-medium text-gray-700">No properties found for &quot;{query}&quot;</p>
                 <p className="mt-2 text-gray-500">Try a different address or ZIP code</p>
             </div>

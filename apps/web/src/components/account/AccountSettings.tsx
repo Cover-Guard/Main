@@ -423,7 +423,7 @@ export function AccountSettings() {
   ]
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
+    <div className="p-3 md:p-4 max-w-full mx-auto">
       {/* Header */}
       <div className="flex items-center gap-2 mb-7">
         <Settings className="h-5 w-5 text-gray-600" />
@@ -437,7 +437,7 @@ export function AccountSettings() {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row gap-6">
+      <div className="flex flex-col md:flex-row gap-4">
         {/* Sidebar tabs */}
         <nav className="md:w-48 flex-shrink-0">
           <ul className="space-y-0.5">
@@ -470,7 +470,7 @@ export function AccountSettings() {
           {activeTab === 'account' && (
             <>
               {/* Profile card */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex items-center gap-4">
                     <Avatar
@@ -629,7 +629,7 @@ export function AccountSettings() {
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <button
                   onClick={() => setPwOpen((o) => !o)}
-                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="flex items-center gap-3">
                     <Lock className="h-4 w-4 text-gray-400" />
@@ -641,7 +641,7 @@ export function AccountSettings() {
                   <span className="text-xs text-blue-600 font-medium">{pwOpen ? 'Cancel' : 'Change'}</span>
                 </button>
                 {pwOpen && (
-                  <form onSubmit={handlePasswordChange} className="px-6 pb-6 border-t border-gray-100 pt-4 space-y-3">
+                  <form onSubmit={handlePasswordChange} className="px-4 pb-4 border-t border-gray-100 pt-4 space-y-3">
                     <div>
                       <label className="text-xs font-medium text-gray-500 block mb-1">New Password</label>
                       <div className="relative">
@@ -710,7 +710,7 @@ export function AccountSettings() {
 
           {/* ── Subscription Tab ────────────────────────────────────── */}
           {activeTab === 'subscription' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
               <SectionHeader
                 title="Subscription"
                 subtitle="Manage your plan, billing, and payment methods"
@@ -791,7 +791,7 @@ export function AccountSettings() {
 
           {/* ── Notifications Tab ─────────────────────────────────────── */}
           {activeTab === 'notifications' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
               <SectionHeader
                 title="Email Notifications"
                 subtitle="Choose which emails CoverGuard sends you"
@@ -993,7 +993,7 @@ export function AccountSettings() {
 
           {/* ── Delete Account Tab ────────────────────────────────────── */}
           {activeTab === 'delete' && (
-            <div className="bg-white rounded-xl border border-red-200 p-6">
+            <div className="bg-white rounded-xl border border-red-200 p-4">
               <div className="flex items-start gap-3 mb-5">
                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-red-50 flex items-center justify-center">
                   <AlertTriangle className="h-5 w-5 text-red-500" />

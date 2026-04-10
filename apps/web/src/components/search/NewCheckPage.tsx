@@ -124,14 +124,14 @@ function NewCheckPageInner({
   return (
     <div className="flex flex-col h-full">
       {/* Hero heading */}
-      <div className="bg-white pt-10 pb-6 px-8 text-center border-b border-gray-100">
+      <div className="bg-white pt-10 pb-6 px-4 text-center border-b border-gray-100">
         <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
           <Shield className="h-3.5 w-3.5" />
           Property Insurance Intelligence
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
           Know if a property is{' '}
-          <span className="text-emerald-500">insurable</span> before you bid
+          <span className="text-teal-500">insurable</span> before you bid
         </h1>
       </div>
 
@@ -152,7 +152,7 @@ function NewCheckPageInner({
             {/* Search form */}
             <form onSubmit={handleCheck} className="flex flex-col gap-2">
               <div className="relative">
-                <div className="flex items-center gap-2 border border-gray-300 rounded-lg px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-emerald-400 focus-within:border-emerald-400">
+                <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2.5 bg-white focus-within:ring-2 focus-within:ring-teal-400 focus-within:border-teal-400">
                   <MapPin className="h-4 w-4 text-gray-400 shrink-0" />
                   <input
                     ref={inputRef}
@@ -183,7 +183,7 @@ function NewCheckPageInner({
                     aria-autocomplete="list"
                     className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
                   />
-                  {loading && <Loader2 className="h-4 w-4 animate-spin text-emerald-500 shrink-0" />}
+                  {loading && <Loader2 className="h-4 w-4 animate-spin text-teal-500 shrink-0" />}
                 </div>
 
                 {/* Predictions dropdown */}
@@ -202,7 +202,7 @@ function NewCheckPageInner({
                         aria-selected={index === activeIndex}
                         className={cn(
                           'flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors',
-                          index === activeIndex ? 'bg-emerald-50 text-emerald-900' : 'text-gray-700 hover:bg-gray-50',
+                          index === activeIndex ? 'bg-teal-50 text-teal-900' : 'text-gray-700 hover:bg-gray-50',
                         )}
                         onMouseEnter={() => setActiveIndex(index)}
                         onClick={() => selectPrediction(prediction)}
@@ -222,7 +222,7 @@ function NewCheckPageInner({
               </div>
               <button
                 type="submit"
-                className="flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+                className="flex items-center justify-center gap-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
               >
                 <Shield className="h-4 w-4" />
                 Check Insurability
@@ -246,10 +246,10 @@ function NewCheckPageInner({
 
       {/* Feature cards */}
       <div className="bg-white border-t border-gray-100 px-8 py-8">
-        <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="max-w-full mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FeatureCard
-            icon={<Zap className="h-5 w-5 text-emerald-500" />}
-            iconBg="bg-emerald-50"
+            icon={<Zap className="h-5 w-5 text-teal-500" />}
+            iconBg="bg-teal-50"
             title="Instant Insurability Score"
             description="Get a real-time assessment of whether a property can be insured before you make an offer."
           />
