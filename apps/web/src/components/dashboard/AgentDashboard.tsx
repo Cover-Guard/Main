@@ -46,7 +46,7 @@ const ITEMS_PER_PAGE = 12
 
 type DashboardTab = 'properties' | 'clients'
 
-// ── Main component ─────────────────────────────────────────────────────────
+// ââ Main component âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export function AgentDashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('properties')
   const [properties, setProperties] = useState<SavedPropertyRow[]>([])
@@ -249,7 +249,7 @@ export function AgentDashboard() {
             <input
               value={filterSearch}
               onChange={(e) => setFilterSearch(e.target.value)}
-              placeholder="Search address, city, ZIP…"
+              placeholder="Search address, city, ZIPâ¦"
               className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
             />
           </div>
@@ -328,7 +328,7 @@ export function AgentDashboard() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            Page {page} of {totalPages} — showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+            Page {page} of {totalPages} â showing {(page - 1) * ITEMS_PER_PAGE + 1}â{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -387,7 +387,7 @@ export function AgentDashboard() {
   )
 }
 
-// ── Grid Card ─────────────────────────────────────────────────────────────
+// ââ Grid Card âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
 function getStreetViewUrl(p: Property, width = 400, height = 180) {
@@ -443,7 +443,7 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
 
         {p.estimatedValue && (
           <div className="mt-3">
-            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Est. value</div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Assessed value</div>
             <div className="text-base font-bold text-gray-900">{formatCurrency(p.estimatedValue)}</div>
           </div>
         )}
@@ -491,7 +491,7 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
   )
 }
 
-// ── List Row ─────────────────────────────────────────────────────────────
+// ââ List Row âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function DashboardListRow({ saved, onViewReport }: { saved: SavedPropertyRow; onViewReport: () => void }) {
   const { ids, toggle, canAdd } = useCompare()
   const p = saved.property
