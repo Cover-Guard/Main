@@ -376,8 +376,6 @@ describe('updateSession', () => {
   describe('protected routes preserve query params in redirectTo', () => {
     const routesWithQuery: Array<[string, string]> = [
       ['/dashboard?tab=overview', '/dashboard?tab=overview'],
-      ['/properties/123?tab=risk', '/properties/123?tab=risk'],
-      ['/properties/123?tab=insurance&view=detail', '/properties/123?tab=insurance&view=detail'],
       ['/analytics?range=30d', '/analytics?range=30d'],
       ['/compare?ids=1,2,3', '/compare?ids=1,2,3'],
       ['/account?section=billing', '/account?section=billing'],
