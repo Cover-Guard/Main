@@ -97,7 +97,7 @@ export function PropertyCard({ property, onViewReport }: PropertyCardProps) {
                 <div className="text-right shrink-0">
                     {property.estimatedValue && (
                         <div>
-                            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Est. value</div>
+                            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Assessed value</div>
                             <div className="text-lg font-bold text-gray-900">{formatCurrency(property.estimatedValue)}</div>
                         </div>
                     )}
