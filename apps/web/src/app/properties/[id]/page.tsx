@@ -18,6 +18,7 @@ import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PropertyMapInline } from '@/components/map/PropertyMapInline'
 import { MobilePropertyTabs } from '@/components/mobile/MobilePropertyTabs'
 import { DummyReportBanner } from '@/components/property/DummyReportBanner'
+import { PropertyReportButton } from '@/components/property/PropertyReportButton'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
 import type { Property } from '@coverguard/shared'
 import {
@@ -202,9 +203,14 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                 <h1 className="text-xl font-bold text-gray-900 md:text-2xl mt-0.5">{prop.address}</h1>
                 <p className="text-gray-600">{formatAddress(prop)}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-4">
-                  {prop.estimatedValue && (
+                  {prop.marketValue && (
                     <p className="text-lg font-semibold text-brand-700">
-                      Est. {formatCurrency(prop.estimatedValue)}
+                      Est. Market Value: {formatCurrency(prop.marketValue)}
+                    </p>
+                  )}
+                  {prop.estimatedValue && (
+                    <p className={prop.marketValue ? 'text-sm text-gray-600' : 'text-lg font-semibold text-brand-700'}>
+                      Assessed Value: {formatCurrency(prop.estimatedValue)}
                     </p>
                   )}
                   {prop.parcelId && (
@@ -215,18 +221,21 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                 </div>
               </div>
               {/* Actions */}
-              {!isDummy && (
-                <div className="flex shrink-0 items-center gap-2 mt-1">
-                  <Link
-                    href={`/compare?ids=${prop.id}`}
-                    className="hidden sm:flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <GitCompare className="h-4 w-4" />
-                    Compare
-                  </Link>
-                  <SavePropertyButton propertyId={prop.id} />
-                </div>
-              )}
+              <div className="flex shrink-0 items-center gap-2 mt-1">
+                <PropertyReportButton property={prop} />
+                {!isDummy && (
+                  <>
+                    <Link
+                      href={`/compare?ids=${prop.id}`}
+                      className="hidden sm:flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <GitCompare className="h-4 w-4" />
+                      Compare
+                    </Link>
+                    <SavePropertyButton propertyId={prop.id} />
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

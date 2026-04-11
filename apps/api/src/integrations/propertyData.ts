@@ -121,6 +121,37 @@ export async function searchPropertiesByAddress(
   return { properties, total: properties.length, page: params.page ?? 1, limit: params.limit ?? 20 }
 }
 
+interface RentCastAVMResponse {
+  price?: number | null
+  priceRangeLow?: number | null
+  priceRangeHigh?: number | null
+}
+
+/**
+ * Fetch the RentCast AVM (Automated Valuation Model) estimate for a property.
+ * Returns the estimated market value (price) or null if unavailable.
+ */
+export async function fetchPropertyAVMValue(
+  address: string,
+  city: string,
+  state: string,
+  zip: string,
+): Promise<number | null> {
+  if (!process.env.RENTCAST_API_KEY) return null
+  try {
+    const data = await fetchRentCast<RentCastAVMResponse>('/avm/value', {
+      address,
+      city,
+      state,
+      zipCode: zip,
+    })
+    return data?.price ?? null
+  } catch (err) {
+    logger.warn('RentCast AVM fetch failed (non-fatal)', { address, error: err instanceof Error ? err.message : err })
+    return null
+  }
+}
+
 /** Fetch a single property by ID from external source. */
 export async function fetchPropertyById(externalId: string): Promise<Property | null> {
   if (!process.env.RENTCAST_API_KEY) return null

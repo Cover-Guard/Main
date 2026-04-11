@@ -14,6 +14,7 @@ export interface Property {
   bathrooms: number | null
   lotSize: number | null
   estimatedValue: number | null
+  marketValue?: number | null
   lastSalePrice: number | null
   lastSaleDate: string | null
   parcelId: string | null
