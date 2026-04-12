@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma'
 import { riskCache, riskDeduplicator } from '../utils/cache'
+import { getStateRiskConfig, type PerilModifierConfig } from '../data/stateRiskProfiles'
 import {
   fetchFloodRisk,
   fetchFireRisk,
@@ -29,7 +30,7 @@ import type {
   EsriLandslideResult,
   EsriSviResult,
 } from '../integrations/riskData'
-import type { PropertyRiskProfile, RiskLevel, RiskTrend } from '@coverguard/shared'
+import type { PropertyRiskProfile, RiskLevel, RiskTrend, StateRiskContext, StatePerilModifier } from '@coverguard/shared'
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
 import { RiskLevel as PrismaRiskLevel } from '../generated/prisma/client'
 import { logger } from '../utils/logger'
@@ -251,6 +252,104 @@ function computeCrimeScore(crimeData: CrimeRiskExtended): { score: number; fromC
   return { score: 0, fromCensus: false }
 }
 
+// ─── State modifier application ──────────────────────────────────────────────
+
+interface RawScores {
+  flood: number
+  fire: number
+  wind: number
+  earthquake: number
+  crime: number
+}
+
+function applyStateModifiers(
+  rawScores: RawScores,
+  stateCode: string,
+): { scores: RawScores; overallBoost: number; stateContext: StateRiskContext | null } {
+  const config = getStateRiskConfig(stateCode)
+  if (!config) return { scores: rawScores, overallBoost: 0, stateContext: null }
+
+  // Apply a single peril modifier (floor + multiplier) and return modifier metadata
+  const adjustScore = (
+    rawScore: number,
+    cfg: PerilModifierConfig | undefined,
+  ): { score: number; modifier: StatePerilModifier | undefined } => {
+    if (!cfg) return { score: rawScore, modifier: undefined }
+    const multiplied = Math.min(100, rawScore * (cfg.multiplier ?? 1.0))
+    const floored = Math.max(cfg.floor ?? 0, multiplied)
+    const finalScore = Math.round(floored)
+    return {
+      score: finalScore,
+      modifier: {
+        floor: cfg.floor,
+        multiplier: cfg.multiplier,
+        reason: cfg.reason,
+        applied: finalScore !== rawScore,
+      },
+    }
+  }
+
+  const floodR = adjustScore(rawScores.flood, config.perils.flood)
+  const fireR  = adjustScore(rawScores.fire,  config.perils.fire)
+  const windR  = adjustScore(rawScores.wind,  config.perils.wind)
+  const eqR    = adjustScore(rawScores.earthquake, config.perils.earthquake)
+
+  // Building-code adjustment — weak or missing codes raise wind and earthquake risk because
+  // structures built without enforceable standards are more vulnerable to damage.
+  const codeBoostMap: Record<string, number> = { NONE: 12, WEAK: 8, MODERATE: 3, STRONG: 0 }
+  const codeBoost = codeBoostMap[config.regulatory.buildingCodeStrength] ?? 0
+  const windFinal = Math.min(100, windR.score + codeBoost)
+  const eqFinal   = Math.min(100, eqR.score   + Math.round(codeBoost * 0.75))
+
+  // Regulatory / market overall boost — hard/crisis markets and carrier exits represent
+  // additional effective risk for the property owner (coverage harder or impossible to obtain).
+  const marketBoostMap: Record<string, number> = { CRISIS: 8, HARD: 5, STRESSED: 3, STABLE: 0 }
+  let overallBoost = marketBoostMap[config.market.condition] ?? 0
+  if (config.market.carriersExiting) overallBoost += 3
+  // In prior-approval states with carrier exits, rate suppression means premiums cannot
+  // keep pace with actual risk — compounding effective risk for remaining policyholders.
+  if (config.regulatory.rateRegulation === 'PRIOR_APPROVAL' && config.market.carriersExiting) {
+    overallBoost += 2
+  }
+
+  // Build state context with applied flags
+  const buildModifier = (
+    base: StatePerilModifier | undefined,
+    extraApplied: boolean,
+    extraReason?: string,
+  ): StatePerilModifier | undefined => {
+    if (base) return { ...base, applied: base.applied || extraApplied }
+    if (extraApplied && extraReason) return { reason: extraReason, applied: true }
+    return undefined
+  }
+
+  const codeReason = `Building code strength (${config.regulatory.buildingCodeStrength}) affects structural vulnerability`
+  const stateContext: StateRiskContext = {
+    stateCode: stateCode.toUpperCase(),
+    stateName: config.name,
+    flood: floodR.modifier,
+    fire:  fireR.modifier,
+    wind:  buildModifier(windR.modifier, codeBoost > 0, codeReason),
+    earthquake: buildModifier(eqR.modifier, codeBoost > 0, codeReason),
+    market:     config.market,
+    regulatory: config.regulatory,
+    knownCatastrophicExposures: config.knownCatastrophicExposures,
+    notes: config.notes,
+  }
+
+  return {
+    scores: {
+      flood:     floodR.score,
+      fire:      fireR.score,
+      wind:      windFinal,
+      earthquake: eqFinal,
+      crime:     rawScores.crime,
+    },
+    overallBoost,
+    stateContext,
+  }
+}
+
 // ─── Main service function ───────────────────────────────────────────────────
 
 export async function getOrComputeRiskProfile(
@@ -274,7 +373,7 @@ export async function getOrComputeRiskProfile(
 
     const cached = property.riskProfile
     if (!forceRefresh && cached && cached.expiresAt > new Date()) {
-      const dto = prismaProfileToDto(cached, propertyId)
+      const dto = prismaProfileToDto(cached, propertyId, { stateContext: getStateContextOnly(property.state) })
       riskCache.set(propertyId, dto, cached.expiresAt.getTime() - Date.now())
       return dto
     }
@@ -346,7 +445,7 @@ export async function getOrComputeRiskProfile(
       }
     }
 
-    const floodScore = Math.min(100, computeFloodScore(
+    const rawFloodScore = Math.min(100, computeFloodScore(
       floodData.floodZone,
       floodData.inSpecialFloodHazardArea ?? false,
       floodData.annualChanceOfFlooding ?? null,
@@ -363,13 +462,24 @@ export async function getOrComputeRiskProfile(
         fireData2.vegetationDensity = fireData2.vegetationDensity ?? 'MODERATE'
       }
     }
-    const fireScore = computeFireScore(fireData2)
-    const windScore = computeWindScore(windData)
+    const rawFireScore = computeFireScore(fireData2)
+    const rawWindScore = computeWindScore(windData)
 
     // Enhance earthquake score with historical events
-    const earthquakeScore = computeEarthquakeScore(earthquakeData, historicalEq)
+    const rawEarthquakeScore = computeEarthquakeScore(earthquakeData, historicalEq)
     const crimeResult = computeCrimeScore(crimeData)
     const crimeScore = crimeResult.score
+
+    // Apply state-level modifiers: peril floors/multipliers, building-code adjustments,
+    // and market/regulatory overall boost
+    const { scores: adjustedScores, overallBoost, stateContext } = applyStateModifiers(
+      { flood: rawFloodScore, fire: rawFireScore, wind: rawWindScore, earthquake: rawEarthquakeScore, crime: crimeScore },
+      property.state,
+    )
+    const floodScore     = adjustedScores.flood
+    const fireScore      = adjustedScores.fire
+    const windScore      = adjustedScores.wind
+    const earthquakeScore = adjustedScores.earthquake
 
     // Weighted overall score — crime weight reduced when data unavailable
     const crimeWeight = crimeData.dataSourceUsed === 'NONE' ? 0.0 : 0.10
@@ -387,7 +497,8 @@ export async function getOrComputeRiskProfile(
         fireScore * fireW +
         windScore * windW +
         earthquakeScore * eqW +
-        crimeScore * crimeWeight,
+        crimeScore * crimeWeight +
+        overallBoost,        // regulatory / market risk contribution
       ),
     )
 
@@ -448,6 +559,7 @@ export async function getOrComputeRiskProfile(
       esriLandslide,
       esriSvi,
       femaDisasters,
+      stateContext: stateContext ?? undefined,
     })
     riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
     return dto
@@ -455,6 +567,25 @@ export async function getOrComputeRiskProfile(
 }
 
 // ─── Prisma → DTO conversion ─────────────────────────────────────────────────
+
+/** Build a StateRiskContext from static state data only (no applied-flag details).
+ *  Used when loading a cached profile from the DB where raw scores are no longer available. */
+function getStateContextOnly(stateCode: string): StateRiskContext | undefined {
+  const config = getStateRiskConfig(stateCode)
+  if (!config) return undefined
+  return {
+    stateCode: stateCode.toUpperCase(),
+    stateName: config.name,
+    flood:      config.perils.flood      ? { ...config.perils.flood }      : undefined,
+    fire:       config.perils.fire       ? { ...config.perils.fire }       : undefined,
+    wind:       config.perils.wind       ? { ...config.perils.wind }       : undefined,
+    earthquake: config.perils.earthquake ? { ...config.perils.earthquake } : undefined,
+    market:     config.market,
+    regulatory: config.regulatory,
+    knownCatastrophicExposures: config.knownCatastrophicExposures,
+    notes: config.notes,
+  }
+}
 
 interface EnrichmentData {
   fireData?: FireRiskExtended
@@ -472,6 +603,7 @@ interface EnrichmentData {
   esriLandslide?: EsriLandslideResult | null
   esriSvi?: EsriSviResult | null
   femaDisasters?: FemaDisasterHistory | null
+  stateContext?: StateRiskContext
 }
 
 function prismaProfileToDto(
@@ -741,6 +873,7 @@ function prismaProfileToDto(
       propertyCrimeIndex: p.propertyCrimeIndex,
       nationalAverageDiff: p.nationalAvgDiff,
     },
+    stateContext: enrichment?.stateContext,
     generatedAt: p.generatedAt.toISOString(),
     cacheTtlSeconds: RISK_CACHE_TTL_SECONDS,
   }

@@ -2,6 +2,7 @@ import type { PropertyRiskProfile, RiskFactor, RiskLevel } from '@coverguard/sha
 import { riskLevelToLabel } from '@coverguard/shared'
 import { cn, riskLevelClasses } from '@/lib/utils'
 import { ChevronDown } from 'lucide-react'
+import { StateRiskContextPanel } from './StateRiskContext'
 
 interface RiskBreakdownProps {
   profile: PropertyRiskProfile
@@ -61,11 +62,16 @@ export function RiskBreakdown({ profile }: RiskBreakdownProps) {
   ]
 
   return (
-    <div className="card divide-y divide-gray-100">
-      <h2 className="px-6 py-4 text-lg font-semibold text-gray-900">Detailed Risk Breakdown</h2>
-      {sections.map((s) => (
-        <RiskSection key={s.title} title={s.title} factor={s.factor} extras={s.extras} />
-      ))}
+    <div className="space-y-4">
+      <div className="card divide-y divide-gray-100">
+        <h2 className="px-6 py-4 text-lg font-semibold text-gray-900">Detailed Risk Breakdown</h2>
+        {sections.map((s) => (
+          <RiskSection key={s.title} title={s.title} factor={s.factor} extras={s.extras} />
+        ))}
+      </div>
+      {profile.stateContext && (
+        <StateRiskContextPanel context={profile.stateContext} />
+      )}
     </div>
   )
 }
