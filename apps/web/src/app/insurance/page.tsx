@@ -108,7 +108,7 @@ export default function InsurancePage() {
             </h2>
           </div>
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            [
+            {[
               {
                 title: 'Pre-Bind Risk Screen',
                 body: 'Run a 90-second insurability assessment the moment a lead comes in — flood, fire, wind, seismic, and crime risk, plus a verdict on whether the property is likely coverable in the current market.',
