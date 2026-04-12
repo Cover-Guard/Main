@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 }
 
 const benefits = [
-  'Run a full risk check before showing any listing',
-  'See which carriers are still writing in that ZIP code',
-  'Catch flood, fire, seismic, wind & crime risks upfront',
+  'Get a full insurability assessment — not just hazard risk, but coverage availability',
+  'See which carriers are actively writing in that ZIP code before you write the offer',
+  'Catch flood, fire, seismic, wind & crime risks — and know if each risk is coverable',
   'Request a binding quote in the same platform',
   'Share a professional risk report with your clients',
   'Works on any US property — residential & commercial',
@@ -93,6 +93,32 @@ export default function AgentsPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiator */}
+      <section className="py-20 bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-100 px-4 py-1.5 mb-6">
+              <span className="text-sm font-medium text-brand-700">Property Insurability Intelligence</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
+              Other tools score the hazard. We score the coverage risk.
+            </h2>
+            <p className="mt-4 text-lg text-gray-600">
+              Most risk platforms stop at hazard scores — flood zone, fire severity, seismic exposure.
+              CoverGuard goes further: every risk assessment includes an <strong>insurability verdict</strong> that
+              answers the question your client needs answered before making an offer. It&apos;s not just
+              &quot;is this property in a high-risk zone&quot; — it&apos;s &quot;can this property actually be covered?&quot;
+            </p>
+            <p className="mt-4 text-lg text-gray-600">
+              When you run a CoverGuard check, you see which carriers are actively binding in that ZIP
+              code, whether adequate coverage is available at all, and what a realistic premium looks like.
+              That&apos;s the difference between a risk score and insurability intelligence — and it&apos;s the
+              information that protects your deal before you&apos;re too deep to walk away.
+            </p>
           </div>
         </div>
       </section>
