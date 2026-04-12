@@ -10,12 +10,12 @@ export const metadata: Metadata = {
 }
 
 const benefits = [
-  'Pre-qualify inbound leads with instant multi-peril risk profiles',
-  'Screen books of business for aggregate risk exposure across geographies',
+  'Pre-qualify inbound leads with instant multi-peril risk profiles — including an insurability verdict',
+  'See in seconds whether a submission is writeable before you spend time shopping it',
   'See real-time carrier availability by ZIP and risk tier',
-  'Integrate CoverGuard risk data via API for faster placement',
-  'Generate white-label risk reports for client communications',
-  'Access FEMA, USGS, NOAA, Cal Fire, and FBI data in one platform',
+  'Screen books of business for aggregate coverage-risk exposure across geographies',
+  'Generate white-label insurability reports for client communications',
+  'Access FEMA, USGS, NOAA, Cal Fire, and FBI data — with insurability context — in one platform',
 ]
 
 export default function InsurancePage() {
@@ -108,18 +108,18 @@ export default function InsurancePage() {
             </h2>
           </div>
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
+            [
               {
                 title: 'Pre-Bind Risk Screen',
-                body: 'Run a 90-second multi-peril check the moment a lead comes in. Decide if it\'s writeable before you spend a minute shopping it.',
+                body: 'Run a 90-second insurability assessment the moment a lead comes in — flood, fire, wind, seismic, and crime risk, plus a verdict on whether the property is likely coverable in the current market.',
               },
               {
                 title: 'Carrier Matchmaking',
-                body: 'See which carriers are actively binding in that ZIP code and risk tier — so every submission lands with a carrier who will look at it.',
+                body: 'See which carriers are actively binding in that ZIP code and risk tier — so every submission lands with a carrier who will write it.',
               },
               {
                 title: 'Book Monitoring',
-                body: 'Screen your existing book for aggregate exposure by peril and geography. Catch shifting risk before renewals.',
+                body: 'Screen your existing book for aggregate coverage-risk exposure by peril and geography. Catch markets that are tightening before renewals catch you off guard.',
               },
             ].map((card) => (
               <div
@@ -130,6 +130,31 @@ export default function InsurancePage() {
                 <p className="mt-2 text-sm text-gray-600 leading-relaxed">{card.body}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiator */}
+      <section className="py-20 bg-white">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-100 px-4 py-1.5 mb-6">
+              <span className="text-sm font-medium text-brand-700">Property Insurability Intelligence</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
+              Risk scores tell you the peril. Insurability intelligence tells you if it&apos;s placeable.
+            </h2>
+            <p className="mt-4 text-lg text-gray-600">
+              You already understand flood zones and fire severity. What you need to know faster is
+              whether a property with a high-risk profile has any viable market — and if so, which
+              carriers are still writing it. That&apos;s the gap CoverGuard closes.
+            </p>
+            <p className="mt-4 text-lg text-gray-600">
+              Every CoverGuard risk assessment includes an <strong>insurability dimension</strong>:
+              a property-level verdict on coverage availability based on current carrier activity,
+              risk tier, and ZIP-level market conditions. You get the hazard data you need for
+              underwriting — and the market intelligence you need to place it.
+            </p>
           </div>
         </div>
       </section>
