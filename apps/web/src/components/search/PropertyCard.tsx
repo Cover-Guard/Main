@@ -103,7 +103,7 @@ export function PropertyCard({ property, onViewReport }: PropertyCardProps) {
                     )}
                     {property.estimatedValue && (
                         <div className={property.marketValue ? 'mt-1' : undefined}>
-                            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Assessed Value</div>
+                            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Assessed value</div>
                             <div className={`font-bold text-gray-900 ${property.marketValue ? 'text-sm' : 'text-lg'}`}>{formatCurrency(property.estimatedValue)}</div>
                         </div>
                     )}

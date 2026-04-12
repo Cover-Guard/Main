@@ -176,7 +176,7 @@ export function CompareView() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Compare Properties</h1>
-        <p className="text-sm text-gray-500 mt-1">Side-by-side risk and insurability comparison — up to 3 properties</p>
+        <p className="text-sm text-gray-500 mt-1">Side-by-side risk and insurability comparison â up to 3 properties</p>
       </div>
 
       {/* Property columns */}
@@ -203,12 +203,12 @@ export function CompareView() {
                     </button>
                   </div>
                   <Link href={`/properties/${slot.property.id}`} className="block px-4 py-2 text-xs text-blue-600 hover:underline border-b border-gray-100">
-                    View full report →
+                    View full report â
                   </Link>
                 </div>
               ) : isLoading ? (
                 <div className="px-4 py-6 flex items-center justify-center">
-                  <div className="text-xs text-gray-400 animate-pulse">Loading…</div>
+                  <div className="text-xs text-gray-400 animate-pulse">Loadingâ¦</div>
                 </div>
               ) : isSearching ? (
                 <div className="p-3">
@@ -218,11 +218,11 @@ export function CompareView() {
                       autoFocus
                       value={search.query}
                       onChange={(e) => handleSearchChange(e.target.value)}
-                      placeholder="Search address or ZIP…"
+                      placeholder="Search address or ZIPâ¦"
                       className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-                  {searchLoading && <p className="text-xs text-gray-400 mt-2 px-1">Searching…</p>}
+                  {searchLoading && <p className="text-xs text-gray-400 mt-2 px-1">Searchingâ¦</p>}
                   {searchError && <p className="text-xs text-red-500 mt-2 px-1">{searchError}</p>}
                   {searchResults.length > 0 && (
                     <div className="mt-1.5 space-y-1">
@@ -288,7 +288,7 @@ export function CompareView() {
                         </div>
                       ) : <span className="text-sm text-gray-400">N/A</span>}
                     </div>
-                  ) : <span className="text-sm text-gray-200">—</span>}
+                  ) : <span className="text-sm text-gray-200">â</span>}
                 </div>
               ))}
             </div>
@@ -317,7 +317,7 @@ export function CompareView() {
                         ) : slot ? (
                           <span className="text-xs text-gray-400">N/A</span>
                         ) : (
-                          <span className="text-xs text-gray-200">—</span>
+                          <span className="text-xs text-gray-200">â</span>
                         )}
                       </div>
                     )
@@ -352,7 +352,7 @@ export function CompareView() {
                   ) : slot ? (
                     <span className="text-sm text-gray-400">N/A</span>
                   ) : (
-                    <span className="text-sm text-gray-200">—</span>
+                    <span className="text-sm text-gray-200">â</span>
                   )}
                 </div>
               ))}
@@ -384,7 +384,7 @@ export function CompareView() {
                   ) : slot ? (
                     <span className="text-sm text-gray-400">N/A</span>
                   ) : (
-                    <span className="text-sm text-gray-200">—</span>
+                    <span className="text-sm text-gray-200">â</span>
                   )}
                 </div>
               ))}
@@ -397,7 +397,7 @@ export function CompareView() {
               <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Property Details</p>
             </div>
             {[
-              { label: 'Estimated Value', fn: (s: PropertyData) => s.property.estimatedValue ? formatCurrency(s.property.estimatedValue) : 'N/A' },
+              { label: 'Assessed Value', fn: (s: PropertyData) => s.property.estimatedValue ? formatCurrency(s.property.estimatedValue) : 'N/A' },
               { label: 'Year Built', fn: (s: PropertyData) => s.property.yearBuilt ? String(s.property.yearBuilt) : 'N/A' },
               { label: 'Square Feet', fn: (s: PropertyData) => s.property.squareFeet ? `${s.property.squareFeet.toLocaleString()} sq ft` : 'N/A' },
               { label: 'Bedrooms / Baths', fn: (s: PropertyData) => (s.property.bedrooms || s.property.bathrooms) ? `${s.property.bedrooms ?? '?'} bd / ${s.property.bathrooms ?? '?'} ba` : 'N/A' },
@@ -407,7 +407,7 @@ export function CompareView() {
                 {slots.map((slot, idx) => (
                   <div key={idx} className="px-5 py-3">
                     {idx === 0 && <p className="text-xs text-gray-400 mb-0.5">{label}</p>}
-                    <p className="text-sm text-gray-700">{slot ? fn(slot) : '—'}</p>
+                    <p className="text-sm text-gray-700">{slot ? fn(slot) : 'â'}</p>
                   </div>
                 ))}
               </div>

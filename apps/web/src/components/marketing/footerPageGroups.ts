@@ -20,6 +20,7 @@ export const footerPageGroups: Record<string, FooterLink[]> = {
     { label: 'Careers', href: '/careers' },
   ],
   Resources: [
+    { label: 'Help Center', href: '/help' },
     { label: 'Documentation', href: '/docs' },
     { label: 'API Reference', href: '/api-reference' },
     { label: 'Blog', href: '/blog' },

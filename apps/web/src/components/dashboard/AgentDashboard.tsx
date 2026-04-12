@@ -7,7 +7,6 @@ import {
   Shield,
   AlertTriangle,
   Users,
-  BarChart3,
   Wrench,
   LayoutGrid,
   List,
@@ -28,6 +27,8 @@ import { SearchBar } from '@/components/search/SearchBar'
 import { useCompare } from '@/lib/useCompare'
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
 import { ClientsPanel } from '@/components/dashboard/ClientsPanel'
+import { AgentDashboardHero } from '@/components/dashboard/AgentDashboardHero'
+import { isDemoMode } from '@/lib/mockData'
 import { cn } from '@/lib/utils'
 
 interface SavedPropertyRow {
@@ -45,7 +46,7 @@ const ITEMS_PER_PAGE = 12
 
 type DashboardTab = 'properties' | 'clients'
 
-// ── Main component ─────────────────────────────────────────────────────────
+// ââ Main component âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export function AgentDashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('properties')
   const [properties, setProperties] = useState<SavedPropertyRow[]>([])
@@ -132,23 +133,23 @@ export function AgentDashboard() {
 
   return (
     <div className="p-3 lg:p-4 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Agent Dashboard</h1>
-          <p className="text-sm text-emerald-600 mt-0.5">
-            Property insurability intelligence for real estate professionals
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/toolkit"
-            className="flex items-center gap-1.5 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <Wrench className="h-4 w-4" />
-            Toolkit
-          </Link>
-        </div>
+      {/* UX rework: large legible hero with greeting, search, and KPI cards */}
+      <AgentDashboardHero
+        savedPropertyCount={properties.length}
+        clientCount={clients.length}
+        loading={loading}
+        demoMode={typeof window !== 'undefined' && isDemoMode()}
+        searchSlot={<SearchBar className="max-w-full" />}
+      />
+
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <Link
+          href="/toolkit"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+        >
+          <Wrench className="h-4 w-4" />
+          Toolkit
+        </Link>
       </div>
 
       {/* Dashboard Tabs */}
@@ -187,11 +188,6 @@ export function AgentDashboard() {
       {/* Properties Tab */}
       {activeTab !== 'properties' ? null : (<>
 
-      {/* Search bar with typeahead */}
-      <div className="mb-3">
-        <SearchBar className="max-w-full" />
-      </div>
-
       {/* Error banner */}
       {error && (
         <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
@@ -202,18 +198,6 @@ export function AgentDashboard() {
           </div>
         </div>
       )}
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <StatCard label="SAVED PROPERTIES" value={loading ? '—' : properties.length} icon={<Shield className="h-5 w-5 text-blue-500" />} />
-        <StatCard label="CLIENTS" value={loading ? '—' : clients.length} icon={<Users className="h-5 w-5 text-purple-400" />} />
-        <Link href="/analytics" className="block">
-          <StatCard label="ANALYTICS" value="View" icon={<BarChart3 className="h-5 w-5 text-green-500" />} />
-        </Link>
-        <Link href="/search" className="block">
-          <StatCard label="SEARCH" value="Search" icon={<Search className="h-5 w-5 text-teal-500" />} />
-        </Link>
-      </div>
 
       {/* Toolbar: filter toggle, view mode, count */}
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -265,7 +249,7 @@ export function AgentDashboard() {
             <input
               value={filterSearch}
               onChange={(e) => setFilterSearch(e.target.value)}
-              placeholder="Search address, city, ZIP…"
+              placeholder="Search address, city, ZIPâ¦"
               className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
             />
           </div>
@@ -344,7 +328,7 @@ export function AgentDashboard() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            Page {page} of {totalPages} — showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+            Page {page} of {totalPages} â showing {(page - 1) * ITEMS_PER_PAGE + 1}â{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -403,7 +387,7 @@ export function AgentDashboard() {
   )
 }
 
-// ── Grid Card ─────────────────────────────────────────────────────────────
+// ââ Grid Card âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
 function getStreetViewUrl(p: Property, width = 400, height = 180) {
@@ -459,7 +443,7 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
 
         {p.estimatedValue && (
           <div className="mt-3">
-            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Est. value</div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Assessed value</div>
             <div className="text-base font-bold text-gray-900">{formatCurrency(p.estimatedValue)}</div>
           </div>
         )}
@@ -507,7 +491,7 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
   )
 }
 
-// ── List Row ─────────────────────────────────────────────────────────────
+// ââ List Row âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function DashboardListRow({ saved, onViewReport }: { saved: SavedPropertyRow; onViewReport: () => void }) {
   const { ids, toggle, canAdd } = useCompare()
   const p = saved.property
@@ -576,17 +560,3 @@ function DashboardListRow({ saved, onViewReport }: { saved: SavedPropertyRow; on
   )
 }
 
-// ── Stat Card ─────────────────────────────────────────────────────────────
-function StatCard({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
-        </div>
-        <div className="mt-0.5">{icon}</div>
-      </div>
-    </div>
-  )
-}
