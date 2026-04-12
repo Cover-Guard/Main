@@ -246,6 +246,7 @@ describe('updateSession', () => {
       '/nda',
       '/pricing',
       '/search',
+      '/properties',
       '/get-started',
     ]
 
@@ -286,6 +287,11 @@ describe('updateSession', () => {
       '/search/results',
       '/search/map',
       '/search/advanced',
+      '/properties/123',
+      '/properties/456/risk',
+      '/properties/789/insurance',
+      '/properties/abc/carriers',
+      '/properties/def/quote-request',
       '/get-started/agent',
       '/get-started/individual',
       '/get-started/choose',
@@ -328,11 +334,6 @@ describe('updateSession', () => {
       '/account/billing',
       '/compare',
       '/compare/results',
-      '/properties/123',
-      '/properties/456/risk',
-      '/properties/789/insurance',
-      '/properties/abc/carriers',
-      '/properties/def/quote-request',
       '/clients',
       '/clients/new',
       '/clients/123',
@@ -376,8 +377,6 @@ describe('updateSession', () => {
   describe('protected routes preserve query params in redirectTo', () => {
     const routesWithQuery: Array<[string, string]> = [
       ['/dashboard?tab=overview', '/dashboard?tab=overview'],
-      ['/properties/123?tab=risk', '/properties/123?tab=risk'],
-      ['/properties/123?tab=insurance&view=detail', '/properties/123?tab=insurance&view=detail'],
       ['/analytics?range=30d', '/analytics?range=30d'],
       ['/compare?ids=1,2,3', '/compare?ids=1,2,3'],
       ['/account?section=billing', '/account?section=billing'],
@@ -726,9 +725,15 @@ describe('updateSession', () => {
       expect(res._type).toBe('next')
     })
 
-    it('cached active subscription (cookie=1) allows /properties/123', async () => {
+    it('cached active subscription (cookie=1) allows /properties/123 (public route)', async () => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '1' }))
+      expect(res._type).toBe('next')
+    })
+
+    it('cached inactive subscription (cookie=0) still allows /properties/123 (public, exempt from sub gate)', async () => {
+      mockAuthenticated()
+      const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '0' }))
       expect(res._type).toBe('next')
     })
 
@@ -754,13 +759,6 @@ describe('updateSession', () => {
       expect(getRedirectPathname()).toBe('/pricing')
     })
 
-    it('cached inactive subscription (cookie=0) redirects /properties/123 to /pricing', async () => {
-      mockAuthenticated()
-      const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '0' }))
-      expect(res._type).toBe('redirect')
-      expect(getRedirectPathname()).toBe('/pricing')
-    })
-
     it('cached inactive subscription includes reason param', async () => {
       mockAuthenticated()
       await callUpdateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
@@ -773,7 +771,7 @@ describe('updateSession', () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe('subscription gating disabled', () => {
-    const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/properties/123', '/clients']
+    const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/clients']
 
     it.each(protectedRoutes)('allows authenticated access to %s when STRIPE_SUBSCRIPTION_REQUIRED=false', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'false' })
@@ -922,7 +920,6 @@ describe('updateSession', () => {
       '/analytics/reports/weekly',
       '/account/billing/invoices',
       '/compare/properties/1-vs-2',
-      '/properties/123/risk/flood',
       '/clients/123/properties',
     ]
 
@@ -1009,7 +1006,7 @@ describe('updateSession', () => {
       { path: '/analytics', isPublic: false, isAuthRoute: false },
       { path: '/account', isPublic: false, isAuthRoute: false },
       { path: '/compare', isPublic: false, isAuthRoute: false },
-      { path: '/properties/123', isPublic: false, isAuthRoute: false },
+      { path: '/properties/123', isPublic: true, isAuthRoute: false },
       { path: '/clients', isPublic: false, isAuthRoute: false },
     ]
 
@@ -1108,8 +1105,6 @@ describe('updateSession', () => {
       '/analytics/searches',
       '/compare',
       '/compare/results',
-      '/properties/123',
-      '/properties/456/risk',
       '/clients',
       '/clients/123',
       '/reports',
