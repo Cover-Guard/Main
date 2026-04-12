@@ -198,6 +198,14 @@ export const dummyInsurability: InsurabilityStatus = {
     'Get multiple quotes from carriers active in Illinois',
     'Consider surplus lines carriers for earthquake coverage',
   ],
+  overallInsurabilityScore: 42,
+  categoryScores: {
+    flood:      { score: 30, level: 'MODERATE', activeCarrierCount: 8 },
+    fire:       { score: 25, level: 'LOW',      activeCarrierCount: 10 },
+    wind:       { score: 45, level: 'MODERATE', activeCarrierCount: 7 },
+    earthquake: { score: 55, level: 'HIGH',     activeCarrierCount: 4 },
+    crime:      { score: 38, level: 'MODERATE', activeCarrierCount: 9 },
+  },
 }
 
 export const dummyCarriers: CarriersResult = {

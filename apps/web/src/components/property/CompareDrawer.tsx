@@ -11,6 +11,7 @@ import type {
 import { formatAddress } from '@coverguard/shared'
 import { RiskSummary } from './RiskSummary'
 import { RiskBreakdown } from './RiskBreakdown'
+import { InsurabilityPanel } from './InsurabilityPanel'
 import { ActiveCarriers } from './ActiveCarriers'
 import { InsuranceCostEstimate } from './InsuranceCostEstimate'
 import { PropertyImages } from './PropertyImages'
@@ -97,6 +98,7 @@ export function CompareDrawer({
           {activeTab === 'risks' && (
             <div className="space-y-6">
               {compareState.data.risk && <RiskSummary profile={compareState.data.risk} />}
+              {compareState.data.insurability && <InsurabilityPanel status={compareState.data.insurability} />}
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-gray-500" />
