@@ -144,9 +144,14 @@ export function PropertyRiskReportModal({
               </DialogTitle>
               <p className="text-sm text-gray-600">
                 {formatAddress(property)}
-                {property.estimatedValue && (
+                {property.marketValue && (
                   <span className="ml-2 text-base font-semibold text-brand-700">
-                    Est. {formatCurrency(property.estimatedValue)}
+                    Est. Market: {formatCurrency(property.marketValue)}
+                  </span>
+                )}
+                {property.estimatedValue && (
+                  <span className="ml-2 text-sm text-gray-500">
+                    Assessed: {formatCurrency(property.estimatedValue)}
                   </span>
                 )}
               </p>

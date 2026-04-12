@@ -246,6 +246,7 @@ describe('updateSession', () => {
       '/nda',
       '/pricing',
       '/search',
+      '/properties',
       '/get-started',
       '/properties/123',
       '/properties/456/risk',
@@ -291,6 +292,11 @@ describe('updateSession', () => {
       '/search/results',
       '/search/map',
       '/search/advanced',
+      '/properties/123',
+      '/properties/456/risk',
+      '/properties/789/insurance',
+      '/properties/abc/carriers',
+      '/properties/def/quote-request',
       '/get-started/agent',
       '/get-started/individual',
       '/get-started/choose',
@@ -724,9 +730,15 @@ describe('updateSession', () => {
       expect(res._type).toBe('next')
     })
 
-    it('cached active subscription (cookie=1) allows /properties/123', async () => {
+    it('cached active subscription (cookie=1) allows /properties/123 (public route)', async () => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '1' }))
+      expect(res._type).toBe('next')
+    })
+
+    it('cached inactive subscription (cookie=0) still allows /properties/123 (public, exempt from sub gate)', async () => {
+      mockAuthenticated()
+      const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '0' }))
       expect(res._type).toBe('next')
     })
 
@@ -764,7 +776,7 @@ describe('updateSession', () => {
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('subscription gating disabled', () => {
-    const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/properties/123', '/clients']
+    const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/clients']
 
     it.each(protectedRoutes)('allows authenticated access to %s when STRIPE_SUBSCRIPTION_REQUIRED=false', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'false' })
