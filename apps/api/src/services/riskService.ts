@@ -19,6 +19,11 @@ import {
   fetchEsriLandslideRisk,
   fetchEsriSocialVulnerability,
 } from '../integrations/riskData'
+import {
+  getStateProfile,
+  computeComplianceScore,
+  buildingCodeWindEqBoost,
+} from '../data/stateRiskProfiles'
 import type {
   FireRiskExtended,
   EarthquakeRiskExtended,
@@ -29,7 +34,7 @@ import type {
   EsriLandslideResult,
   EsriSviResult,
 } from '../integrations/riskData'
-import type { PropertyRiskProfile, RiskLevel, RiskTrend } from '@coverguard/shared'
+import type { PropertyRiskProfile, RiskLevel, RiskTrend, StateRiskContext } from '@coverguard/shared'
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
 import { RiskLevel as PrismaRiskLevel } from '../generated/prisma/client'
 import { logger } from '../utils/logger'
@@ -346,7 +351,7 @@ export async function getOrComputeRiskProfile(
       }
     }
 
-    const floodScore = Math.min(100, computeFloodScore(
+    const rawFloodScore = Math.min(100, computeFloodScore(
       floodData.floodZone,
       floodData.inSpecialFloodHazardArea ?? false,
       floodData.annualChanceOfFlooding ?? null,
@@ -363,22 +368,74 @@ export async function getOrComputeRiskProfile(
         fireData2.vegetationDensity = fireData2.vegetationDensity ?? 'MODERATE'
       }
     }
-    const fireScore = computeFireScore(fireData2)
-    const windScore = computeWindScore(windData)
+    const rawFireScore = computeFireScore(fireData2)
+    const rawWindScore = computeWindScore(windData)
 
     // Enhance earthquake score with historical events
-    const earthquakeScore = computeEarthquakeScore(earthquakeData, historicalEq)
+    const rawEarthquakeScore = computeEarthquakeScore(earthquakeData, historicalEq)
     const crimeResult = computeCrimeScore(crimeData)
-    const crimeScore = crimeResult.score
+    const rawCrimeScore = crimeResult.score
 
-    // Weighted overall score — crime weight reduced when data unavailable
-    const crimeWeight = crimeData.dataSourceUsed === 'NONE' ? 0.0 : 0.10
-    const remainingWeight = 1.0 - crimeWeight
-    // Distribute remaining weight proportionally if crime data unavailable
-    const floodW = 0.30 * (crimeWeight === 0 ? remainingWeight / 0.90 : 1)
-    const fireW = 0.25 * (crimeWeight === 0 ? remainingWeight / 0.90 : 1)
-    const windW = 0.20 * (crimeWeight === 0 ? remainingWeight / 0.90 : 1)
-    const eqW = 0.15 * (crimeWeight === 0 ? remainingWeight / 0.90 : 1)
+    // ── State risk calibration ───────────────────────────────────────────────
+    // Apply per-state loss ratio multipliers, floor scores, and building code
+    // modifiers to the raw property-level base scores.
+    const stateProfile = getStateProfile(property.state ?? 'XX')
+    const codeBoost = buildingCodeWindEqBoost(stateProfile)
+
+    const applyStateModifier = (
+      rawScore: number,
+      multiplier: number,
+      floorScore?: number,
+      extraBoost = 0,
+    ): { final: number; modifier: number } => {
+      const boosted = Math.min(100, rawScore + extraBoost)
+      const scaled = Math.min(100, Math.round(boosted * multiplier))
+      const final = floorScore != null ? Math.max(scaled, floorScore) : scaled
+      return { final, modifier: final - rawScore }
+    }
+
+    const flood = applyStateModifier(rawFloodScore, stateProfile.flood.lossRatioMultiplier, stateProfile.flood.floorScore)
+    const fire = applyStateModifier(rawFireScore, stateProfile.fire.lossRatioMultiplier, stateProfile.fire.floorScore)
+    const wind = applyStateModifier(rawWindScore, stateProfile.wind.lossRatioMultiplier, stateProfile.wind.floorScore, codeBoost)
+    const earthquake = applyStateModifier(rawEarthquakeScore, stateProfile.earthquake.lossRatioMultiplier, stateProfile.earthquake.floorScore, codeBoost)
+    const crime = applyStateModifier(rawCrimeScore, stateProfile.crime.lossRatioMultiplier, stateProfile.crime.floorScore)
+
+    const floodScore = flood.final
+    const fireScore = fire.final
+    const windScore = wind.final
+    const earthquakeScore = earthquake.final
+    const crimeScore = crime.final
+
+    const complianceScore = computeComplianceScore(stateProfile)
+
+    // Build state context for the DTO
+    const stateContext: StateRiskContext = {
+      stateCode: stateProfile.stateCode,
+      stateName: stateProfile.stateName,
+      knownRisks: stateProfile.knownRisks,
+      carrierCountTrend: stateProfile.carrierCountTrend,
+      residualMarketUsage: stateProfile.residualMarketUsage,
+      compliance: stateProfile.compliance,
+      scoreModifiers: {
+        flood: flood.modifier,
+        fire: fire.modifier,
+        wind: wind.modifier,
+        earthquake: earthquake.modifier,
+        compliance: complianceScore,
+      },
+    }
+
+    // Weighted overall score
+    // Base weights: flood 28%, fire 23%, wind 18%, eq 14%, crime 9%, compliance 8%
+    // Crime weight zeroed when data unavailable; remaining weight redistributed proportionally.
+    const crimeWeight = crimeData.dataSourceUsed === 'NONE' ? 0.0 : 0.09
+    const nonCrimeBase = 0.28 + 0.23 + 0.18 + 0.14 + 0.08 // = 0.91
+    const scale = crimeWeight === 0 ? 1.0 / nonCrimeBase : 1.0
+    const floodW = 0.28 * scale
+    const fireW = 0.23 * scale
+    const windW = 0.18 * scale
+    const eqW = 0.14 * scale
+    const complianceW = 0.08 * scale
 
     const overallScore = Math.min(
       100,
@@ -387,7 +444,8 @@ export async function getOrComputeRiskProfile(
         fireScore * fireW +
         windScore * windW +
         earthquakeScore * eqW +
-        crimeScore * crimeWeight,
+        crimeScore * crimeWeight +
+        complianceScore * complianceW,
       ),
     )
 
@@ -448,6 +506,8 @@ export async function getOrComputeRiskProfile(
       esriLandslide,
       esriSvi,
       femaDisasters,
+      stateContext,
+      complianceScore,
     })
     riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
     return dto
@@ -472,6 +532,8 @@ interface EnrichmentData {
   esriLandslide?: EsriLandslideResult | null
   esriSvi?: EsriSviResult | null
   femaDisasters?: FemaDisasterHistory | null
+  stateContext?: StateRiskContext
+  complianceScore?: number
 }
 
 function prismaProfileToDto(
@@ -743,5 +805,7 @@ function prismaProfileToDto(
     },
     generatedAt: p.generatedAt.toISOString(),
     cacheTtlSeconds: RISK_CACHE_TTL_SECONDS,
+    complianceScore: enrichment?.complianceScore,
+    stateContext: enrichment?.stateContext,
   }
 }
