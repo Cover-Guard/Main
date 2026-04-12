@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session — do not add any code between createServerClient and getUser
+  // Refresh session â do not add any code between createServerClient and getUser
   const { data: { user } } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
@@ -40,9 +40,9 @@ export async function updateSession(request: NextRequest) {
   // Routes that are always publicly accessible (no login required).
   // Note: /api/* routes are excluded from the middleware matcher entirely,
   // so /api/auth/callback does not need to be listed here.
-  // /onboarding is NOT public — it requires authentication. The onboarding gate
+  // /onboarding is NOT public â it requires authentication. The onboarding gate
   // (below) redirects authenticated users without termsAcceptedAt to /onboarding.
-  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/nda', '/pricing', '/search', '/get-started', '/careers', '/docs', '/api-reference', '/blog', '/contact', '/security', '/product', '/investors', '/demo', '/buyers', '/agents', '/commercial', '/lenders', '/insurance']
+  const publicPrefixes = ['/login', '/register', '/agents/login', '/agents/register', '/forgot-password', '/reset-password', '/terms', '/privacy', '/nda', '/pricing', '/search', '/properties', '/get-started', '/careers', '/docs', '/api-reference', '/blog', '/contact', '/security', '/product', '/investors', '/demo', '/buyers', '/agents', '/commercial', '/lenders', '/insurance']
   const isPublic = pathname === '/' || publicPrefixes.some((r) => pathname === r || pathname.startsWith(r + '/'))
 
   const SUB_COOKIE = 'cg_sub_active'
@@ -79,7 +79,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ─── Onboarding gate ──────────────────────────────────────────────────────────────────
+  // âââ Onboarding gate ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // Both email-registered and OAuth users must complete onboarding (NDA + terms
   // + privacy) before accessing protected routes. Check user_metadata for the
   // termsAcceptedAt flag set by POST /me/terms during onboarding.
@@ -99,7 +99,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ─── Subscription gate (feature flag) ────────────────────────────────────────────────────
+  // âââ Subscription gate (feature flag) ââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // When STRIPE_SUBSCRIPTION_REQUIRED=true, authenticated users without an
   // active subscription are redirected to /pricing for all protected routes.
   // A short-lived cookie (cg_sub_active, 5 min TTL) caches the result so the
@@ -116,19 +116,19 @@ export async function updateSession(request: NextRequest) {
     const cached = request.cookies.get(SUB_COOKIE)?.value
 
     if (cached === '1') {
-      // Subscription is active (cached) — allow through
+      // Subscription is active (cached) â allow through
       return supabaseResponse
     }
 
     if (cached === '0') {
-      // Subscription is inactive (cached) — redirect to pricing
+      // Subscription is inactive (cached) â redirect to pricing
       const url = request.nextUrl.clone()
       url.pathname = '/pricing'
       url.searchParams.set('reason', 'subscription_required')
       return NextResponse.redirect(url)
     }
 
-    // Slow path: no cache — check subscription status via API
+    // Slow path: no cache â check subscription status via API
     try {
       const session = await supabase.auth.getSession()
       const token = session.data.session?.access_token

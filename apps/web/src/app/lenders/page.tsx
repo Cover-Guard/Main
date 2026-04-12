@@ -10,12 +10,12 @@ export const metadata: Metadata = {
 }
 
 const benefits = [
-  'Verify insurability before issuing loan commitment',
+  'Verify insurability before issuing loan commitment — not just hazard risk, but coverage availability',
   'Identify flood zone, SFHA status, and BFE instantly',
-  'See which carriers are writing in the property ZIP code',
-  'Get insurance cost estimates for underwriting decisions',
-  'Flag high-risk properties that could delay or kill closings',
-  'Integrate via API for automated screening in your LOS',
+  'See which carriers are actively writing in the property ZIP code',
+  'Get insurance cost estimates and coverage-risk flags for underwriting decisions',
+  'Flag properties where coverage is unavailable or severely limited before you commit capital',
+  'Integrate via API for automated insurability screening in your LOS',
 ]
 
 export default function LendersPage() {
@@ -95,6 +95,32 @@ export default function LendersPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiator */}
+      <section className="py-20 bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-100 px-4 py-1.5 mb-6">
+              <span className="text-sm font-medium text-brand-700">Property Insurability Intelligence</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
+              A hazard score tells you the risk. An insurability assessment tells you if coverage exists.
+            </h2>
+            <p className="mt-4 text-lg text-gray-600">
+              Standard risk tools report flood zones and fire hazard ratings. But for a lender, the
+              question isn&apos;t just &quot;how risky is this property&quot; — it&apos;s &quot;can the borrower actually get
+              insurance for it?&quot; Those are two different questions, and only one protects your collateral.
+            </p>
+            <p className="mt-4 text-lg text-gray-600">
+              CoverGuard&apos;s risk assessments include an <strong>insurability dimension</strong> that surfaces
+              coverage availability alongside hazard data. You see the flood risk <em>and</em> whether any
+              carrier is writing flood coverage in that ZIP code. You see the wildfire exposure <em>and</em>{' '}
+              whether that exposure makes the property effectively uninsurable in the current market.
+              That&apos;s what you need to underwrite with confidence.
+            </p>
           </div>
         </div>
       </section>

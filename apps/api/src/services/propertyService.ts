@@ -1,7 +1,7 @@
 import { prisma } from '../utils/prisma'
 import { propertyCache } from '../utils/cache'
 import { logger } from '../utils/logger'
-import { searchPropertiesByAddress } from '../integrations/propertyData'
+import { searchPropertiesByAddress, fetchPropertyAVMValue } from '../integrations/propertyData'
 import { geocodeByPlaceId } from '../integrations/googleGeocode'
 import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
@@ -316,7 +316,18 @@ export async function getPropertyById(id: string): Promise<Property | null> {
   })
   if (!prop) return null
 
-  const dto = prismaPropertyToDto(prop)
+  const base = prismaPropertyToDto(prop)
+
+  // Enrich with AVM market value (non-blocking — failure is silent).
+  // The `as Property` cast below is intentional: the API tsconfig resolves
+  // @coverguard/shared via node_modules symlink (which points to the pre-PR
+  // main branch where marketValue doesn't exist yet), while the web tsconfig
+  // uses an explicit paths mapping to the local source. Once this PR merges
+  // both sides will see the new field in sync.
+  const marketValue = await fetchPropertyAVMValue(base.address, base.city, base.state, base.zip)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dto = { ...base, marketValue: marketValue ?? undefined } as any as Property
+
   propertyCache.set(id, dto)
   // Also cache under the canonical id so downstream lookups hit L1.
   if (dto.id !== id) propertyCache.set(dto.id, dto)

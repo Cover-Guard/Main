@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 }
 
 const benefits = [
-  'Assess multi-peril risk for any commercial property',
-  'Check carrier availability for commercial lines by ZIP and property type',
-  'Evaluate environmental and flood exposure before due diligence',
-  'Share professional risk reports with investors and stakeholders',
+  'Assess multi-peril risk and insurability for any commercial property — in 90 seconds',
+  'See which carriers are writing commercial lines in that ZIP code and property type',
+  'Understand whether flood, fire, or wind exposure makes a property hard to insure — before due diligence',
+  'Share professional risk and insurability reports with investors and stakeholders',
   'Manage deal pipelines with built-in client management',
   'Works on any US commercial property — office, retail, industrial, multifamily',
 ]
@@ -95,6 +95,33 @@ export default function CommercialPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiator */}
+      <section className="py-20 bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 border border-brand-100 px-4 py-1.5 mb-6">
+              <span className="text-sm font-medium text-brand-700">Property Insurability Intelligence</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
+              The risk isn&apos;t just flood or fire. It&apos;s whether the property can be insured at all.
+            </h2>
+            <p className="mt-4 text-lg text-gray-600">
+              In commercial real estate, a high hazard score isn&apos;t automatically a deal-killer — but an
+              uninsurable property is. CoverGuard&apos;s risk assessments go beyond FEMA flood maps and wildfire
+              severity ratings: they include an <strong>insurability assessment</strong> that tells you
+              whether carriers are actively writing coverage for that property type, in that location,
+              given its risk profile.
+            </p>
+            <p className="mt-4 text-lg text-gray-600">
+              That means you walk into every investor presentation knowing not just &quot;what are the risks&quot;
+              but &quot;can this asset be covered, and at what cost.&quot; It&apos;s the intelligence that separates
+              a manageable risk from a dead deal — and it&apos;s available before you spend a dollar on
+              formal due diligence.
+            </p>
           </div>
         </div>
       </section>

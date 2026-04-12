@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { AnalyticsSummary } from '@coverguard/shared'
 import { getAnalytics } from '@/lib/api'
 import { ReportsContent } from '@/components/reports/ReportsContent'
+import { AnalyticsHeroStats } from './AnalyticsHeroStats'
 import {
   DndContext,
   closestCenter,
@@ -485,19 +486,19 @@ export function AnalyticsDashboard() {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-blue-600" />
-          <h1 className="text-lg font-bold text-gray-900">Analytics & Reports</h1>
+          <h1 className="text-heading text-foreground">Analytics &amp; Reports</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={addCustomPanel}
-            className="flex items-center gap-1 text-[10px] font-semibold text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-300 bg-teal-50 hover:bg-teal-100 px-2.5 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1 text-caption font-semibold text-teal-600 hover:text-teal-700 border border-teal-200 hover:border-teal-300 bg-teal-50 hover:bg-teal-100 px-2.5 py-1.5 rounded-lg transition-colors"
           >
             <Plus className="h-3 w-3" />
             Add Panel
           </button>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={`flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors border ${
+            className={`flex items-center gap-1 text-caption font-semibold px-2.5 py-1.5 rounded-lg transition-colors border ${
               showSettings
                 ? 'text-blue-700 border-blue-300 bg-blue-100'
                 : 'text-gray-600 hover:text-gray-700 border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-gray-100'
@@ -508,6 +509,19 @@ export function AnalyticsDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Hero stats strip — large-type KPIs + demo-mode toggle */}
+      <AnalyticsHeroStats
+        data={data}
+        onDemoModeChange={() => {
+          setLoading(true)
+          getAnalytics()
+            .then(setData)
+            .catch((e) => setError(e instanceof Error ? e.message : 'Failed'))
+            .finally(() => setLoading(false))
+        }}
+      />
+
 
       {/* Panel settings drawer */}
       {showSettings && (

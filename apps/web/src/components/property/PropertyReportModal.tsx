@@ -21,6 +21,7 @@ import {
 import { RiskSummary } from './RiskSummary'
 import { RiskBreakdown } from './RiskBreakdown'
 import { StateRiskContext } from './StateRiskContext'
+import { InsurabilityPanel } from './InsurabilityPanel'
 import { InsuranceCostEstimate } from './InsuranceCostEstimate'
 import { ActiveCarriers } from './ActiveCarriers'
 import { PropertyImages } from './PropertyImages'
@@ -145,9 +146,14 @@ export function PropertyRiskReportModal({
               </DialogTitle>
               <p className="text-sm text-gray-600">
                 {formatAddress(property)}
-                {property.estimatedValue && (
+                {property.marketValue && (
                   <span className="ml-2 text-base font-semibold text-brand-700">
-                    Est. {formatCurrency(property.estimatedValue)}
+                    Est. Market: {formatCurrency(property.marketValue)}
+                  </span>
+                )}
+                {property.estimatedValue && (
+                  <span className="ml-2 text-sm text-gray-500">
+                    Assessed: {formatCurrency(property.estimatedValue)}
                   </span>
                 )}
               </p>
@@ -213,6 +219,7 @@ export function PropertyRiskReportModal({
                   {activeTab === 'risks' && (
                     <div className="space-y-6">
                       {state.data.risk && <RiskSummary profile={state.data.risk} />}
+                      {state.data.insurability && <InsurabilityPanel status={state.data.insurability} />}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                           <TrendingUp className="h-4 w-4 text-gray-500" />

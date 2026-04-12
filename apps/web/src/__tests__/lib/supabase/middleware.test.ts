@@ -1,5 +1,5 @@
 /**
- * Supabase middleware (updateSession) tests — 500+ test cases
+ * Supabase middleware (updateSession) tests â 500+ test cases
  *
  * Comprehensive tests covering:
  *  - /get-started is treated as a public route (the fix)
@@ -13,7 +13,7 @@
  *  - Parameterized route combinations
  */
 
-// ─── Mocks ──────────────────────────────────────────────────────────────────
+// âââ Mocks ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const mockGetUser = jest.fn()
 const mockGetSession = jest.fn()
@@ -27,7 +27,7 @@ jest.mock('@supabase/ssr', () => ({
   })),
 }))
 
-// ─── NextRequest / NextResponse mock ─────────────────────────────────────────
+// âââ NextRequest / NextResponse mock âââââââââââââââââââââââââââââââââââââââââ
 
 class MockURL {
   pathname: string
@@ -104,7 +104,7 @@ jest.mock('next/server', () => {
 import { NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
-// ─── Mock response type ─────────────────────────────────────────────────────
+// âââ Mock response type âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 interface MockResponse {
   _type: 'next' | 'redirect'
@@ -119,7 +119,7 @@ async function callUpdateSession(req: ReturnType<typeof createMockRequest>): Pro
   return updateSession(req as never) as unknown as MockResponse
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// âââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function setupEnvVars(overrides: Record<string, string | undefined> = {}) {
   process.env.NEXT_PUBLIC_SUPABASE_URL = overrides.NEXT_PUBLIC_SUPABASE_URL ?? 'https://test.supabase.co'
@@ -155,7 +155,7 @@ function getRedirectSearchParam(key: string): string | null | undefined {
   return calls[calls.length - 1][0].searchParams.get(key)
 }
 
-// ─── Test suite ──────────────────────────────────────────────────────────────
+// âââ Test suite ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -168,9 +168,9 @@ afterEach(() => {
 })
 
 describe('updateSession', () => {
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 1: /get-started public route (THE FIX)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('/get-started is a public route (the fix)', () => {
     it('allows unauthenticated access to /get-started', async () => {
@@ -228,9 +228,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 2: All public routes — unauthenticated access (parameterized)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SECTION 2: All public routes â unauthenticated access (parameterized)
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('public routes accessible without auth', () => {
     const publicRoutes = [
@@ -246,7 +246,13 @@ describe('updateSession', () => {
       '/nda',
       '/pricing',
       '/search',
+      '/properties',
       '/get-started',
+      '/properties/123',
+      '/properties/456/risk',
+      '/properties/789/insurance',
+      '/properties/abc/carriers',
+      '/properties/def/quote-request',
     ]
 
     it.each(publicRoutes)('allows unauthenticated access to %s', async (route) => {
@@ -268,9 +274,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 3: Public route sub-paths (parameterized)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('public route sub-paths', () => {
     const subPaths = [
@@ -286,6 +292,11 @@ describe('updateSession', () => {
       '/search/results',
       '/search/map',
       '/search/advanced',
+      '/properties/123',
+      '/properties/456/risk',
+      '/properties/789/insurance',
+      '/properties/abc/carriers',
+      '/properties/def/quote-request',
       '/get-started/agent',
       '/get-started/individual',
       '/get-started/choose',
@@ -313,9 +324,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 4: Protected routes — unauthenticated redirect (parameterized)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SECTION 4: Protected routes â unauthenticated redirect (parameterized)
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('protected routes redirect unauthenticated users', () => {
     const protectedRoutes = [
@@ -328,11 +339,6 @@ describe('updateSession', () => {
       '/account/billing',
       '/compare',
       '/compare/results',
-      '/properties/123',
-      '/properties/456/risk',
-      '/properties/789/insurance',
-      '/properties/abc/carriers',
-      '/properties/def/quote-request',
       '/clients',
       '/clients/new',
       '/clients/123',
@@ -369,15 +375,13 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 5: Protected routes with query params
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('protected routes preserve query params in redirectTo', () => {
     const routesWithQuery: Array<[string, string]> = [
       ['/dashboard?tab=overview', '/dashboard?tab=overview'],
-      ['/properties/123?tab=risk', '/properties/123?tab=risk'],
-      ['/properties/123?tab=insurance&view=detail', '/properties/123?tab=insurance&view=detail'],
       ['/analytics?range=30d', '/analytics?range=30d'],
       ['/compare?ids=1,2,3', '/compare?ids=1,2,3'],
       ['/account?section=billing', '/account?section=billing'],
@@ -392,9 +396,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 6: Authenticated users on auth routes → /dashboard
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SECTION 6: Authenticated users on auth routes â /dashboard
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('authenticated users on auth routes redirect to /dashboard', () => {
     const authRoutes = ['/login', '/register', '/agents/login', '/agents/register']
@@ -413,9 +417,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 7: Authenticated users on auth sub-routes → /dashboard
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SECTION 7: Authenticated users on auth sub-routes â /dashboard
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('authenticated users on auth sub-routes redirect to /dashboard', () => {
     const authSubRoutes = [
@@ -437,9 +441,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 8: /get-started is NOT an auth route
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('/get-started is not an auth route', () => {
     it('does not redirect authenticated users from /get-started', async () => {
@@ -471,12 +475,12 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 9: Authenticated users on non-auth public routes pass through
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('authenticated users on non-auth public routes', () => {
-    // /onboarding is excluded — authenticated users with termsAcceptedAt are
+    // /onboarding is excluded â authenticated users with termsAcceptedAt are
     // redirected to /dashboard by the already-onboarded gate.
     const nonAuthPublicRoutes = [
       '/',
@@ -505,9 +509,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 10: Authenticated users on protected routes pass through
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('authenticated users on protected routes pass through', () => {
     const protectedRoutes = [
@@ -527,9 +531,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 11: Route prefix boundary tests (no false positives)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('route prefix boundary - similar-but-different routes are protected', () => {
     const falsePositiveRoutes = [
@@ -575,9 +579,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 12: Root path special handling
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('root path (/) handling', () => {
     it('/ is always public for unauthenticated', async () => {
@@ -605,9 +609,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 13: Missing env vars
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('missing Supabase env vars', () => {
     const routesToTest = [
@@ -660,9 +664,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 14: Subscription gating — STRIPE_SUBSCRIPTION_REQUIRED=true
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SECTION 14: Subscription gating â STRIPE_SUBSCRIPTION_REQUIRED=true
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('subscription gating enabled', () => {
     beforeEach(() => {
@@ -726,9 +730,15 @@ describe('updateSession', () => {
       expect(res._type).toBe('next')
     })
 
-    it('cached active subscription (cookie=1) allows /properties/123', async () => {
+    it('cached active subscription (cookie=1) allows /properties/123 (public route)', async () => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '1' }))
+      expect(res._type).toBe('next')
+    })
+
+    it('cached inactive subscription (cookie=0) still allows /properties/123 (public, exempt from sub gate)', async () => {
+      mockAuthenticated()
+      const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '0' }))
       expect(res._type).toBe('next')
     })
 
@@ -754,13 +764,6 @@ describe('updateSession', () => {
       expect(getRedirectPathname()).toBe('/pricing')
     })
 
-    it('cached inactive subscription (cookie=0) redirects /properties/123 to /pricing', async () => {
-      mockAuthenticated()
-      const res = await callUpdateSession(createMockRequest('/properties/123', { cg_sub_active: '0' }))
-      expect(res._type).toBe('redirect')
-      expect(getRedirectPathname()).toBe('/pricing')
-    })
-
     it('cached inactive subscription includes reason param', async () => {
       mockAuthenticated()
       await callUpdateSession(createMockRequest('/dashboard', { cg_sub_active: '0' }))
@@ -768,12 +771,12 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 15: Subscription gating — disabled
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SECTION 15: Subscription gating â disabled
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('subscription gating disabled', () => {
-    const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/properties/123', '/clients']
+    const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/clients']
 
     it.each(protectedRoutes)('allows authenticated access to %s when STRIPE_SUBSCRIPTION_REQUIRED=false', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'false' })
@@ -801,9 +804,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 16: STRIPE_SUBSCRIPTION_REQUIRED=TRUE (case insensitive)
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('STRIPE_SUBSCRIPTION_REQUIRED case sensitivity', () => {
     const trueValues = ['true', 'TRUE', 'True', 'tRuE']
@@ -817,9 +820,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 17: Cookie cleanup
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('subscription cookie cleanup', () => {
     const authRoutes = ['/login', '/register', '/agents/login', '/agents/register']
@@ -846,9 +849,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 18: Various user objects with authenticated middleware behavior
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('various authenticated user shapes', () => {
     // All user shapes must include user_metadata.termsAcceptedAt to pass
@@ -887,9 +890,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 19: Deep nested sub-paths of public routes
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('deeply nested sub-paths of public routes', () => {
     const deepPaths = [
@@ -912,9 +915,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 20: Protected deep paths
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('deep protected paths redirect', () => {
     const deepProtected = [
@@ -922,7 +925,6 @@ describe('updateSession', () => {
       '/analytics/reports/weekly',
       '/account/billing/invoices',
       '/compare/properties/1-vs-2',
-      '/properties/123/risk/flood',
       '/clients/123/properties',
     ]
 
@@ -939,9 +941,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 21: Stability
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('stability', () => {
     it('handles 20 successive calls without issues', async () => {
@@ -985,11 +987,11 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 22: Comprehensive cross-product: route × auth state
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // SECTION 22: Comprehensive cross-product: route Ã auth state
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-  describe('cross-product: route × auth state for key routes', () => {
+  describe('cross-product: route Ã auth state for key routes', () => {
     const routes = [
       { path: '/', isPublic: true, isAuthRoute: false },
       { path: '/login', isPublic: true, isAuthRoute: true },
@@ -1009,65 +1011,65 @@ describe('updateSession', () => {
       { path: '/analytics', isPublic: false, isAuthRoute: false },
       { path: '/account', isPublic: false, isAuthRoute: false },
       { path: '/compare', isPublic: false, isAuthRoute: false },
-      { path: '/properties/123', isPublic: false, isAuthRoute: false },
+      { path: '/properties/123', isPublic: true, isAuthRoute: false },
       { path: '/clients', isPublic: false, isAuthRoute: false },
     ]
 
-    // Unauthenticated + public → next
+    // Unauthenticated + public â next
     const unauthPublic = routes.filter(r => r.isPublic)
-    it.each(unauthPublic.map(r => [r.path]))('unauthenticated + public %s → next', async (path) => {
+    it.each(unauthPublic.map(r => [r.path]))('unauthenticated + public %s â next', async (path) => {
       mockUnauthenticated()
       const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('next')
     })
 
-    // Unauthenticated + protected → redirect to /login
+    // Unauthenticated + protected â redirect to /login
     const unauthProtected = routes.filter(r => !r.isPublic)
-    it.each(unauthProtected.map(r => [r.path]))('unauthenticated + protected %s → redirect /login', async (path) => {
+    it.each(unauthProtected.map(r => [r.path]))('unauthenticated + protected %s â redirect /login', async (path) => {
       mockUnauthenticated()
       const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/login')
     })
 
-    // Authenticated + authRoute → redirect to /dashboard
+    // Authenticated + authRoute â redirect to /dashboard
     const authAuthRoutes = routes.filter(r => r.isAuthRoute)
-    it.each(authAuthRoutes.map(r => [r.path]))('authenticated + authRoute %s → redirect /dashboard', async (path) => {
+    it.each(authAuthRoutes.map(r => [r.path]))('authenticated + authRoute %s â redirect /dashboard', async (path) => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/dashboard')
     })
 
-    // Authenticated + non-authRoute public → next (except /onboarding which
+    // Authenticated + non-authRoute public â next (except /onboarding which
     // redirects already-onboarded users to /dashboard)
     const authNonAuthPublic = routes.filter(r => r.isPublic && !r.isAuthRoute && r.path !== '/onboarding')
-    it.each(authNonAuthPublic.map(r => [r.path]))('authenticated + nonAuth public %s → next', async (path) => {
+    it.each(authNonAuthPublic.map(r => [r.path]))('authenticated + nonAuth public %s â next', async (path) => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('next')
     })
 
-    it('authenticated + onboarded user on /onboarding → redirect to /dashboard', async () => {
+    it('authenticated + onboarded user on /onboarding â redirect to /dashboard', async () => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest('/onboarding'))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/dashboard')
     })
 
-    // Authenticated + protected → next (except /onboarding which redirects
+    // Authenticated + protected â next (except /onboarding which redirects
     // already-onboarded users to /dashboard)
     const authProtected = routes.filter(r => !r.isPublic && r.path !== '/onboarding')
-    it.each(authProtected.map(r => [r.path]))('authenticated + protected %s → next', async (path) => {
+    it.each(authProtected.map(r => [r.path]))('authenticated + protected %s â next', async (path) => {
       mockAuthenticated()
       const res = await callUpdateSession(createMockRequest(path as string))
       expect(res._type).toBe('next')
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 23: More false-positive route boundary tests
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('more false-positive boundary routes', () => {
     const moreFalsePositives = [
@@ -1096,11 +1098,11 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 24: Subscription gating with various protected routes
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
-  describe('subscription gating — cached active for various routes', () => {
+  describe('subscription gating â cached active for various routes', () => {
     const protectedRoutes = [
       '/dashboard',
       '/dashboard/overview',
@@ -1108,8 +1110,6 @@ describe('updateSession', () => {
       '/analytics/searches',
       '/compare',
       '/compare/results',
-      '/properties/123',
-      '/properties/456/risk',
       '/clients',
       '/clients/123',
       '/reports',
@@ -1131,9 +1131,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 25: Calls to NextResponse.next
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('NextResponse.next is called for pass-through', () => {
     const passThroughCases: Array<[string, () => void]> = [
@@ -1155,9 +1155,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 26: Subscription gating exempt routes with cookie=0
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('subscription exempt routes ignore inactive subscription cookie', () => {
     const exemptRoutes = [
@@ -1188,9 +1188,9 @@ describe('updateSession', () => {
     })
   })
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // SECTION 27: Response type assertions
-  // ═══════════════════════════════════════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('response type is always next or redirect', () => {
     const mixedCases: Array<[string, () => void, string]> = [
