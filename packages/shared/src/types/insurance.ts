@@ -1,5 +1,21 @@
 import type { RiskLevel } from './risk'
 
+export interface CategoryInsurabilityScore {
+  /** 0–100 difficulty score: higher = harder to insure */
+  score: number
+  level: RiskLevel
+  /** Number of carriers actively writing policies for this peril in this market */
+  activeCarrierCount: number
+}
+
+export interface InsurabilityScoresByCategory {
+  flood: CategoryInsurabilityScore
+  fire: CategoryInsurabilityScore
+  wind: CategoryInsurabilityScore
+  earthquake: CategoryInsurabilityScore
+  crime: CategoryInsurabilityScore
+}
+
 export interface InsuranceCoverageType {
   type: CoverageType
   required: boolean
@@ -37,6 +53,10 @@ export interface InsurabilityStatus {
   difficultyLevel: RiskLevel
   potentialIssues: string[]
   recommendedActions: string[]
+  /** Weighted overall insurability difficulty score (0–100). Higher = harder to insure. */
+  overallInsurabilityScore: number
+  /** Per-category insurability scores */
+  categoryScores: InsurabilityScoresByCategory
 }
 
 export interface Carrier {

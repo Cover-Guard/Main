@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { RiskSummary } from './RiskSummary'
 import { RiskBreakdown } from './RiskBreakdown'
+import { InsurabilityPanel } from './InsurabilityPanel'
 import { InsuranceCostEstimate } from './InsuranceCostEstimate'
 import { ActiveCarriers } from './ActiveCarriers'
 import { PropertyImages } from './PropertyImages'
@@ -217,6 +218,7 @@ export function PropertyRiskReportModal({
                   {activeTab === 'risks' && (
                     <div className="space-y-6">
                       {state.data.risk && <RiskSummary profile={state.data.risk} />}
+                      {state.data.insurability && <InsurabilityPanel status={state.data.insurability} />}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                           <TrendingUp className="h-4 w-4 text-gray-500" />
