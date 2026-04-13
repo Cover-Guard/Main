@@ -18,13 +18,24 @@ import type { Request, Response } from 'express'
 
 export const propertiesRouter = Router()
 
-// ─── Property ID param validation ────────────────────────────────────────────
-propertiesRouter.param('id', (req, res, next, id) => {
+// ─── Property ID param validation & slug resolution ─────────────────────────
+propertiesRouter.param('id', async (req, res, next, id) => {
   if (!id || id === 'undefined' || id === 'null' || id.length > 200) {
     res.status(400).json({
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
     })
     return
+  }
+  // Resolve address slugs / parcel IDs to the canonical DB id so that
+  // sub-resource endpoints (risk, insurance, carriers, etc.) which use
+  // findUniqueOrThrow on `id` don't 404 for slug-based URLs.
+  try {
+    const resolved = await resolvePropertyId(id)
+    if (resolved && resolved !== id) {
+      req.params.id = resolved
+    }
+  } catch {
+    // Resolution failure is non-fatal — let downstream handlers deal with it
   }
   next()
 })
