@@ -36,13 +36,11 @@ function SearchBarInner({ defaultValue = '', autoFocus, className }: SearchBarPr
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
-  const serviceRef = useRef<google.maps.places.AutocompleteService | null>(null)
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
 
-  // Initialize the AutocompleteService once the Places library loads
+  // Create an initial session token once the Places library loads
   useEffect(() => {
     if (!placesLib) return
-    serviceRef.current = new placesLib.AutocompleteService()
     sessionTokenRef.current = new placesLib.AutocompleteSessionToken()
   }, [placesLib])
 
@@ -51,46 +49,49 @@ function SearchBarInner({ defaultValue = '', autoFocus, className }: SearchBarPr
       if (debounceRef.current) clearTimeout(debounceRef.current)
 
       const trimmed = value.trim()
-      if (trimmed.length < 3 || !serviceRef.current) {
+      if (trimmed.length < 3 || !placesLib) {
         setPredictions([])
         setShowDropdown(false)
         return
       }
 
-      debounceRef.current = setTimeout(() => {
+      debounceRef.current = setTimeout(async () => {
         setLoading(true)
-        serviceRef.current!.getPlacePredictions(
-          {
-            input: trimmed,
-            componentRestrictions: { country: 'us' },
-            types: ['address'],
-            sessionToken: sessionTokenRef.current ?? undefined,
-          },
-          (results, status) => {
-            setLoading(false)
-            if (
-              status === google.maps.places.PlacesServiceStatus.OK &&
-              results &&
-              results.length > 0
-            ) {
-              const mapped: PlacePrediction[] = results.slice(0, 6).map((p) => ({
-                placeId: p.place_id,
-                description: p.description,
-                mainText: p.structured_formatting.main_text,
-                secondaryText: p.structured_formatting.secondary_text,
-              }))
-              setPredictions(mapped)
-              setShowDropdown(true)
-              setActiveIndex(-1)
-            } else {
-              setPredictions([])
-              setShowDropdown(false)
-            }
-          },
-        )
+        try {
+          const { suggestions } =
+            await placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+              input: trimmed,
+              includedRegionCodes: ['us'],
+              includedPrimaryTypes: ['address'],
+              sessionToken: sessionTokenRef.current ?? undefined,
+            })
+
+          if (suggestions.length > 0) {
+            const mapped: PlacePrediction[] = suggestions.slice(0, 6).map((s) => {
+              const p = s.placePrediction!
+              return {
+                placeId: p.placeId,
+                description: p.text.text,
+                mainText: p.mainText?.text ?? p.text.text,
+                secondaryText: p.secondaryText?.text ?? '',
+              }
+            })
+            setPredictions(mapped)
+            setShowDropdown(true)
+            setActiveIndex(-1)
+          } else {
+            setPredictions([])
+            setShowDropdown(false)
+          }
+        } catch {
+          setPredictions([])
+          setShowDropdown(false)
+        } finally {
+          setLoading(false)
+        }
       }, 250)
     },
-    [],
+    [placesLib],
   )
 
   function handleChange(value: string) {
