@@ -7,7 +7,7 @@ import type { PlacePrediction } from '@coverguard/shared'
 export type { PlacePrediction }
 
 /**
- * Hook that wraps the Google Maps Places AutocompleteService for typeahead.
+ * Hook that wraps the Google Maps Places Autocomplete Data API for typeahead.
  * Must be used inside an APIProvider from @vis.gl/react-google-maps.
  */
 export function useGooglePlacesAutocomplete(debounceMs = 250) {
@@ -16,13 +16,11 @@ export function useGooglePlacesAutocomplete(debounceMs = 250) {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
   const [loading, setLoading] = useState(false)
 
-  const serviceRef = useRef<google.maps.places.AutocompleteService | null>(null)
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   useEffect(() => {
     if (!placesLib) return
-    serviceRef.current = new placesLib.AutocompleteService()
     sessionTokenRef.current = new placesLib.AutocompleteSessionToken()
   }, [placesLib])
 
@@ -31,43 +29,45 @@ export function useGooglePlacesAutocomplete(debounceMs = 250) {
       if (debounceRef.current) clearTimeout(debounceRef.current)
 
       const trimmed = input.trim()
-      if (trimmed.length < 3 || !serviceRef.current) {
+      if (trimmed.length < 3 || !placesLib) {
         setPredictions([])
         return
       }
 
-      debounceRef.current = setTimeout(() => {
+      debounceRef.current = setTimeout(async () => {
         setLoading(true)
-        serviceRef.current!.getPlacePredictions(
-          {
-            input: trimmed,
-            componentRestrictions: { country: 'us' },
-            types: ['address'],
-            sessionToken: sessionTokenRef.current ?? undefined,
-          },
-          (results, status) => {
-            setLoading(false)
-            if (
-              status === google.maps.places.PlacesServiceStatus.OK &&
-              results &&
-              results.length > 0
-            ) {
-              setPredictions(
-                results.slice(0, 6).map((p) => ({
-                  placeId: p.place_id,
-                  description: p.description,
-                  mainText: p.structured_formatting.main_text,
-                  secondaryText: p.structured_formatting.secondary_text,
-                })),
-              )
-            } else {
-              setPredictions([])
-            }
-          },
-        )
+        try {
+          const { suggestions } =
+            await placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+              input: trimmed,
+              includedRegionCodes: ['us'],
+              includedPrimaryTypes: ['address'],
+              sessionToken: sessionTokenRef.current ?? undefined,
+            })
+
+          if (suggestions.length > 0) {
+            setPredictions(
+              suggestions.slice(0, 6).map((s) => {
+                const p = s.placePrediction!
+                return {
+                  placeId: p.placeId,
+                  description: p.text.text,
+                  mainText: p.mainText?.text ?? p.text.text,
+                  secondaryText: p.secondaryText?.text ?? '',
+                }
+              }),
+            )
+          } else {
+            setPredictions([])
+          }
+        } catch {
+          setPredictions([])
+        } finally {
+          setLoading(false)
+        }
       }, debounceMs)
     },
-    [debounceMs],
+    [debounceMs, placesLib],
   )
 
   const clearPredictions = useCallback(() => {
