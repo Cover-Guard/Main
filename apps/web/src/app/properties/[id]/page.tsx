@@ -103,7 +103,7 @@ async function MapWithRisk({ property, isDummy }: { property: Property; isDummy?
   return <PropertyMapInline property={property} riskProfile={riskProfile} />
 }
 
-async function PublicDataSection({ id, address, isDummy }: { id: string; address: string; isDummy?: boolean }) {
+async function PublicDataSection({ id, address, isDummy, marketValue }: { id: string; address: string; isDummy?: boolean; marketValue?: number | null }) {
   const publicInfo = isDummy
     ? dummyPublicData
     : await getPropertyPublicData(id).catch(() => null)
@@ -113,7 +113,7 @@ async function PublicDataSection({ id, address, isDummy }: { id: string; address
       {publicInfo.images && publicInfo.images.length > 0 && (
         <PropertyImages images={publicInfo.images} address={address} />
       )}
-      <PropertyPublicInfo data={publicInfo} />
+      <PropertyPublicInfo data={publicInfo} marketValue={marketValue} />
     </>
   )
 }
@@ -137,7 +137,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   const overviewPanel = (
     <div className="space-y-4 p-4">
       <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
-        <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} />
+        <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} marketValue={prop.marketValue} />
       </Suspense>
       <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
         <MapWithRisk property={prop} isDummy={isDummy} />
@@ -264,7 +264,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
             {/* Left / main column */}
             <div className="space-y-8 lg:col-span-2">
               <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
-                <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} />
+                <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} marketValue={prop.marketValue} />
               </Suspense>
               <Suspense fallback={<SectionSkeleton className="h-72 w-full" />}>
                 <MapWithRisk property={prop} isDummy={isDummy} />

@@ -11,6 +11,7 @@ import type { PropertyPublicData, NearbyAmenity } from '@coverguard/shared'
 
 interface PropertyPublicInfoProps {
   data: PropertyPublicData
+  marketValue?: number | null
 }
 
 const AMENITY_ICONS: Record<NearbyAmenity['type'], typeof School> = {
@@ -62,7 +63,7 @@ function ScoreBadge({ score, label, icon: Icon }: { score: number | null; label:
   )
 }
 
-export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
+export function PropertyPublicInfo({ data, marketValue }: PropertyPublicInfoProps) {
   const [showAllAmenities, setShowAllAmenities] = useState(false)
   const [showAllSales, setShowAllSales] = useState(false)
 
@@ -111,6 +112,12 @@ export function PropertyPublicInfo({ data }: PropertyPublicInfoProps) {
             Tax Assessment
           </h3>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            {marketValue && (
+              <div>
+                <dt className="text-xs text-gray-400">Est. Market Value</dt>
+                <dd className="text-sm font-semibold text-gray-900">{formatCurrency(marketValue)}</dd>
+              </div>
+            )}
             {data.taxRecords.assessedValue && (
               <div>
                 <dt className="text-xs text-gray-400">Assessed Value</dt>

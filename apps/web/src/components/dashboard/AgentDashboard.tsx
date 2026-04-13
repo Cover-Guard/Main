@@ -443,10 +443,16 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
           )}
         </div>
 
-        {p.estimatedValue && (
+        {p.marketValue && (
           <div className="mt-3">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">Est. market value</div>
+            <div className="text-lg font-bold text-gray-900">{formatCurrency(p.marketValue)}</div>
+          </div>
+        )}
+        {p.estimatedValue && (
+          <div className={p.marketValue ? 'mt-1' : 'mt-3'}>
             <div className="text-[10px] text-gray-400 uppercase tracking-wide">Assessed value</div>
-            <div className="text-base font-bold text-gray-900">{formatCurrency(p.estimatedValue)}</div>
+            <div className={`font-bold text-gray-900 ${p.marketValue ? 'text-sm' : 'text-base'}`}>{formatCurrency(p.estimatedValue)}</div>
           </div>
         )}
 
