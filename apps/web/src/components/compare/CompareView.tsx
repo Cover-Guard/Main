@@ -194,8 +194,11 @@ export function CompareView() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white truncate">{slot.property.address}</p>
                       <p className="text-xs text-white/50 mt-0.5">{slot.property.city}, {slot.property.state} {slot.property.zip}</p>
+                      {slot.property.marketValue && (
+                        <p className="text-xs text-teal-400 mt-0.5">{formatCurrency(slot.property.marketValue)}</p>
+                      )}
                       {slot.property.estimatedValue && (
-                        <p className="text-xs text-teal-400 mt-0.5">{formatCurrency(slot.property.estimatedValue)}</p>
+                        <p className="text-xs text-white/50 mt-0.5">{formatCurrency(slot.property.estimatedValue)}</p>
                       )}
                     </div>
                     <button onClick={() => removeSlot(idx)} className="text-white/30 hover:text-white ml-2 mt-0.5 shrink-0">
@@ -398,6 +401,7 @@ export function CompareView() {
             </div>
             {[
               { label: 'Assessed Value', fn: (s: PropertyData) => s.property.estimatedValue ? formatCurrency(s.property.estimatedValue) : 'N/A' },
+      { label: 'Est. Market Value', fn: (s: PropertyData) => s.property.marketValue ? formatCurrency(s.property.marketValue) : 'N/A' },
               { label: 'Year Built', fn: (s: PropertyData) => s.property.yearBuilt ? String(s.property.yearBuilt) : 'N/A' },
               { label: 'Square Feet', fn: (s: PropertyData) => s.property.squareFeet ? `${s.property.squareFeet.toLocaleString()} sq ft` : 'N/A' },
               { label: 'Bedrooms / Baths', fn: (s: PropertyData) => (s.property.bedrooms || s.property.bathrooms) ? `${s.property.bedrooms ?? '?'} bd / ${s.property.bathrooms ?? '?'} ba` : 'N/A' },
