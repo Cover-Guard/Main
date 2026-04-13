@@ -86,7 +86,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
         <p>Unable to search properties. Please try again.</p>
         <Link
-          href="/properties/sample"
+          href="/properties/demo-sample-property"
           className="mt-3 inline-block rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition-colors"
         >
           View a sample property report
