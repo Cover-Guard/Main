@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import {
   Search,
   LayoutDashboard,
-  BarChart2,
   User,
   Shield,
 } from 'lucide-react'
@@ -15,7 +14,6 @@ const tabs = [
   { href: '/check',     label: 'Check',     icon: Shield,          exact: true },
   { href: '/search',    label: 'Search',    icon: Search,          exact: false },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: false },
-  { href: '/analytics', label: 'Analytics', icon: BarChart2,       exact: false },
   { href: '/account',   label: 'Account',   icon: User,            exact: false },
 ]
 

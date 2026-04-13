@@ -12,7 +12,6 @@ import { requestTimeout } from './middleware/timeout'
 import { propertiesRouter } from './routes/properties'
 import { authRouter } from './routes/auth'
 import { clientsRouter } from './routes/clients'
-import { analyticsRouter } from './routes/analytics'
 import { advisorRouter } from './routes/advisor'
 import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 
@@ -213,7 +212,6 @@ app.use('/api/properties/:id/insurability', externalDataLimiter, requestTimeout(
 
 app.use('/api/properties', requestTimeout(45_000), propertiesRouter)
 app.use('/api/clients', requestTimeout(40_000), clientsRouter)
-app.use('/api/analytics', requestTimeout(55_000), analyticsRouter)
 app.use('/api/advisor', requestTimeout(40_000), advisorRouter)
 
 
