@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { MapPin, Home, Calendar, DollarSign, GitCompare, Shield, FileText, ImageOff } from 'lucide-react'
 import type { Property } from '@coverguard/shared'
 import { formatCurrency, formatAddress, formatSquareFeet } from '@coverguard/shared'
@@ -32,11 +33,12 @@ export function PropertyCard({ property, onViewReport }: PropertyCardProps) {
             {GOOGLE_MAPS_KEY && !imgError && (
                 <Link href={`/properties/${property.id}`} className="block">
                     <div className="relative h-36 w-full bg-gray-100 overflow-hidden">
-                        <img
+                        <Image
                             src={getStreetViewUrl(property)}
                             alt={`Street view of ${property.address ?? 'property'}`}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
+                            className="object-cover"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 400px"
                             onError={() => setImgError(true)}
                         />
                         <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />

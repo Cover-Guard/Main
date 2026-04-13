@@ -47,6 +47,30 @@ export interface CrimeRisk extends RiskFactor {
   nationalAverageDiff: number // percentage diff from national avg
 }
 
+// ─── Climate Projection Risk Types ──────────────────────────────────────────
+
+export interface HeatRisk extends RiskFactor {
+  /** Average number of days/year exceeding 100°F (current) */
+  extremeHeatDays: number
+  /** Projected extreme heat days in 2050 under RCP 4.5 (moderate warming) */
+  projectedHeatDays2050: number | null
+  /** Urban heat island intensity (°F above surrounding rural areas) */
+  urbanHeatIslandEffect: number | null
+  /** Whether cooling infrastructure is below regional average */
+  coolingInfrastructureDeficit: boolean
+}
+
+export interface DroughtRisk extends RiskFactor {
+  /** Palmer Drought Severity Index (−4 extreme drought to +4 extreme wet) */
+  palmerDroughtIndex: number | null
+  /** Current drought monitor category: D0–D4 or 'NONE' */
+  droughtMonitorCategory: 'NONE' | 'D0' | 'D1' | 'D2' | 'D3' | 'D4'
+  /** Projected change in annual precipitation by 2050 (percentage) */
+  projectedPrecipitationChange2050: number | null
+  /** Risk of foundation damage from soil shrink/swell cycles */
+  subsidenceRisk: RiskLevel | null
+}
+
 // ─── State Risk Profile Types ─────────────────────────────────────────────────
 
 export type BuildingCodeLevel = 'CURRENT' | 'PARTIAL' | 'OUTDATED' | 'NONE'
@@ -125,6 +149,9 @@ export interface PropertyRiskProfile {
   wind: WindRisk
   earthquake: EarthquakeRisk
   crime: CrimeRisk
+  /** Climate projection risk dimensions (optional — populated when climate data is available) */
+  heat?: HeatRisk
+  drought?: DroughtRisk
   /** Compliance / regulatory risk dimension (weighted 8% in overall score) */
   complianceScore?: number
   /** State-level context and market information */

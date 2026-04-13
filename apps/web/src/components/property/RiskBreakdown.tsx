@@ -58,6 +58,35 @@ export function RiskBreakdown({ profile }: RiskBreakdownProps) {
         { label: 'vs. National Avg', value: profile.crime.nationalAverageDiff > 0 ? `+${profile.crime.nationalAverageDiff.toFixed(1)}%` : `${profile.crime.nationalAverageDiff.toFixed(1)}%` },
       ],
     },
+    // Climate projection risks (conditionally included when data is available)
+    ...(profile.heat
+      ? [
+          {
+            title: 'Heat Stress Risk',
+            factor: profile.heat,
+            extras: [
+              { label: 'Extreme Heat Days/Year', value: String(profile.heat.extremeHeatDays) },
+              { label: 'Projected 2050 Heat Days', value: profile.heat.projectedHeatDays2050 != null ? String(profile.heat.projectedHeatDays2050) : null },
+              { label: 'Urban Heat Island Effect', value: profile.heat.urbanHeatIslandEffect != null ? `+${profile.heat.urbanHeatIslandEffect}°F` : null },
+              { label: 'Cooling Infrastructure Deficit', value: profile.heat.coolingInfrastructureDeficit ? 'Yes' : 'No' },
+            ],
+          },
+        ]
+      : []),
+    ...(profile.drought
+      ? [
+          {
+            title: 'Drought Risk',
+            factor: profile.drought,
+            extras: [
+              { label: 'Palmer Drought Index', value: profile.drought.palmerDroughtIndex != null ? String(profile.drought.palmerDroughtIndex) : null },
+              { label: 'Drought Monitor Category', value: profile.drought.droughtMonitorCategory !== 'NONE' ? profile.drought.droughtMonitorCategory : 'None' },
+              { label: 'Projected Precip. Change 2050', value: profile.drought.projectedPrecipitationChange2050 != null ? `${profile.drought.projectedPrecipitationChange2050 > 0 ? '+' : ''}${profile.drought.projectedPrecipitationChange2050}%` : null },
+              { label: 'Subsidence Risk', value: profile.drought.subsidenceRisk },
+            ],
+          },
+        ]
+      : []),
   ]
 
   return (

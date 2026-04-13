@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Search,
   Shield,
@@ -409,11 +410,12 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
       {GOOGLE_MAPS_KEY && !imgErr && (
         <Link href={`/properties/${saved.propertyId}`} className="block">
           <div className="relative h-32 w-full bg-gray-100 overflow-hidden">
-            <img
+            <Image
               src={getStreetViewUrl(p)}
               alt={`Street view of ${p.address ?? 'property'}`}
-              className="w-full h-full object-cover"
-              loading="lazy"
+              className="object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, 350px"
               onError={() => setImgErr(true)}
             />
           </div>
