@@ -52,15 +52,16 @@ stripeRouter.get('/subscription', requireAuth, async (req: Request, res, next) =
 
 // ─── Create checkout session ─────────────────────────────────────────────────
 
-/** Validate that a URL belongs to the app's own origin to prevent open redirects. */
+/** Validate that a URL belongs to the app's own origin to prevent open redirects.
+ *  Uses APP_ALLOWED_HOSTS env var when set (comma-separated hostnames),
+ *  otherwise falls back to sensible defaults for coverguard.io. */
 function isSafeRedirectUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
-    const allowedHosts = [
-      'localhost',
-      'coverguard.io',
-      'www.coverguard.io',
-    ]
+    const envHosts = process.env.APP_ALLOWED_HOSTS
+    const allowedHosts = envHosts
+      ? envHosts.split(',').map((h) => h.trim())
+      : ['localhost', 'coverguard.io', 'www.coverguard.io']
     // Allow exact matches and *.coverguard.io subdomains (Vercel previews)
     if (allowedHosts.includes(parsed.hostname)) return true
     if (parsed.hostname.endsWith('.coverguard.io')) return true
