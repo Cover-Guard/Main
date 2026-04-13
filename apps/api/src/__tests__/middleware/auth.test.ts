@@ -143,8 +143,7 @@ describe('requireAuth', () => {
       await requireAuth(req, makeRes().res, makeNext())
       expect(tokenCache.has(TOKEN)).toBe(false)
     })
-  })
-
+  
   describe('user not found in DB', () => {
     it('returns 401 when prisma.user.findUnique returns null', async () => {
       mockGetUser.mockResolvedValue({ data: { user: { id: 'auth-id' } }, error: null })
