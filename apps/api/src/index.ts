@@ -187,6 +187,12 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// ─── Static assets ────────────────────────────────────────────────────────────
+// Prevent search engines from crawling the API
+app.get('/robots.txt', (_req, res) => {
+  res.type('text/plain').send('User-agent: *\nDisallow: /\n')
+})
+
 
 
 
