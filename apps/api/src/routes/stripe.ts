@@ -33,7 +33,7 @@ stripeRouter.get('/subscription', requireAuth, async (req: Request, res, next) =
       select: {
         id: true, plan: true, status: true, stripePriceId: true,
         currentPeriodStart: true, currentPeriodEnd: true,
-        cancelAtPeriodEnd: true, createdAt: true,
+        cancelAtPeriodEnd: true, createdAt: true, updatedAt: true,
       },
     })
 

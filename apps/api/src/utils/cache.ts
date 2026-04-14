@@ -92,8 +92,8 @@ const MAX_PUBLIC_DATA = parseCacheSize(process.env.CACHE_MAX_PUBLIC_DATA,  500)
 const MAX_TOKENS      = parseCacheSize(process.env.CACHE_MAX_TOKENS,      10000)
 
 // ── Shared cache instances ──────────────────────────────────────────────────
-/** Auth token → { userId, userRole, hasActiveSub } — 5 min TTL */
-export const tokenCache = new LRUCache<{ userId: string; userRole: string; hasActiveSub: boolean }>(
+/** Auth token → { userId, userRole, hasActiveSub, subPlan } — 5 min TTL */
+export const tokenCache = new LRUCache<{ userId: string; userRole: string; hasActiveSub: boolean; subPlan?: 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' | null }>(
   MAX_TOKENS,
   5 * 60 * 1000,
 )

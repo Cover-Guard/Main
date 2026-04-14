@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { Analytics } from '@vercel/analytics/next'
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration'
+import { Providers } from '@/components/Providers'
 import './globals.css'
 
 const inter = localFont({
@@ -63,7 +64,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main-content" className="skip-to-content">
           Skip to main content
         </a>
-        {children}
+        <Providers>
+          {children}
+        </Providers>
         <ServiceWorkerRegistration />
         <Analytics />
       </body>

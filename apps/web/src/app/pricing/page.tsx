@@ -6,6 +6,7 @@ import { Check, User, Building2, Landmark, Shield, Warehouse } from 'lucide-reac
 import { useState } from 'react'
 import { createCheckoutSession, createPortalSession } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
+import { useSubscription } from '@/lib/hooks/useSubscription'
 
 /* ------------------------------------------------------------------ */
 /*  Audience Segments                                                  */
@@ -257,7 +258,15 @@ const PRICE_IDS: Record<string, string | undefined> = {
   NEXT_PUBLIC_STRIPE_PRICE_TEAM: process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM,
 }
 
+// Map pricing page plan names to the plan tiers used in the subscription system
+const PLAN_NAME_TO_PRICE_KEY: Record<string, string> = {
+  'NEXT_PUBLIC_STRIPE_PRICE_INDIVIDUAL': 'individual',
+  'NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL': 'professional',
+  'NEXT_PUBLIC_STRIPE_PRICE_TEAM': 'team',
+}
+
 export default function PricingPage() {
+  const { plan: currentPlan, loaded: subLoaded } = useSubscription()
   const [activeSegment, setActiveSegment] = useState<SegmentKey>('home_buyer')
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -377,13 +386,32 @@ export default function PricingPage() {
                       : 'border-gray-200 bg-white'
                   }`}
                 >
-                  {plan.highlighted && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                      <span className="inline-flex items-center rounded-full bg-brand-600 px-4 py-1 text-xs font-semibold text-white">
-                        {plan.name === 'Free' ? 'Start Here' : 'Most Popular'}
-                      </span>
-                    </div>
-                  )}
+                  {/* Current plan badge or highlighted badge */}
+                  {(() => {
+                    // Determine if this plan card matches the user's current subscription
+                    const planTier = plan.priceEnvKey ? PLAN_NAME_TO_PRICE_KEY[plan.priceEnvKey] : (plan.price === '$0' ? 'free' : undefined)
+                    const isCurrentPlan = subLoaded && planTier === currentPlan
+
+                    if (isCurrentPlan) {
+                      return (
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                          <span className="inline-flex items-center rounded-full bg-green-600 px-4 py-1 text-xs font-semibold text-white">
+                            Current Plan
+                          </span>
+                        </div>
+                      )
+                    }
+                    if (plan.highlighted) {
+                      return (
+                        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                          <span className="inline-flex items-center rounded-full bg-brand-600 px-4 py-1 text-xs font-semibold text-white">
+                            {plan.name === 'Free' ? 'Start Here' : 'Most Popular'}
+                          </span>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
 
                   <h3 className="text-xl font-semibold text-gray-900">{plan.name}</h3>
                   <p className="mt-2 text-sm text-gray-600">{plan.description}</p>

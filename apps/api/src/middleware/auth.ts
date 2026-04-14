@@ -8,6 +8,8 @@ export interface AuthenticatedRequest extends Request {
   userId: string
   userRole: string
   hasActiveSubscription?: boolean
+  /** The user's active subscription plan (INDIVIDUAL/PROFESSIONAL/TEAM) or null if free */
+  subscriptionPlan?: 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' | null
 }
 
 const MAX_TOKEN_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -81,6 +83,7 @@ export async function requireAuth(
     authReq.userId = cached.userId
     authReq.userRole = cached.userRole
     authReq.hasActiveSubscription = cached.hasActiveSub
+    authReq.subscriptionPlan = cached.subPlan ?? null
     next()
     return
   }
@@ -97,8 +100,8 @@ export async function requireAuth(
       return
     }
 
-    // Fetch user profile + subscription status in a single query to avoid
-    // a separate DB round trip in the requireSubscription middleware.
+    // Fetch user profile + subscription status + plan in a single query to avoid
+    // separate DB round trips in downstream middleware (requireSubscription, requireFeature).
     const user = await prisma.user.findUnique({
       where: { id: data.user.id },
       select: {
@@ -106,7 +109,8 @@ export async function requireAuth(
         role: true,
         subscriptions: {
           where: { status: { in: ['ACTIVE', 'TRIALING'] } },
-          select: { id: true },
+          select: { id: true, plan: true },
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },
@@ -121,7 +125,9 @@ export async function requireAuth(
       return
     }
 
-    const hasActiveSub = user.subscriptions.length > 0
+    const activeSub = user.subscriptions[0] ?? null
+    const hasActiveSub = activeSub !== null
+    const subPlan = (activeSub?.plan as 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM') ?? null
 
     // Cache with TTL = min(5 min, time until JWT expiry) to avoid serving
     // cached entries for tokens that have already expired.
@@ -136,12 +142,13 @@ export async function requireAuth(
       ttlMs = 30_000
     }
 
-    tokenCache.set(token, { userId: user.id, userRole: user.role, hasActiveSub }, ttlMs)
+    tokenCache.set(token, { userId: user.id, userRole: user.role, hasActiveSub, subPlan }, ttlMs)
 
     const authReq = req as AuthenticatedRequest
     authReq.userId = user.id
     authReq.userRole = user.role
     authReq.hasActiveSubscription = hasActiveSub
+    authReq.subscriptionPlan = subPlan
     next()
   } catch (err) {
     next(err)
