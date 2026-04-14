@@ -1,17 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import {
-  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
+  BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, TooltipProps
 } from 'recharts';
 import {
-  GripVertical, X, Settings, TrendingUp, TrendingDown, Shield,
-  Building2, FileText, RefreshCw, ArrowUpRight, ArrowDownRight,
-  ChevronDown, ChevronUp, Check, Send, MapPin, DollarSign,
-  BarChart3, Activity, Home, Layers, Brain,
-  type LucideIcon
+  GripVertical, X, Settings, TrendingUp, TrendingDown, AlertTriangle, Shield,
+  Building2, FileText, RefreshCw, Eye, ArrowUpRight, ArrowDownRight,
+  ChevronDown, ChevronUp, Check, Send, Star, MapPin, DollarSign,
+  BarChart3, Activity, Zap, Home, Layers, Clock, Brain,
+  Maximize2, Minimize2, Move, Plus, Minus, LucideIcon
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -511,7 +512,7 @@ function RiskReportModal({ property, open, onClose, running, onReRun }: RiskRepo
   );
 }
 
-// ─── Panel: Saved Properties ──────────────────────────────────────────────────────
+// ─── Panel: Saved Properties ──────────────────────────────────────────────────
 
 function SavedPropertiesPanel() {
   const [selectedReport, setSelectedReport] = useState<Property | null>(null);
@@ -522,7 +523,7 @@ function SavedPropertiesPanel() {
   const toggleCompare = (id: number) => {
     setCompareSet((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
@@ -569,7 +570,7 @@ function SavedPropertiesPanel() {
                 <span className="text-lg flex-shrink-0">{prop.image}</span>
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900 text-xs leading-tight">{prop.name}</p>
-                  <p className="text-xs text-gray-50 flex items-center gap-0.5">
+                  <p className="text-xs text-gray-500 flex items-center gap-0.5">
                     <MapPin size={9} />
                     {prop.address}
                   </p>
@@ -618,7 +619,7 @@ function SavedPropertiesPanel() {
         open={!!selectedReport}
         onClose={() => {
           setSelectedReport(null);
-           setReportRunning(false);
+          setReportRunning(false);
         }}
         running={reportRunning}
         onReRun={handleReRun}
@@ -675,7 +676,7 @@ function SavedPropertiesPanel() {
                       <td className="py-1.5 px-3 text-gray-500 font-medium">{row.label}</td>
                       {comparedProperties.map((p) => {
                         const val = p[row.key as keyof Property];
-                        const displayVal = row.fmt ? row.fmt(val as number) : String(val);
+                        const displayVal = row.fmt ? row.fmt(val as any) : String(val);
                         const isBest = best !== null && Number(val) === best && numVals.length > 1;
                         return (
                           <td
@@ -695,8 +696,10 @@ function SavedPropertiesPanel() {
         )}
       </Modal>
     </div>
-  
- "�─── Panel: Active Carriers ───────────────────────────────────────────────
+  );
+}
+
+// ─── Panel: Active Carriers ───────────────────────────────────────────────────
 
 function ActiveCarriersPanel() {
   const [quoteModal, setQuoteModal] = useState<Carrier | null>(null);
@@ -709,7 +712,7 @@ function ActiveCarriersPanel() {
 
   return (
     <div className="space-y-2">
-      {ACTSVE_CARRIERS.map((carrier) => (
+      {ACTIVE_CARRIERS.map((carrier) => (
         <div key={carrier.id} className="border border-gray-200 rounded-lg p-2.5 hover:shadow-sm transition-all bg-white">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
@@ -732,7 +735,7 @@ function ActiveCarriersPanel() {
                     <span className="font-medium text-gray-700">Quote:</span> {carrier.quoteRange}
                   </span>
                   <span className="text-xs text-gray-500">
-                      <span className="font-medium text-gray-700">Response:</span> {carrier.responseTime}
+                    <span className="font-medium text-gray-700">Response:</span> {carrier.responseTime}
                   </span>
                 </div>
               </div>
@@ -776,13 +779,13 @@ function ActiveCarriersPanel() {
                     <span className="text-gray-500">Rating:</span> <span className="font-medium">{quoteModal.rating}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Response:</span> <span class="font-medium">{quoteModal.responseTime}</span>
+                    <span className="text-gray-500">Response:</span> <span className="font-medium">{quoteModal.responseTime}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Quote:</span> <span class="font-medium">{quoteModal.quoteRange}</span>
+                    <span className="text-gray-500">Quote:</span> <span className="font-medium">{quoteModal.quoteRange}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Binding Ready:</span> <span class="font-medium">{quoteModal.bindingReady ? 'Yes' : 'No'}</span>
+                    <span className="text-gray-500">Binding Ready:</span> <span className="font-medium">{quoteModal.bindingReady ? 'Yes' : 'No'}</span>
                   </div>
                 </div>
               </div>
@@ -834,7 +837,7 @@ const KPI_HISTORY: Record<string, Array<{ period: string; value: number }>> = {
     { period: 'Apr', value: 190500 },
   ],
   'Loss Ratio': [
-    { period: 'Now', value: 8.1 },
+    { period: 'Nov', value: 8.1 },
     { period: 'Dec', value: 7.4 },
     { period: 'Jan', value: 7.9 },
     { period: 'Feb', value: 6.5 },
@@ -842,7 +845,7 @@ const KPI_HISTORY: Record<string, Array<{ period: string; value: number }>> = {
     { period: 'Apr', value: 6.8 },
   ],
   'Active Properties': [
-    { period: 'Now', value: 38 },
+    { period: 'Nov', value: 38 },
     { period: 'Dec', value: 40 },
     { period: 'Jan', value: 42 },
     { period: 'Feb', value: 44 },
@@ -850,7 +853,7 @@ const KPI_HISTORY: Record<string, Array<{ period: string; value: number }>> = {
     { period: 'Apr', value: 47 },
   ],
   'Avg Risk Score': [
-    { period: 'Now', value: 62 },
+    { period: 'Nov', value: 62 },
     { period: 'Dec', value: 60.5 },
     { period: 'Jan', value: 59.8 },
     { period: 'Feb', value: 59.1 },
@@ -1015,46 +1018,171 @@ function KPIPanel() {
                       : detail.change.startsWith('-') && selectedKPI.label.includes('Risk')
                         ? 'text-green-600'
                         : detail.change.startsWith('-') && selectedKPI.label.includes('Ratio')
-                         ? 'text-green-600'
+                          ? 'text-green-600'
                           : 'text-red-600'
                   }`}
                 >
                   {detail.change}
                 </p>
               </div>
+            </div>
 
-              {/* Sparkline trend */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-900 mb-2">6-Month Trend</h4>
-                <ResponsiveContainer width="100%" height={140}>
-                  <AreaChart data={history}>
-                    <defs>
-                      <linearGradient id={`kpiGrad-${selectedKPI.label}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={selectedKPI.chartColor} stopOpacity={0.15} />
-                        <stop offset="95%" stopColor={selectedKPI.chartColor} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke={selectedKPI.chartColor}
-                      strokeWidth={2}
-                      fill={`url(#kpiGrad-${selectedKPI.label})`}
-                      dot={{ fill: selectedKPI.chartColor, r: 3 }}
-                      name={selectedKPI.label}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+            {/* Sparkline trend */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-900 mb-2">6-Month Trend</h4>
+              <ResponsiveContainer width="100%" height={140}>
+                <AreaChart data={history}>
+                  <defs>
+                    <linearGradient id={`kpiGrad-${selectedKPI.label}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={selectedKPI.chartColor} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={selectedKPI.chartColor} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={selectedKPI.chartColor}
+                    strokeWidth={2}
+                    fill={`url(#kpiGrad-${selectedKPI.label})`}
+                    dot={{ fill: selectedKPI.chartColor, r: 3 }}
+                    name={selectedKPI.label}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Breakdown table */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-900 mb-2">Breakdown</h4>
+              <div className="space-y-1.5">
+                {detail.breakdown.map((item) => {
+                  const maxVal = Math.max(...detail.breakdown.map((b) => b.value));
+                  return (
+                    <div key={item.label} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-600 w-28 flex-shrink-0">{item.label}</span>
+                      <div className="flex-1 bg-gray-100 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{ width: `${(item.value / maxVal) * 100}%`, backgroundColor: selectedKPI.chartColor }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-900 w-16 text-right">
+                        {selectedKPI.label.includes('Premium')
+                          ? fmt(item.value)
+                          : selectedKPI.label.includes('Ratio')
+                            ? fmtPct(item.value)
+                            : item.value}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
 
-              {/* Breakdown table */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-900 mb-2">BreakDown</h4>
-                <div className="space-y-1.5">iv>
+            {/* Progress to target */}
+            <div className="bg-indigo-50 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-indigo-900">Progress to Target</span>
+                <span className="text-xs font-bold text-indigo-700">{Math.min(100, Math.round((selectedKPI.raw / detail.target) * 100))}%</span>
+              </div>
+              <div className="bg-indigo-200 rounded-full h-2">
+                <div
+                  className="h-2 rounded-full bg-indigo-600 transition-all"
+                  style={{ width: `${Math.min(100, (selectedKPI.raw / detail.target) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}
+
+// ─── Panel: Forecast Chart ───────────────────────────────────────────────────
+
+const FORECAST_EXTENDED: ForecastDataPoint[] = [
+  { month: 'Jan', premium: 181000, claims: 14000, loss: 7.7, projected: 183000 },
+  { month: 'Feb', premium: 184000, claims: 10000, loss: 5.4, projected: 186000 },
+  { month: 'Mar', premium: 187000, claims: 16000, loss: 8.6, projected: 189000 },
+  { month: 'Apr', premium: 190500, claims: 11000, loss: 5.8, projected: 192000 },
+  ...FORECAST_DATA,
+];
+
+interface SeriesToggleProps {
+  label: string;
+  color: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+function SeriesToggle({ label, color, active, onClick }: SeriesToggleProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${
+        active ? 'bg-white border border-gray-200 shadow-sm' : 'bg-gray-100 text-gray-400 line-through'
+      }`}
+    >
+      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: active ? color : '#d1d5db' }} />
+      {label}
+    </button>
+  );
+}
+
+function ForecastPanel() {
+  const [showPremium, setShowPremium] = useState(true);
+  const [showProjected, setShowProjected] = useState(true);
+  const [showClaims, setShowClaims] = useState(true);
+  const [range, setRange] = useState<'6mo' | '10mo'>('6mo');
+  const [showTable, setShowTable] = useState(false);
+
+  const data = range === '10mo' ? FORECAST_EXTENDED : FORECAST_DATA;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <LiveDot />
+          <span className="text-xs text-gray-500">Rolling forecast</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setRange('6mo')}
+            className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+              range === '6mo' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            6mo
+          </button>
+          <button
+            onClick={() => setRange('10mo')}
+            className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+              range === '10mo' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            10mo
+          </button>
+          <span className="w-px h-3 bg-gray-200 mx-0.5" />
+          <button
+            onClick={() => setShowTable(!showTable)}
+            className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+              showTable ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            Table
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <SeriesToggle label="Premium" color="#6366f1" active={showPremium} onClick={() => setShowPremium(!showPremium)} />
+        <SeriesToggle label="Projected" color="#a78bfa" active={showProjected} onClick={() => setShowProjected(!showProjected)} />
+        <SeriesToggle label="Claims" color="#f59e0b" active={showClaims} onClick={() => setShowClaims(!showClaims)} />
+      </div>
       {!showTable ? (
         <ResponsiveContainer width="100%" height={160}>
           <AreaChart data={data}>
@@ -1109,7 +1237,7 @@ function KPIPanel() {
   );
 }
 
-// ─── Panel: Risk Trend ──────────────────────────────────────────────────
+// ─── Panel: Risk Trend ────────────────────────────────────────────────────────
 
 const RISK_EXTENDED: RiskTrendDataPoint[] = [
   { month: "May'25", score: 68 },
@@ -1129,7 +1257,7 @@ const RISK_ANNOTATIONS: Array<{ month: string; note: string }> = [
 function RiskTrendPanel() {
   const [range, setRange] = useState<'6mo' | '12mo'>('6mo');
   const [showAnnotations, setShowAnnotations] = useState(true);
-  const [, setSelectedPoint] = useState<string | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
 
   const data = range === '12mo' ? RISK_EXTENDED : RISK_TREND_DATA;
   const first = data[0]?.score || 0;
@@ -1176,14 +1304,14 @@ function RiskTrendPanel() {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={140}>
-        <LineChart data={data} onClick={(e) => {
-          if (e?.activeLabel) setSelectedPoint(String(e.activeLabel));
+        <LineChart data={data} onClick={(e: any) => {
+          if (e?.activeLabel) setSelectedPoint(e.activeLabel);
         }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <YAxis domain={[35, 75]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <Tooltip
-            content={({ active, payload, label }) => {
+            content={({ active, payload, label }: TooltipProps<number, string>) => {
               if (!active || !payload?.length) return null;
               const annotation = showAnnotations && RISK_ANNOTATIONS.find((a) => a.month === label);
               return (
@@ -1201,8 +1329,8 @@ function RiskTrendPanel() {
             dataKey="score"
             stroke="#6366f1"
             strokeWidth={2}
-            dot={(props) => {
-              const { cx, cy, payload } = props as { cx: number; cy: number; payload: { month: string } };
+            dot={(props: any) => {
+              const { cx, cy, payload } = props;
               const hasNote = RISK_ANNOTATIONS.some((a) => a.month === payload.month);
               return (
                 <g key={payload.month}>
@@ -1236,17 +1364,9 @@ function RiskTrendPanel() {
   );
 }
 
-// ─── Panel: Portfolio Mix ───────────────────────────────────────────────────
+// ─── Panel: Portfolio Mix ─────────────────────────────────────────────────────
 
-interface PortfolioDetail {
-  count: number;
-  avgRisk: number;
-  totalPremium: number;
-  topProperty: string;
-  growth: string;
-}
-
-const PORTFOLIO_DETAILS: Record<string, PortfolioDetail> = {
+const PORTFOLIO_DETAILS: Record<string, any> = {
   Commercial: { count: 16, avgRisk: 54, totalPremium: 67000, topProperty: 'Oakwood Commercial Plaza', growth: '+12%' },
   Residential: { count: 12, avgRisk: 52, totalPremium: 48000, topProperty: 'Riverside Apartment Complex', growth: '+8%' },
   Industrial: { count: 9, avgRisk: 41, totalPremium: 45000, topProperty: 'Metro Distribution Center', growth: '+18%' },
@@ -1305,7 +1425,29 @@ function PortfolioMixPanel() {
             >
               <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
               <span className="text-gray-600 flex-1">{seg.name}</span>
-              <span className="font-semibold text-gray-900">{fmt(detail.totalPremium)}</p>
+              <span className="font-semibold text-gray-900">{seg.value}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Modal open={!!showDetail} onClose={() => setShowDetail(null)} title={`${showDetail || ''} Segment`}>
+        {detail && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-gray-50 rounded-lg p-2.5 text-center">
+                <p className="text-xs text-gray-500">Properties</p>
+                <p className="text-lg font-bold text-gray-900">{detail.count}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2.5 text-center">
+                <p className="text-xs text-gray-500">Avg Risk</p>
+                <p className={`text-lg font-bold ${detail.avgRisk >= 60 ? 'text-yellow-600' : 'text-green-600'}`}>
+                  {detail.avgRisk}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-2.5 text-center">
+                <p className="text-xs text-gray-500">Monthly Premium</p>
+                <p className="text-lg font-bold text-gray-900">{fmt(detail.totalPremium)}</p>
               </div>
             </div>
             <div className="bg-gray-50 rounded-lg p-2.5 text-xs space-y-1">
@@ -1366,13 +1508,88 @@ function ClientManagementPanel() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <p className="font-semibold text-xs text-gray-900uyer' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-900'
+                  <p className="font-semibold text-xs text-gray-900">{client.name}</p>
+                  <Badge color={statusColors[client.status]}>{client.status}</Badge>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {client.contact} · {client.properties} property · {fmt(client.totalValue)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs text-gray-400">{client.lastContact}</span>
+              {selectedClient?.id === client.id ? (
+                <ChevronUp size={12} className="text-gray-400" />
+              ) : (
+                <ChevronDown size={12} className="text-gray-400" />
+              )}
+            </div>
+          </div>
+          {selectedClient?.id === client.id && (
+            <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-gray-500">Email:</span> <span className="font-medium text-gray-900">{client.email}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Phone:</span> <span className="font-medium text-gray-900">{client.phone}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-500">Notes:</span> <span className="font-medium text-gray-900">{client.notes}</span>
+              </div>
+              <div className="col-span-2 flex gap-1.5 mt-1">
+                <button className="px-2 py-1 bg-indigo-600 text-white rounded text-xs font-medium hover:bg-indigo-700">
+                  Send Message
+                </button>
+                <button className="px-2 py-1 bg-white border border-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">
+                  View Properties
+                </button>
+                <button className="px-2 py-1 bg-white border border-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-50">
+                  Schedule Call
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Panel: Home Buyer — Agent Interaction ────────────────────────────────────
+
+function HomeBuyerAgentPanel() {
+  const [newMsg, setNewMsg] = useState('');
+  const [messages, setMessages] = useState<Message[]>(MESSAGES);
+
+  const handleSend = () => {
+    if (!newMsg.trim()) return;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        from: 'buyer',
+        name: 'You',
+        text: newMsg,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+    setNewMsg('');
+  };
+
+  return (
+    <div className="flex flex-col" style={{ height: 280 }}>
+      <div className="flex-1 overflow-y-auto space-y-2 mb-2 pr-1">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.from === 'buyer' ? 'justify-end' : 'justify-start'}`}>
+            <div
+              className={`max-w-xs rounded-lg px-2.5 py-1.5 ${
+                msg.from === 'buyer' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-900'
               }`}
             >
-              <p className={`text-xs font-medium mb-0.5 ${msg.from === 'buyer' ? 'text-indigo-200' : 'text-gray-50'}`}>
+              <p className={`text-xs font-medium mb-0.5 ${msg.from === 'buyer' ? 'text-indigo-200' : 'text-gray-500'}`}>
                 {msg.name}
               </p>
-              <p className="text-xs leading-relaxed">{m�sg.text}</p>
+              <p className="text-xs leading-relaxed">{msg.text}</p>
               <p className={`text-xs mt-0.5 ${msg.from === 'buyer' ? 'text-indigo-300' : 'text-gray-400'}`}>{msg.time}</p>
             </div>
           </div>
@@ -1395,7 +1612,8 @@ function ClientManagementPanel() {
         </button>
       </div>
     </div>
-  (};
+  );
+}
 
 // ─── Panel Layout Configuration ───────────────────────────────────────────────
 
@@ -1411,7 +1629,7 @@ const DEFAULT_LAYOUT: PanelConfig[] = [
   { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 8, visible: true, span: 'third' },
 ];
 
-const PANEL_COMPONENTS: Record<string, () => React.JSX.Element> = {
+const PANEL_COMPONENTS: Record<string, () => JSX.Element> = {
   insights: InsightsPanel,
   kpis: KPIPanel,
   clients: ClientManagementPanel,
@@ -1506,7 +1724,15 @@ export function EnhancedDashboard() {
               <Shield size={16} className="text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-900Name="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+              <h1 className="text-sm font-bold text-gray-900">Insurance Dashboard</h1>
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                <LiveDot /> Real-time monitoring
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCustomize(!showCustomize)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
           >
             <Settings size={13} />
             Customize
@@ -1610,10 +1836,10 @@ export function EnhancedDashboard() {
 
       {/* Footer */}
       <footer className="max-w-7xl mx-auto px-4 py-2 text-center">
-        <p class="text-xs text-gray-400">
-          Last synced: {new Date().toLocaleString()} ໷ Auto-refresh active
+        <p className="text-xs text-gray-400">
+          Last synced: {new Date().toLocaleString()} · Auto-refresh active
         </p>
       </footer>
     </div>
-  (};
+  );
 }
