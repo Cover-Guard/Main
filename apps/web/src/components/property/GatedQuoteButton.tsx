@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Lock, Zap } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { useSubscription } from '@/lib/hooks/useSubscription'
 import { PaywallModal } from '@/components/paywall'
 
