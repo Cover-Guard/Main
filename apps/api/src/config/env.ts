@@ -56,7 +56,7 @@ for (const name of MANAGED_VARS) {
 
 const OPTIONAL_KEYS_WITH_FALLBACK: Array<{ key: string; feature: string }> = [
   { key: 'RENTCAST_API_KEY', feature: 'property data via RentCast (mock fallback when not set)' },
-  { key: 'FBI_UCR_API_KEY', feature: 'crime risk scoring (will use heuristic fallback)' },
+  { key: 'FBI_CDE_KEY', feature: 'crime risk scoring (will use heuristic fallback)' },
 ]
 
 for (const { key, feature } of OPTIONAL_KEYS_WITH_FALLBACK) {
