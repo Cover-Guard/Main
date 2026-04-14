@@ -1,4 +1,4 @@
-'use client'
+Page_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_Down'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import type { AnalyticsSummary } from '@coverguard/shared'
@@ -390,11 +390,17 @@ export function AnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [panels, setPanels] = useState<PanelConfig[]>(() => loadPanels())
+  // Initialize with defaults so server and first client render agree
+  // (see React error #418). The persisted panel configuration is then
+  // loaded from localStorage after mount. Same hydration-safe pattern
+  // as DemoDataToggle in components/analytics/AnalyticsHeroStats.tsx.
+  const [panels, setPanels] = useState<PanelConfig[]>(DEFAULT_PANELS)
   const [showSettings, setShowSettings] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPanels(loadPanels())
     const t = requestAnimationFrame(() => setMounted(true))
     return () => cancelAnimationFrame(t)
   }, [])
