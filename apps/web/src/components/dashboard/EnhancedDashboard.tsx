@@ -3,16 +3,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, TooltipProps
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
 import {
   GripVertical, X, Settings, TrendingUp, TrendingDown, AlertTriangle, Shield,
   Building2, FileText, RefreshCw, Eye, ArrowUpRight, ArrowDownRight,
   ChevronDown, ChevronUp, Check, Send, Star, MapPin, DollarSign,
   BarChart3, Activity, Zap, Home, Layers, Clock, Brain,
-  Maximize2, Minimize2, Move, Plus, Minus, LucideIcon
+  Maximize2, Minimize2, LucideIcon
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -523,7 +522,7 @@ function SavedPropertiesPanel() {
   const toggleCompare = (id: number) => {
     setCompareSet((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
   };
@@ -676,7 +675,7 @@ function SavedPropertiesPanel() {
                       <td className="py-1.5 px-3 text-gray-500 font-medium">{row.label}</td>
                       {comparedProperties.map((p) => {
                         const val = p[row.key as keyof Property];
-                        const displayVal = row.fmt ? row.fmt(val as any) : String(val);
+                        const displayVal = row.fmt ? row.fmt(val as string | number) : String(val);
                         const isBest = best !== null && Number(val) === best && numVals.length > 1;
                         return (
                           <td
@@ -1257,7 +1256,7 @@ const RISK_ANNOTATIONS: Array<{ month: string; note: string }> = [
 function RiskTrendPanel() {
   const [range, setRange] = useState<'6mo' | '12mo'>('6mo');
   const [showAnnotations, setShowAnnotations] = useState(true);
-  const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
+  const [, setSelectedPoint] = useState<string | null>(null);
 
   const data = range === '12mo' ? RISK_EXTENDED : RISK_TREND_DATA;
   const first = data[0]?.score || 0;
@@ -1304,14 +1303,14 @@ function RiskTrendPanel() {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={140}>
-        <LineChart data={data} onClick={(e: any) => {
+        <LineChart data={data} onClick={(e: { activeLabel?: string }) => {
           if (e?.activeLabel) setSelectedPoint(e.activeLabel);
         }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <YAxis domain={[35, 75]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
           <Tooltip
-            content={({ active, payload, label }: TooltipProps<number, string>) => {
+            content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null;
               const annotation = showAnnotations && RISK_ANNOTATIONS.find((a) => a.month === label);
               return (
@@ -1329,7 +1328,7 @@ function RiskTrendPanel() {
             dataKey="score"
             stroke="#6366f1"
             strokeWidth={2}
-            dot={(props: any) => {
+            dot={(props: { cx: number; cy: number; payload: { month: string } }) => {
               const { cx, cy, payload } = props;
               const hasNote = RISK_ANNOTATIONS.some((a) => a.month === payload.month);
               return (
@@ -1366,7 +1365,7 @@ function RiskTrendPanel() {
 
 // ─── Panel: Portfolio Mix ─────────────────────────────────────────────────────
 
-const PORTFOLIO_DETAILS: Record<string, any> = {
+const PORTFOLIO_DETAILS: Record<string, { count: number; avgRisk: number; totalPremium: number; topProperty: string; growth: string }> = {
   Commercial: { count: 16, avgRisk: 54, totalPremium: 67000, topProperty: 'Oakwood Commercial Plaza', growth: '+12%' },
   Residential: { count: 12, avgRisk: 52, totalPremium: 48000, topProperty: 'Riverside Apartment Complex', growth: '+8%' },
   Industrial: { count: 9, avgRisk: 41, totalPremium: 45000, topProperty: 'Metro Distribution Center', growth: '+18%' },
