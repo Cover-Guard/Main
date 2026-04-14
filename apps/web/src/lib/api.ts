@@ -8,7 +8,6 @@ import type {
   CarriersResult,
   PropertyPublicData,
   Client,
-  AnalyticsSummary,
   ApiResponse,
   User,
   SubscriptionState,
@@ -271,19 +270,6 @@ export async function updatePropertyChecklist(
 export async function deletePropertyChecklist(propertyId: string, checklistId: string): Promise<void> {
   await apiFetch(`/api/properties/${propertyId}/checklists/${checklistId}`, { method: 'DELETE' })
 }
-
-// ─── Analytics ────────────────────────────────────────────────────────────────
-
-export async function getAnalytics(): Promise<AnalyticsSummary> {
-  // Demo mode short-circuit: return a fully-populated mock dataset so the
-  // analytics dashboard looks populated for first-run and marketing views.
-  const { isDemoMode, buildMockAnalytics } = await import('./mockData')
-  if (isDemoMode()) {
-    return buildMockAnalytics()
-  }
-  return apiFetch('/api/analytics')
-}
-
 // ─── Stripe / Subscriptions ──────────────────────────────────────────────────
 
 export async function getSubscriptionState(): Promise<SubscriptionState> {
