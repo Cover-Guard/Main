@@ -1304,7 +1304,7 @@ function RiskTrendPanel() {
       </div>
       <ResponsiveContainer width="100%" height={140}>
         <LineChart data={data} onClick={(e) => {
-          if (e?.activeLabel) setSelectedPoint(e.activeLabel);
+          if (e?.activeLabel) setSelectedPoint(String(e.activeLabel));
         }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} />
