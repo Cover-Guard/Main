@@ -26,13 +26,13 @@ export async function createClient() {
     )
   }
 
+  // NOTE: intentionally no `cookieOptions.maxAge` — see lib/supabase/client.ts
+  // for the full rationale. Capping cookie lifetime broke refresh tokens and
+  // made production deploys appear to log users out.
   return createServerClient(
     supabaseUrl,
     supabaseKey,
     {
-      cookieOptions: {
-        maxAge: 60 * 60 * 24, // 24 hours
-      },
       cookies: {
         getAll() {
           return cookieStore.getAll()

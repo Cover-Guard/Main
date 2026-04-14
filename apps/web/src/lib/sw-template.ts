@@ -1,10 +1,23 @@
 /**
+ * Source template for the CoverGuard service worker. Served by
+ * `src/app/sw/route.ts` (which is rewritten from `/sw.js` in next.config.ts).
+ *
+ * The `__BUILD_ID__` placeholder is replaced with the current build id at
+ * request time so each production release invalidates the prior SW cache.
+ * On activate, the new SW broadcasts `SW_UPDATED` to open tabs so they
+ * can soft-reload into the new build without users clearing cache.
+ */
+export const SW_TEMPLATE = String.raw`/**
  * CoverGuard Service Worker
  * Required for Google Play Store TWA distribution.
  * Provides offline fallback, caching for static assets, and
  * network-first strategy for API calls.
+ *
+ * Cache name is stamped with the build id at deploy time so each
+ * release invalidates the previous cache on activate.
  */
-const CACHE_NAME = 'coverguard-v1'
+const BUILD_ID = '__BUILD_ID__'
+const CACHE_NAME = 'coverguard-' + BUILD_ID
 const OFFLINE_URL = '/offline.html'
 
 // Static assets to pre-cache on install.
@@ -30,16 +43,29 @@ self.addEventListener('install', event => {
   self.skipWaiting()
 })
 
-// Activate: clean up old caches and take control of open tabs
+// Activate: clean up old caches, take control of open tabs, and
+// broadcast SW_UPDATED so any currently-open client can soft-reload
+// into the new build without a manual cache clear.
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.allSettled(
+    caches.keys()
+      .then(cacheNames => Promise.allSettled(
         cacheNames
           .filter(name => name !== CACHE_NAME)
           .map(name => caches.delete(name))
-      )
-    }).then(() => self.clients.claim())
+      ))
+      .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
+      .then(clients => {
+        clients.forEach(client => {
+          try {
+            client.postMessage({ type: 'SW_UPDATED', buildId: BUILD_ID })
+          } catch (e) {
+            // postMessage can fail for clients that have been discarded;
+            // safe to ignore — they'll get the new SW on their next load.
+          }
+        })
+      })
   )
 })
 
@@ -81,7 +107,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request).catch(() => {
         return caches.match(OFFLINE_URL).then(cached => {
-          return cached ?? new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
+          return cached || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
         })
       })
     )
@@ -106,7 +132,7 @@ self.addEventListener('fetch', event => {
           return cachedResponse
         }
         return caches.match(OFFLINE_URL).then(offline => {
-          return offline ?? new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
+          return offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
         })
       })
       // Return cached version immediately if available, otherwise wait for network
@@ -121,7 +147,7 @@ self.addEventListener('push', event => {
   let data = {}
   try {
     data = event.data.json()
-  } catch {
+  } catch (e) {
     // Invalid JSON payload — skip notification
     return
   }
@@ -140,12 +166,12 @@ self.addEventListener('push', event => {
 // Handle notification clicks — open the relevant page
 self.addEventListener('notificationclick', event => {
   event.notification.close()
-  const targetUrl = event.notification.data?.url || '/'
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/'
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
       // Focus existing tab if open
       for (const client of clients) {
-        if (client.url.includes(targetUrl)) {
+        if (client.url.indexOf(targetUrl) !== -1) {
           return client.focus()
         }
       }
@@ -154,3 +180,4 @@ self.addEventListener('notificationclick', event => {
     })
   )
 })
+`
