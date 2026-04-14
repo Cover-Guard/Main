@@ -38,6 +38,7 @@ jest.mock('../../middleware/auth', () => ({
 
 jest.mock('../../middleware/subscription', () => ({
   requireSubscription: (_req: unknown, _res: unknown, next: () => void) => next(),
+  requireFeature: () => (_req: unknown, _res: unknown, next: () => void) => next(),
 }))
 
 import express from 'express'

@@ -10,7 +10,7 @@ import { getOrFetchWalkScore } from '../services/walkscoreService'
 import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { requireAuth } from '../middleware/auth'
-import { requireSubscription } from '../middleware/subscription'
+import { requireSubscription, requireFeature } from '../middleware/subscription'
 import { prisma } from '../utils/prisma'
 import type { Prisma } from '../generated/prisma/client'
 import type { AuthenticatedRequest } from '../middleware/auth'
@@ -414,7 +414,7 @@ const quoteRequestSchema = z.object({
   notes: z.string().max(1000).optional(),
 })
 
-propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, async (req: Request, res, next) => {
+propertiesRouter.post('/:id/quote-request', requireAuth, requireFeature('quote_requests'), async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const body = quoteRequestSchema.parse(req.body)
@@ -440,7 +440,7 @@ propertiesRouter.post('/:id/quote-request', requireAuth, requireSubscription, as
   }
 })
 
-propertiesRouter.get('/:id/quote-requests', requireAuth, requireSubscription, async (req: Request, res, next) => {
+propertiesRouter.get('/:id/quote-requests', requireAuth, requireFeature('quote_requests'), async (req: Request, res, next) => {
   try {
     const { userId } = req as AuthenticatedRequest
     const requests = await prisma.quoteRequest.findMany({

@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
-import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard'
+import { AnalyticsWithGate } from '@/components/analytics/AnalyticsWithGate'
 
 export const metadata: Metadata = { title: 'Analytics & Reports — CoverGuard' }
 
@@ -13,7 +13,7 @@ export default async function AnalyticsPage() {
 
   return (
     <SidebarLayout>
-      <AnalyticsDashboard />
+      <AnalyticsWithGate />
     </SidebarLayout>
   )
 }

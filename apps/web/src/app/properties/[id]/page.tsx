@@ -2,11 +2,13 @@ import { Suspense } from 'react'
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowLeft, GitCompare } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { getProperty, getPropertyRisk, getPropertyInsurance, getPropertyCarriers, getPropertyInsurability, getPropertyPublicData } from '@/lib/api'
 import { RiskSummary } from '@/components/property/RiskSummary'
 import { RiskBreakdown } from '@/components/property/RiskBreakdown'
 import { InsuranceCostEstimate } from '@/components/property/InsuranceCostEstimate'
+import { GatedInsuranceEstimate } from '@/components/property/GatedInsuranceEstimate'
+import { GatedCompareButton } from '@/components/property/GatedCompareButton'
 import { PropertyDetails } from '@/components/property/PropertyDetails'
 import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
@@ -91,7 +93,7 @@ async function CarriersSection({ id, address, isDummy }: { id: string; address: 
   return (
     <>
       {carriersData && <ActiveCarriers data={carriersData} propertyId={id} propertyAddress={address} />}
-      {insuranceEstimate && <InsuranceCostEstimate estimate={insuranceEstimate} />}
+      {insuranceEstimate && <GatedInsuranceEstimate estimate={insuranceEstimate} />}
     </>
   )
 }
@@ -225,13 +227,7 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
                 <PropertyReportButton property={prop} />
                 {!isDummy && (
                   <>
-                    <Link
-                      href={`/compare?ids=${prop.id}`}
-                      className="hidden sm:flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      <GitCompare className="h-4 w-4" />
-                      Compare
-                    </Link>
+                    <GatedCompareButton propertyId={prop.id} />
                     <SavePropertyButton propertyId={prop.id} />
                   </>
                 )}
