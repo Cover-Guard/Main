@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, useCallback, type FormEvent, type KeyboardEvent, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useMapsLibrary } from '@vis.gl/react-google-maps'
 import { Search, MapPin, Loader2 } from 'lucide-react'
@@ -34,9 +35,38 @@ function SearchBarInner({ defaultValue = '', autoFocus, className }: SearchBarPr
   const [loading, setLoading] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
+
+  // Compute fixed position for the dropdown so it escapes overflow-hidden ancestors
+  const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({})
+
+  useEffect(() => {
+    if (!showDropdown || predictions.length === 0 || !wrapperRef.current) return
+
+    function updatePosition() {
+      const rect = wrapperRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      })
+    }
+
+    updatePosition()
+
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [showDropdown, predictions.length])
 
   // Create an initial session token once the Places library loads
   useEffect(() => {
@@ -172,7 +202,7 @@ function SearchBarInner({ defaultValue = '', autoFocus, className }: SearchBarPr
 
   return (
     <form onSubmit={handleSubmit} className={cn('flex gap-2', className)}>
-      <div className="relative flex-1">
+      <div ref={wrapperRef} className="relative flex-1">
         {/* Visually-hidden label — announced by screen readers (WCAG 1.3.1) */}
         <label htmlFor="property-address-search" className="sr-only">
           Search by property address
@@ -208,43 +238,47 @@ function SearchBarInner({ defaultValue = '', autoFocus, className }: SearchBarPr
           </div>
         )}
 
-        {/* Google Places predictions dropdown */}
-        {showDropdown && predictions.length > 0 && (
-          <div
-            ref={dropdownRef}
-            id="search-suggestions"
-            role="listbox"
-            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-          >
-            {predictions.map((prediction, index) => (
-              <button
-                key={prediction.placeId}
-                id={`suggestion-${index}`}
-                role="option"
-                type="button"
-                aria-selected={index === activeIndex}
-                className={cn(
-                  'flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors',
-                  index === activeIndex
-                    ? 'bg-blue-50 text-blue-900'
-                    : 'text-gray-700 hover:bg-gray-50',
-                )}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => selectPrediction(prediction)}
-              >
-                <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{prediction.mainText}</p>
-                  <p className="truncate text-xs text-gray-500">{prediction.secondaryText}</p>
-                </div>
-              </button>
-            ))}
-            {/* Google attribution (required by ToS) */}
-            <div className="border-t border-gray-100 px-4 py-2 text-right">
-              <span className="text-[10px] text-gray-400">Powered by Google</span>
-            </div>
-          </div>
-        )}
+        {/* Google Places predictions dropdown — rendered via portal with fixed
+            positioning so it escapes overflow-hidden ancestors */}
+        {showDropdown && predictions.length > 0 && typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              ref={dropdownRef}
+              id="search-suggestions"
+              role="listbox"
+              style={dropdownStyle}
+              className="max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+            >
+              {predictions.map((prediction, index) => (
+                <button
+                  key={prediction.placeId}
+                  id={`suggestion-${index}`}
+                  role="option"
+                  type="button"
+                  aria-selected={index === activeIndex}
+                  className={cn(
+                    'flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors',
+                    index === activeIndex
+                      ? 'bg-blue-50 text-blue-900'
+                      : 'text-gray-700 hover:bg-gray-50',
+                  )}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => selectPrediction(prediction)}
+                >
+                  <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{prediction.mainText}</p>
+                    <p className="truncate text-xs text-gray-500">{prediction.secondaryText}</p>
+                  </div>
+                </button>
+              ))}
+              {/* Google attribution (required by ToS) */}
+              <div className="border-t border-gray-100 px-4 py-2 text-right">
+                <span className="text-[10px] text-gray-400">Powered by Google</span>
+              </div>
+            </div>,
+            document.body,
+          )}
       </div>
       <button type="submit" className="btn-primary px-6 py-3 text-base">
         Search
