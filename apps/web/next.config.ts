@@ -1,7 +1,28 @@
 import type { NextConfig } from 'next'
 import path from 'path'
 
+// ─── Build ID ─────────────────────────────────────────────────────────────
+// Stable identifier for this deploy. Used for:
+//   1. `generateBuildId` so Next.js's own chunk hashes align with our version
+//   2. `env.NEXT_PUBLIC_APP_VERSION` so the client bundle knows which version
+//      it was shipped as (used by Providers to detect version drift)
+//   3. `x-app-version` response header so an already-loaded tab can discover
+//      a new server version on focus and reload into it
+//   4. The service worker route handler (/sw.js → /sw) which stamps this
+//      into the cache name so each release invalidates prior SW caches
+//
+// Captured in a closure at config-load time — not re-evaluated per request —
+// so all four usages agree on the same value for a given build.
+const buildId =
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ||
+  process.env.BUILD_ID ||
+  `dev-${Date.now()}`
+
 const nextConfig: NextConfig = {
+  generateBuildId: async () => buildId,
+  env: {
+    NEXT_PUBLIC_APP_VERSION: buildId,
+  },
   transpilePackages: ['@coverguard/shared'],
   webpack: (config) => {
     config.resolve.alias['@coverguard/shared'] = path.resolve(__dirname, '../../packages/shared/src')
@@ -19,13 +40,19 @@ const nextConfig: NextConfig = {
     // Proxy /api/* requests to the API backend so the browser makes
     // same-origin calls and CORS is never needed.
     const apiUrl = process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL
-    if (!apiUrl) return []
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-    ]
+    return {
+      // beforeFiles: checked BEFORE Next.js hits the filesystem, so this
+      // takes precedence over any legacy public/sw.js file and routes
+      // /sw.js to our dynamic route handler that stamps the current
+      // build id into the cache name.
+      beforeFiles: [
+        { source: '/sw.js', destination: '/sw' },
+      ],
+      afterFiles: apiUrl
+        ? [{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }]
+        : [],
+      fallback: [],
+    }
   },
   async headers() {
     return [
@@ -52,6 +79,10 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Expose current server build id so clients can detect new
+          // releases and soft-reload without users having to log out
+          // or clear cache.
+          { key: 'x-app-version', value: buildId },
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',

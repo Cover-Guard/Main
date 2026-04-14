@@ -5,10 +5,32 @@ export async function middleware(request: NextRequest) {
   try {
     return await updateSession(request)
   } catch (err) {
-    // If the session check fails (e.g. Supabase unreachable), allow the
-    // request to continue rather than returning a 500 for every page load.
+    // If the session check fails, allow the request to continue rather
+    // than returning a 500 for every page load.
     console.error('Middleware session check failed:', err)
-    return NextResponse.next({ request })
+    const res = NextResponse.next({ request })
+
+    // Self-heal from stale / incompatible Supabase cookies. After a
+    // @supabase/ssr dependency bump or a token schema change, previously
+    // issued cookies can become unparseable — without this, every request
+    // would silently fail session lookup, making users feel "logged out"
+    // and forcing them to manually clear cookies after a deploy.
+    //
+    // We only clear on errors that look like cookie/token format issues,
+    // NOT on transient network errors (we don't want a briefly-unreachable
+    // Supabase to force everyone to re-login).
+    const msg = err instanceof Error ? err.message : ''
+    const isCookieFormatError =
+      err instanceof SyntaxError ||
+      /cookie|token|jwt|parse|decode|base64|malformed/i.test(msg)
+    if (isCookieFormatError) {
+      for (const cookie of request.cookies.getAll()) {
+        if (cookie.name.startsWith('sb-')) {
+          res.cookies.delete(cookie.name)
+        }
+      }
+    }
+    return res
   }
 }
 

@@ -10,13 +10,13 @@ export async function updateSession(request: NextRequest) {
 
   let supabaseResponse = NextResponse.next({ request })
 
+  // NOTE: intentionally no `cookieOptions.maxAge` — see lib/supabase/client.ts
+  // for the full rationale. Capping cookie lifetime broke refresh tokens and
+  // made production deploys appear to log users out.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
-      cookieOptions: {
-        maxAge: 60 * 60 * 24, // 24 hours
-      },
       cookies: {
         getAll() {
           return request.cookies.getAll()

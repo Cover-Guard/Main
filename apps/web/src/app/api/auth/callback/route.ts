@@ -19,13 +19,13 @@ export async function GET(request: Request) {
   const cookieStore = await cookies()
   const cookiesToForward: { name: string; value: string; options?: Record<string, unknown> }[] = []
 
+  // NOTE: intentionally no `cookieOptions.maxAge` — see lib/supabase/client.ts
+  // for the full rationale. Capping cookie lifetime broke refresh tokens and
+  // made production deploys appear to log users out.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookieOptions: {
-        maxAge: 60 * 60 * 24, // 24 hours
-      },
       cookies: {
         getAll() {
           return cookieStore.getAll()
