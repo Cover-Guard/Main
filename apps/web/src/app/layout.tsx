@@ -58,8 +58,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="font-sans">
+    // suppressHydrationWarning on <html> neutralizes React error #418 caused
+    // by browser extensions (dark-mode toggles, Grammarly, password managers,
+    // etc.) that inject classes or data-* attributes onto the root element
+    // before React hydrates. It does NOT hide legitimate mismatches inside
+    // the component tree — those still surface normally. This is the
+    // standard Next.js App Router mitigation for extension-driven hydration
+    // noise on <html>/<body>.
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body className="font-sans" suppressHydrationWarning>
         {/* Skip-to-content link — first focusable element for keyboard/screen reader users (WCAG 2.4.1) */}
         <a href="#main-content" className="skip-to-content">
           Skip to main content
