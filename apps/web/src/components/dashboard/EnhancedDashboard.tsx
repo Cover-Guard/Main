@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, ReactNode, JSX } from 'react';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
@@ -675,7 +675,7 @@ function SavedPropertiesPanel() {
                       <td className="py-1.5 px-3 text-gray-500 font-medium">{row.label}</td>
                       {comparedProperties.map((p) => {
                         const val = p[row.key as keyof Property];
-                        const displayVal = row.fmt ? row.fmt(val as string | number) : String(val);
+                        const displayVal = row.fmt ? row.fmt(Number(val)) : String(val);
                         const isBest = best !== null && Number(val) === best && numVals.length > 1;
                         return (
                           <td
@@ -1303,7 +1303,7 @@ function RiskTrendPanel() {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={140}>
-        <LineChart data={data} onClick={(e: { activeLabel?: string }) => {
+        <LineChart data={data} onClick={(e) => {
           if (e?.activeLabel) setSelectedPoint(e.activeLabel);
         }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -1328,7 +1328,7 @@ function RiskTrendPanel() {
             dataKey="score"
             stroke="#6366f1"
             strokeWidth={2}
-            dot={(props: { cx: number; cy: number; payload: { month: string } }) => {
+            dot={(props) => {
               const { cx, cy, payload } = props;
               const hasNote = RISK_ANNOTATIONS.some((a) => a.month === payload.month);
               return (
