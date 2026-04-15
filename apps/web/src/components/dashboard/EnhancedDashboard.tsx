@@ -1773,7 +1773,7 @@ export function EnhancedDashboard() {
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handlePanelDrop(panel.id)}
                 onDragEnd={() => setDragItem(null)}
-                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all flex flex-col min-h-[28rem] ${
+                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all flex flex-col h-[28rem] ${
                   isDragging ? 'opacity-40 ring-2 ring-indigo-400' : 'hover:shadow-md hover:border-indigo-200'
                 }`}
               >
