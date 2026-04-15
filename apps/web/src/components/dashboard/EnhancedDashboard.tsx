@@ -19,9 +19,7 @@ import {
   Building2, FileText, RefreshCw, ArrowUpRight, ArrowDownRight,
 
   ChevronDown, ChevronUp, Check, Send, MapPin, DollarSign,
-
   BarChart3, Activity, Home, Layers, Brain, LucideIcon
-
 } from 'lucide-react';
 
 
@@ -2729,9 +2727,7 @@ function RiskTrendPanel() {
             className={`px-1.5 py-0.5 rounded text-xs font-medium ${
 
               range === '12mo' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
-
-            }`}
-
+              }`}
           >
 
             12mo
@@ -3474,38 +3470,22 @@ export function EnhancedDashboard() {
 
     setLayout((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)));
 
-  };
-
-
-
   const resetLayout = () => setLayout(DEFAULT_LAYOUT);
 
 
 
   const visiblePanels = layout.filter((p) => p.visible).sort((a, b) => a.order - b.order);
 
-
-
   // Inline drag-and-drop between panels on the main grid (no customize mode required)
-
   const handlePanelDragStart = (panelId: string) => {
-
     const idx = layout.findIndex((p) => p.id === panelId);
-
     if (idx !== -1) setDragItem(idx);
-
   };
-
   const handlePanelDrop = (panelId: string) => {
-
     if (dragItem === null) return;
-
     const toIdx = layout.findIndex((p) => p.id === panelId);
-
     if (toIdx !== -1 && toIdx !== dragItem) movePanel(dragItem, toIdx);
-
     setDragItem(null);
-
   };
 
 
@@ -3647,11 +3627,8 @@ export function EnhancedDashboard() {
                   </span>
 
                   <button
-
                     onClick={() => toggleVisibility(panel.id)}
-
-                    className={`text-xs px-1.5 py-px rounded font-medium ${
-
+                    className={`Text-xs px-1.5 py-px rounded font-medium ${
                       panel.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
 
                     }`}
@@ -3674,84 +3651,44 @@ export function EnhancedDashboard() {
 
       )}
 
-
-
-      {/* Dashboard Body — responsive grid: min 2, max 5 per row */}
-
+      {/* Dashboard Body — responsive grid: min 1, max 3 per row; cards ~2x taller */}
       <main className="max-w-screen-2xl mx-auto px-3 py-2">
-
-        <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-
+        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {visiblePanels.map((panel) => {
-
             const PanelComponent = PANEL_COMPONENTS[panel.id];
-
             if (!PanelComponent) return null;
-
             const isDragging = dragItem !== null && layout[dragItem]?.id === panel.id;
-
             return (
-
               <div
-
                 key={panel.id}
-
                 draggable
-
                 onDragStart={() => handlePanelDragStart(panel.id)}
-
                 onDragOver={(e) => e.preventDefault()}
-
                 onDrop={() => handlePanelDrop(panel.id)}
-
                 onDragEnd={() => setDragItem(null)}
-
-                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all ${
-
+                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all flex flex-col h-[28rem] ${
                   isDragging ? 'opacity-40 ring-2 ring-indigo-400' : 'hover:shadow-md hover:border-indigo-200'
-
                 }`}
-
               >
-
-                <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100 bg-gray-50/50">
-
+                <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
                   <div className="flex items-center gap-1 min-w-0">
-
                     <GripVertical size={11} className="text-gray-300 flex-shrink-0" />
-
                     <panel.icon size={12} className="text-indigo-600 flex-shrink-0" />
-
                     <h2 className="text-[11px] font-semibold text-gray-900 truncate">{panel.title}</h2>
-
                   </div>
-
                   {(panel.id === 'kpis' || panel.id === 'forecast') && (
-
                     <div className="flex items-center gap-0.5 flex-shrink-0">
-
                       <LiveDot />
-
                     </div>
-
                   )}
-
                 </div>
-
-                <div className="p-1.5">
-
+                <div className="p-1.5 flex-1 overflow-auto">
                   <PanelComponent />
-
                 </div>
-
               </div>
-
             );
-
           })}
-
         </div>
-
       </main>
 
 
