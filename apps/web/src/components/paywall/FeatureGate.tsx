@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
+import Link from 'next/link'
 import { Lock, Zap } from 'lucide-react'
 import { PlanTier, isFeatureLocked, getPlanDisplayName } from '@/lib/plans'
 
@@ -8,7 +9,8 @@ interface FeatureGateProps {
   feature: string
   userPlan: PlanTier
   requiredPlan: PlanTier
-  onUpgrade: () => void
+  /** When provided, clicking "Upgrade" calls this instead of navigating to /pricing. */
+  onUpgrade?: () => void
   children: ReactNode
 }
 
@@ -35,18 +37,28 @@ export function FeatureGate({
           <Lock className='h-6 w-6 text-white' />
         </div>
         <div className='text-center'>
-          <p className='font-semibold text-gray-100'>{feature} Feature</p>
+          <p className='font-semibold text-gray-100'>{feature}</p>
           <p className='text-sm text-gray-300'>
             Available on {getPlanDisplayName(requiredPlan)} and higher
           </p>
         </div>
-        <button
-          onClick={onUpgrade}
-          className='mt-2 inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700'
-        >
-          <Zap className='h-4 w-4' />
-          Upgrade
-        </button>
+        {onUpgrade ? (
+          <button
+            onClick={onUpgrade}
+            className='mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700'
+          >
+            <Zap className='h-4 w-4' />
+            Upgrade
+          </button>
+        ) : (
+          <Link
+            href='/pricing'
+            className='mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700'
+          >
+            <Zap className='h-4 w-4' />
+            Upgrade
+          </Link>
+        )}
       </div>
     </div>
   )

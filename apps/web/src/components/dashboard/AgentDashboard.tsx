@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   X,
   User as UserIcon,
+  Lock,
 } from 'lucide-react'
 import { getSavedProperties, getClients } from '@/lib/api'
 import { formatCurrency, formatAddress } from '@coverguard/shared'
@@ -28,6 +29,8 @@ import { SearchBar } from '@/components/search/SearchBar'
 import { useCompare } from '@/lib/useCompare'
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
 import { ClientsPanel } from '@/components/dashboard/ClientsPanel'
+import { UpgradePrompt } from '@/components/paywall/UpgradePrompt'
+import { useSubscription } from '@/lib/hooks/useSubscription'
 import { cn } from '@/lib/utils'
 
 interface SavedPropertyRow {
@@ -66,6 +69,14 @@ export function AgentDashboard() {
 
   // Report modal
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+
+  // Subscription gating
+  const { isGated, isBelowPlan, loading: subLoading } = useSubscription()
+  // Agents need Professional for analytics and compare (per pricing page "Professional" tier)
+  const analyticsGated = isGated('analytics')
+  const compareGated = isBelowPlan('professional')
+  // Clients tab requires Individual or above (Agent Starter includes client management)
+  const clientsGated = isGated('client_dashboard')
 
   useEffect(() => {
     Promise.all([
@@ -176,12 +187,25 @@ export function AgentDashboard() {
         >
           <Users className="h-4 w-4" />
           Clients
+          {/* Lock badge on the tab when gated and subscription data is loaded */}
+          {!subLoading && clientsGated && (
+            <Lock className="h-3 w-3 ml-0.5 text-amber-500" />
+          )}
         </button>
       </div>
 
       {/* Clients Tab */}
       {activeTab === 'clients' && (
-        <ClientsPanel />
+        clientsGated ? (
+          <div className="py-6 max-w-lg">
+            <UpgradePrompt
+              feature="Client Management"
+              requiredPlan="individual"
+            />
+          </div>
+        ) : (
+          <ClientsPanel />
+        )
       )}
 
       {/* Properties Tab */}
@@ -207,9 +231,31 @@ export function AgentDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <StatCard label="SAVED PROPERTIES" value={loading ? '—' : properties.length} icon={<Shield className="h-5 w-5 text-blue-500" />} />
         <StatCard label="CLIENTS" value={loading ? '—' : clients.length} icon={<Users className="h-5 w-5 text-purple-400" />} />
-        <Link href="/analytics" className="block">
-          <StatCard label="ANALYTICS" value="View" icon={<BarChart3 className="h-5 w-5 text-green-500" />} />
-        </Link>
+
+        {/* Analytics card — gated behind Professional */}
+        {!subLoading && analyticsGated ? (
+          <Link href="/pricing" className="block">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 relative overflow-hidden">
+              <div className="flex items-start justify-between opacity-30">
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">ANALYTICS</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-1">—</p>
+                </div>
+                <div className="mt-0.5"><BarChart3 className="h-5 w-5 text-green-500" /></div>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-brand-600 bg-brand-50 border border-brand-200 rounded-full px-3 py-1.5">
+                  <Lock className="h-3 w-3" /> Upgrade to unlock
+                </span>
+              </div>
+            </div>
+          </Link>
+        ) : (
+          <Link href="/analytics" className="block">
+            <StatCard label="ANALYTICS" value="View" icon={<BarChart3 className="h-5 w-5 text-green-500" />} />
+          </Link>
+        )}
+
         <Link href="/search" className="block">
           <StatCard label="SEARCH" value="Search" icon={<Search className="h-5 w-5 text-teal-500" />} />
         </Link>
@@ -329,13 +375,13 @@ export function AgentDashboard() {
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {paginated.map((sp) => (
-            <DashboardCard key={sp.id} saved={sp} onViewReport={() => setSelectedProperty(sp.property)} />
+            <DashboardCard key={sp.id} saved={sp} onViewReport={() => setSelectedProperty(sp.property)} compareGated={compareGated} />
           ))}
         </div>
       ) : (
         <div className="space-y-2">
           {paginated.map((sp) => (
-            <DashboardListRow key={sp.id} saved={sp} onViewReport={() => setSelectedProperty(sp.property)} />
+            <DashboardListRow key={sp.id} saved={sp} onViewReport={() => setSelectedProperty(sp.property)} compareGated={compareGated} />
           ))}
         </div>
       )}
@@ -413,7 +459,7 @@ function getStreetViewUrl(p: Property, width = 400, height = 180) {
   return `https://maps.googleapis.com/maps/api/streetview?size=${width}x${height}&location=${encodeURIComponent(location)}&key=${GOOGLE_MAPS_KEY}&source=outdoor`
 }
 
-function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onViewReport: () => void }) {
+function DashboardCard({ saved, onViewReport, compareGated }: { saved: SavedPropertyRow; onViewReport: () => void; compareGated: boolean }) {
   const { ids, toggle, canAdd } = useCompare()
   const p = saved.property
   const isCompared = ids.includes(p.id)
@@ -491,24 +537,36 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
           <FileText className="h-3.5 w-3.5" />
           Report
         </button>
-        <button
-          onClick={() => toggle(p.id)}
-          disabled={!isCompared && !canAdd}
-          className={cn(
-            'flex items-center gap-1 text-xs transition-colors',
-            isCompared ? 'text-teal-600 font-medium' : canAdd ? 'text-gray-500 hover:text-teal-600' : 'text-gray-300 cursor-not-allowed'
-          )}
-        >
-          <GitCompare className="h-3.5 w-3.5" />
-          {isCompared ? 'Compared' : 'Compare'}
-        </button>
+
+        {compareGated ? (
+          <Link
+            href="/pricing"
+            title="Requires Professional plan"
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-600 transition-colors"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            Compare
+          </Link>
+        ) : (
+          <button
+            onClick={() => toggle(p.id)}
+            disabled={!isCompared && !canAdd}
+            className={cn(
+              'flex items-center gap-1 text-xs transition-colors',
+              isCompared ? 'text-teal-600 font-medium' : canAdd ? 'text-gray-500 hover:text-teal-600' : 'text-gray-300 cursor-not-allowed'
+            )}
+          >
+            <GitCompare className="h-3.5 w-3.5" />
+            {isCompared ? 'Compared' : 'Compare'}
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
 // ── List Row ─────────────────────────────────────────────────────────────
-function DashboardListRow({ saved, onViewReport }: { saved: SavedPropertyRow; onViewReport: () => void }) {
+function DashboardListRow({ saved, onViewReport, compareGated }: { saved: SavedPropertyRow; onViewReport: () => void; compareGated: boolean }) {
   const { ids, toggle, canAdd } = useCompare()
   const p = saved.property
   const isCompared = ids.includes(p.id)
@@ -556,21 +614,33 @@ function DashboardListRow({ saved, onViewReport }: { saved: SavedPropertyRow; on
         >
           <FileText className="h-3 w-3" /> Report
         </button>
-        <button
-          onClick={() => toggle(p.id)}
-          disabled={!isCompared && !canAdd}
-          className={cn(
-            'flex items-center gap-1 text-xs border px-3 py-1.5 rounded-lg transition-colors',
-            isCompared
-              ? 'border-teal-300 bg-teal-50 text-teal-600 font-medium'
-              : canAdd
-                ? 'border-gray-200 text-gray-500 hover:text-teal-600 hover:border-teal-200'
-                : 'border-gray-100 text-gray-300 cursor-not-allowed'
-          )}
-        >
-          <GitCompare className="h-3 w-3" />
-          {isCompared ? 'Compared' : 'Compare'}
-        </button>
+
+        {compareGated ? (
+          <Link
+            href="/pricing"
+            title="Requires Professional plan"
+            className="flex items-center gap-1 text-xs border border-gray-100 px-3 py-1.5 rounded-lg text-gray-400 hover:text-brand-600 hover:border-brand-200 transition-colors"
+          >
+            <Lock className="h-3 w-3" />
+            Compare
+          </Link>
+        ) : (
+          <button
+            onClick={() => toggle(p.id)}
+            disabled={!isCompared && !canAdd}
+            className={cn(
+              'flex items-center gap-1 text-xs border px-3 py-1.5 rounded-lg transition-colors',
+              isCompared
+                ? 'border-teal-300 bg-teal-50 text-teal-600 font-medium'
+                : canAdd
+                  ? 'border-gray-200 text-gray-500 hover:text-teal-600 hover:border-teal-200'
+                  : 'border-gray-100 text-gray-300 cursor-not-allowed'
+            )}
+          >
+            <GitCompare className="h-3 w-3" />
+            {isCompared ? 'Compared' : 'Compare'}
+          </button>
+        )}
       </div>
     </div>
   )
