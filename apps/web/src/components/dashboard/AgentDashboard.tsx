@@ -240,11 +240,19 @@ export function AgentDashboard() {
 
 
 
-  // Reset page when filters change
+  // Reset page when filters change (derived state pattern)
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronising derived state on filter change
+  const filterKey = `${filterSearch}|${filterState}|${filterClient}|${filterType}`
 
-  useEffect(() => { setPage(1) }, [filterSearch, filterState, filterClient, filterType])
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey)
+
+  if (prevFilterKey !== filterKey) {
+
+    setPrevFilterKey(filterKey)
+
+    setPage(1)
+
+  }
 
 
 
