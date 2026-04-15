@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateProperty, resolvePropertyId } from '../services/propertyService'
+import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateProperty, resolvePropertyId, ensurePropertyId } from '../services/propertyService'
 import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
@@ -28,14 +28,28 @@ propertiesRouter.param('id', async (req, res, next, id) => {
   }
   // Resolve address slugs / parcel IDs to the canonical DB id so that
   // sub-resource endpoints (risk, insurance, carriers, etc.) which use
-  // findUniqueOrThrow on `id` don't 404 for slug-based URLs.
+  // findUniqueOrThrow on `id` don't 404 for slug-based URLs. If the slug
+  // parses to a valid address but no row exists yet, ensurePropertyId
+  // geocodes it and creates the row on-demand — this is what lets users
+  // navigate directly to /api/properties/<address-slug>/report for a
+  // property that's never been searched before.
   try {
-    const resolved = await resolvePropertyId(id)
-    if (resolved && resolved !== id) {
+    const resolved = await ensurePropertyId(id)
+    if (!resolved) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Property not found' },
+      })
+      return
+    }
+    if (resolved !== id) {
       req.params.id = resolved
     }
-  } catch {
-    // Resolution failure is non-fatal — let downstream handlers deal with it
+  } catch (err) {
+    logger.warn('ensurePropertyId failed in :id param middleware', {
+      id,
+      error: err instanceof Error ? err.message : err,
+    })
   }
   next()
 })
