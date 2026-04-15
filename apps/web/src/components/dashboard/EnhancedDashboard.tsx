@@ -3312,6 +3312,8 @@ export function EnhancedDashboard() {
 
     setLayout((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)));
 
+  };
+
   const resetLayout = () => setLayout(DEFAULT_LAYOUT);
 
 
