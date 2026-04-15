@@ -332,8 +332,8 @@ describe('updateSession', () => {
     const protectedRoutes = [
       '/dashboard',
       '/dashboard/overview',
-      '/analytics',
-      '/analytics/searches',
+      '/clients',
+      '/clients/searches',
       '/account',
       '/account/settings',
       '/account/billing',
@@ -382,7 +382,7 @@ describe('updateSession', () => {
   describe('protected routes preserve query params in redirectTo', () => {
     const routesWithQuery: Array<[string, string]> = [
       ['/dashboard?tab=overview', '/dashboard?tab=overview'],
-      ['/analytics?range=30d', '/analytics?range=30d'],
+      ['/clients?range=30d', '/clients?range=30d'],
       ['/compare?ids=1,2,3', '/compare?ids=1,2,3'],
       ['/account?section=billing', '/account?section=billing'],
       ['/clients?status=active', '/clients?status=active'],
@@ -516,7 +516,7 @@ describe('updateSession', () => {
   describe('authenticated users on protected routes pass through', () => {
     const protectedRoutes = [
       '/dashboard',
-      '/analytics',
+      '/clients',
       '/account',
       '/compare',
       '/properties/123',
@@ -619,7 +619,7 @@ describe('updateSession', () => {
       '/login',
       '/get-started',
       '/dashboard',
-      '/analytics',
+      '/clients',
       '/account',
       '/properties/123',
     ]
@@ -718,9 +718,9 @@ describe('updateSession', () => {
       expect(res._type).toBe('next')
     })
 
-    it('cached active subscription (cookie=1) allows /analytics', async () => {
+    it('cached active subscription (cookie=1) allows /clients', async () => {
       mockAuthenticated()
-      const res = await callUpdateSession(createMockRequest('/analytics', { cg_sub_active: '1' }))
+      const res = await callUpdateSession(createMockRequest('/clients', { cg_sub_active: '1' }))
       expect(res._type).toBe('next')
     })
 
@@ -750,9 +750,9 @@ describe('updateSession', () => {
       expect(getRedirectSearchParam('reason')).toBe('subscription_required')
     })
 
-    it('cached inactive subscription (cookie=0) redirects /analytics to /pricing', async () => {
+    it('cached inactive subscription (cookie=0) redirects /clients to /pricing', async () => {
       mockAuthenticated()
-      const res = await callUpdateSession(createMockRequest('/analytics', { cg_sub_active: '0' }))
+      const res = await callUpdateSession(createMockRequest('/clients', { cg_sub_active: '0' }))
       expect(res._type).toBe('redirect')
       expect(getRedirectPathname()).toBe('/pricing')
     })
@@ -776,7 +776,7 @@ describe('updateSession', () => {
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   describe('subscription gating disabled', () => {
-    const protectedRoutes = ['/dashboard', '/analytics', '/account', '/compare', '/clients']
+    const protectedRoutes = ['/dashboard', '/clients', '/account', '/compare', '/clients']
 
     it.each(protectedRoutes)('allows authenticated access to %s when STRIPE_SUBSCRIPTION_REQUIRED=false', async (route) => {
       setupEnvVars({ STRIPE_SUBSCRIPTION_REQUIRED: 'false' })
@@ -922,7 +922,7 @@ describe('updateSession', () => {
   describe('deep protected paths redirect', () => {
     const deepProtected = [
       '/dashboard/clients/123',
-      '/analytics/reports/weekly',
+      '/clients/reports/weekly',
       '/account/billing/invoices',
       '/compare/properties/1-vs-2',
       '/clients/123/properties',
@@ -1008,7 +1008,7 @@ describe('updateSession', () => {
       { path: '/forgot-password', isPublic: true, isAuthRoute: false },
       { path: '/reset-password', isPublic: true, isAuthRoute: false },
       { path: '/dashboard', isPublic: false, isAuthRoute: false },
-      { path: '/analytics', isPublic: false, isAuthRoute: false },
+      { path: '/clients', isPublic: false, isAuthRoute: false },
       { path: '/account', isPublic: false, isAuthRoute: false },
       { path: '/compare', isPublic: false, isAuthRoute: false },
       { path: '/properties/123', isPublic: true, isAuthRoute: false },
@@ -1106,8 +1106,8 @@ describe('updateSession', () => {
     const protectedRoutes = [
       '/dashboard',
       '/dashboard/overview',
-      '/analytics',
-      '/analytics/searches',
+      '/clients',
+      '/clients/searches',
       '/compare',
       '/compare/results',
       '/clients',
@@ -1144,7 +1144,7 @@ describe('updateSession', () => {
       ['auth /dashboard', () => mockAuthenticated()],
       ['auth /get-started', () => mockAuthenticated()],
       ['auth /search', () => mockAuthenticated()],
-      ['auth /analytics', () => mockAuthenticated()],
+      ['auth /clients', () => mockAuthenticated()],
     ]
 
     it.each(passThroughCases)('calls NextResponse.next for %s', async (_desc, setup) => {
@@ -1201,7 +1201,7 @@ describe('updateSession', () => {
       ['auth /get-started', () => mockAuthenticated(), '/get-started'],
       ['unauth /search', () => mockUnauthenticated(), '/search'],
       ['unauth /account', () => mockUnauthenticated(), '/account'],
-      ['auth /analytics', () => mockAuthenticated(), '/analytics'],
+      ['auth /clients', () => mockAuthenticated(), '/clients'],
       ['unauth /pricing', () => mockUnauthenticated(), '/pricing'],
       ['auth /compare', () => mockAuthenticated(), '/compare'],
       ['unauth /properties/1', () => mockUnauthenticated(), '/properties/1'],

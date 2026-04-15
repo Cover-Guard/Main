@@ -7,7 +7,6 @@ import {
   Search,
   LayoutDashboard,
   Wrench,
-  BarChart2,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -29,7 +28,6 @@ const navItems = [
   { href: '/check',     label: 'Search',     icon: Search,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
-  { href: '/analytics', label: 'Analytics',  icon: BarChart2,       exact: false },
   { href: '/help',      label: 'Help',       icon: HelpCircle,      exact: false },
 ]
 

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function ReportsPage() {
-  redirect('/analytics?tab=reports')
+  redirect('/dashboard')
 }
