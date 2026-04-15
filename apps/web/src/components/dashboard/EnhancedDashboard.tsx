@@ -1286,7 +1286,6 @@ function RiskTrendPanel() {
             className={`px-1.5 py-0.5 rounded text-xs font-medium ${
               range === '12mo' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
               }`}
-            }`}
           >
             12mo
           </button>
