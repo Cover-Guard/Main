@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo, ReactNode, JSX } from 'react';
+import { useState, useEffect, ReactNode, JSX } from 'react';
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import {
-  GripVertical, X, Settings, TrendingUp, TrendingDown, AlertTriangle, Shield,
-  Building2, FileText, RefreshCw, Eye, ArrowUpRight, ArrowDownRight,
-  ChevronDown, ChevronUp, Check, Send, Star, MapPin, DollarSign,
+  GripVertical, X, Settings, TrendingUp, TrendingDown, Shield,
+  Building2, FileText, RefreshCw, ArrowUpRight, ArrowDownRight,
+  ChevronDown, ChevronUp, Check, Send, MapPin, DollarSign,
   BarChart3, Activity, Zap, Home, Layers, Clock, Brain,
   Maximize2, Minimize2, LucideIcon
 } from 'lucide-react';
