@@ -1123,7 +1123,7 @@ function SavedPropertiesSection() {
                       <RefreshCw className="h-3 w-3" /> Regen
                     </button>
                     <button className="flex items-center gap-0.5 font-semibold text-teal-600 hover:text-teal-700">
-                      <FileText className="h-3 w-3" /> Report
+                      <FileText className="h-3 w-3" /> View Report
                     </button>
                   </div>
                 </div>

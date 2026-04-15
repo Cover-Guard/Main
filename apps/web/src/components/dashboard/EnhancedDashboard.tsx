@@ -9,7 +9,8 @@ import {
   GripVertical, X, Settings, TrendingUp, TrendingDown, Shield,
   Building2, FileText, RefreshCw, ArrowUpRight, ArrowDownRight,
   ChevronDown, ChevronUp, Check, Send, MapPin, DollarSign,
-  BarChart3, Activity, Home, Layers, Brain, LucideIcon
+  BarChart3, Activity, Zap, Home, Layers, Clock, Brain,
+  Maximize2, Minimize2, LucideIcon
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -594,7 +595,7 @@ function SavedPropertiesPanel() {
                   onClick={() => setSelectedReport(prop)}
                   className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-200 rounded text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  <FileText size={11} /> Report
+                  <FileText size={11} /> View Report
                 </button>
                 <button
                   onClick={() => {
@@ -1285,7 +1286,7 @@ function RiskTrendPanel() {
             onClick={() => setRange('12mo')}
             className={`px-1.5 py-0.5 rounded text-xs font-medium ${
               range === '12mo' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:text-gray-600'
-              }`}
+            }`}
           >
             12mo
           </button>
@@ -1659,20 +1660,57 @@ export function EnhancedDashboard() {
     setLayout((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)));
   };
 
+  const cycleSpan = (id: string) => {
+    const order: Array<'full' | 'half' | 'third'> = ['full', 'half', 'third'];
+    setLayout((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const idx = order.indexOf(p.span);
+        return { ...p, span: order[(idx + 1) % order.length] };
+      })
+    );
+  };
+
   const resetLayout = () => setLayout(DEFAULT_LAYOUT);
 
   const visiblePanels = layout.filter((p) => p.visible).sort((a, b) => a.order - b.order);
 
-  // Inline drag-and-drop between panels on the main grid (no customize mode required)
-  const handlePanelDragStart = (panelId: string) => {
-    const idx = layout.findIndex((p) => p.id === panelId);
-    if (idx !== -1) setDragItem(idx);
-  };
-  const handlePanelDrop = (panelId: string) => {
-    if (dragItem === null) return;
-    const toIdx = layout.findIndex((p) => p.id === panelId);
-    if (toIdx !== -1 && toIdx !== dragItem) movePanel(dragItem, toIdx);
-    setDragItem(null);
+  // Group panels into rows
+  const rows: PanelConfig[][] = [];
+  let currentRow: PanelConfig[] = [];
+  let currentRowMax = 0;
+
+  visiblePanels.forEach((panel) => {
+    if (panel.span === 'full') {
+      if (currentRow.length > 0) {
+        rows.push(currentRow);
+        currentRow = [];
+        currentRowMax = 0;
+      }
+      rows.push([panel]);
+    } else {
+      const targetCols = panel.span === 'third' ? 3 : 2;
+      if (currentRow.length > 0 && (currentRowMax !== targetCols || currentRow.length >= currentRowMax)) {
+        rows.push(currentRow);
+        currentRow = [];
+        currentRowMax = 0;
+      }
+      currentRowMax = targetCols;
+      currentRow.push(panel);
+      if (currentRow.length >= currentRowMax) {
+        rows.push(currentRow);
+        currentRow = [];
+        currentRowMax = 0;
+      }
+    }
+  });
+  if (currentRow.length > 0) rows.push(currentRow);
+
+  const gridClass = (row: PanelConfig[]): string => {
+    if (row.length === 1 && row[0].span === 'full') return 'grid-cols-1';
+    if (row.length === 3 || row[0]?.span === 'third') return 'grid-cols-3';
+    if (row.length === 2) return 'grid-cols-2';
+    return 'grid-cols-1';
   };
 
   return (
@@ -1744,8 +1782,14 @@ export function EnhancedDashboard() {
                     {panel.title}
                   </span>
                   <button
+                    onClick={() => cycleSpan(panel.id)}
+                    className="text-xs px-1.5 py-px rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
+                  >
+                    {panel.span === 'full' ? 'Full' : panel.span === 'half' ? '½' : '⅓'}
+                  </button>
+                  <button
                     onClick={() => toggleVisibility(panel.id)}
-                    className={`Text-xs px-1.5 py-px rounded font-medium ${
+                    className={`text-xs px-1.5 py-px rounded font-medium ${
                       panel.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
                     }`}
                   >
@@ -1758,44 +1802,35 @@ export function EnhancedDashboard() {
         </div>
       )}
 
-      {/* Dashboard Body — responsive grid: min 1, max 3 per row; cards ~2x taller */}
-      <main className="max-w-screen-2xl mx-auto px-3 py-2">
-        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {visiblePanels.map((panel) => {
-            const PanelComponent = PANEL_COMPONENTS[panel.id];
-            if (!PanelComponent) return null;
-            const isDragging = dragItem !== null && layout[dragItem]?.id === panel.id;
-            return (
-              <div
-                key={panel.id}
-                draggable
-                onDragStart={() => handlePanelDragStart(panel.id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handlePanelDrop(panel.id)}
-                onDragEnd={() => setDragItem(null)}
-                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all flex flex-col h-[28rem] ${
-                  isDragging ? 'opacity-40 ring-2 ring-indigo-400' : 'hover:shadow-md hover:border-indigo-200'
-                }`}
-              >
-                <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <GripVertical size={11} className="text-gray-300 flex-shrink-0" />
-                    <panel.icon size={12} className="text-indigo-600 flex-shrink-0" />
-                    <h2 className="text-[11px] font-semibold text-gray-900 truncate">{panel.title}</h2>
-                  </div>
-                  {(panel.id === 'kpis' || panel.id === 'forecast') && (
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                      <LiveDot />
+      {/* Dashboard Body */}
+      <main className="max-w-7xl mx-auto px-4 py-3 space-y-2.5">
+        {rows.map((row, rowIdx) => (
+          <div key={rowIdx} className={`grid gap-2.5 ${gridClass(row)}`}>
+            {row.map((panel) => {
+              const PanelComponent = PANEL_COMPONENTS[panel.id];
+              if (!PanelComponent) return null;
+              return (
+                <div key={panel.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50/50">
+                    <div className="flex items-center gap-1.5">
+                      <panel.icon size={13} className="text-indigo-600" />
+                      <h2 className="text-xs font-semibold text-gray-900">{panel.title}</h2>
                     </div>
-                  )}
+                    {(panel.id === 'kpis' || panel.id === 'forecast') && (
+                      <div className="flex items-center gap-1">
+                        <LiveDot />
+                        <span className="text-xs text-gray-400">Live</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <PanelComponent />
+                  </div>
                 </div>
-                <div className="p-1.5 flex-1 overflow-auto">
-                  <PanelComponent />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ))}
       </main>
 
       {/* Footer */}

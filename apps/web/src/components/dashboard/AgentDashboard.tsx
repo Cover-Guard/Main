@@ -481,7 +481,7 @@ function DashboardCard({ saved, onViewReport }: { saved: SavedPropertyRow; onVie
           className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
         >
           <FileText className="h-3.5 w-3.5" />
-          Report
+          View Report
         </button>
         <button
           onClick={() => toggle(p.id)}
@@ -546,7 +546,7 @@ function DashboardListRow({ saved, onViewReport }: { saved: SavedPropertyRow; on
           onClick={onViewReport}
           className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 border border-teal-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition-colors"
         >
-          <FileText className="h-3 w-3" /> Report
+          <FileText className="h-3 w-3" /> View Report
         </button>
         <button
           onClick={() => toggle(p.id)}
