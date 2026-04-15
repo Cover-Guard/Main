@@ -33,13 +33,27 @@ const navItems = [
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
-  const [bannerVisible, setBannerVisible] = useState(() => {
-    if (typeof window === 'undefined') return true
-    return localStorage.getItem('cg_banner_dismissed') !== '1'
-  })
+  // Banner defaults to visible on both server and first client render so
+  // hydration stays consistent (see React error #418). We then read the
+  // dismissed flag from localStorage after mount and hide the banner if
+  // the user previously dismissed it. A single cascading render on mount
+  // is the intended behavior here — same pattern as DemoDataToggle in
+  // components/analytics/AnalyticsHeroStats.tsx.
+  const [bannerVisible, setBannerVisible] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const pathname = usePathname()
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('cg_banner_dismissed') === '1') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setBannerVisible(false)
+      }
+    } catch {
+      // localStorage may be unavailable (private mode, sandboxed iframe)
+    }
+  }, [])
 
   useEffect(() => {
     getMe()
