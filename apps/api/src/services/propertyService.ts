@@ -335,17 +335,75 @@ export async function getPropertyById(id: string): Promise<Property | null> {
 }
 
 /**
- * Resolve an incoming property identifier (DB id, or external slug stored
- * as parcelId) to the canonical DB id. Returns null if no row matches.
+ * Parse a slug-encoded address such as "4009-Tyler-William-Ln,-Las-Vegas,-NV-89130"
+ * into its component fields. Spaces in the source address are encoded as `-`,
+ * and the three top-level fields are joined with `,-` (i.e. the source comma +
+ * the encoded separator space). Returns null if the input does not match this
+ * shape, so callers can safely use it as a final-fallback heuristic.
+ */
+function parseAddressSlug(id: string): {
+  address: string
+  city: string
+  state: string
+  zip: string
+} | null {
+  if (!id.includes(',-')) return null
+  const parts = id.split(',-')
+  if (parts.length !== 3) return null
+  const [addressPart, cityPart, stateZipPart] = parts
+  const stateZip = stateZipPart.replace(/-/g, ' ').trim()
+  const m = stateZip.match(/^([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/)
+  if (!m) return null
+  return {
+    address: addressPart.replace(/-/g, ' ').trim(),
+    city: cityPart.replace(/-/g, ' ').trim(),
+    state: m[1].toUpperCase(),
+    zip: m[2],
+  }
+}
+
+/**
+ * Resolve an incoming property identifier to the canonical DB id. Accepts:
+ *   1. The canonical UUID
+ *   2. A `parcelId` (county assessor identifier)
+ *   3. An `externalId` (e.g. RentCast / ATTOM record id)
+ *   4. A slug-encoded address such as "123-Main-St,-Seattle,-WA-98101"
+ *      (looked up by address+city+state+zip when no direct id match is found)
+ *
+ * Returns null if no row matches. This is the function the `:id` route param
+ * middleware delegates to before invoking sub-resource handlers like /risk,
+ * /insurance, /carriers etc., so any identifier shape it cannot resolve will
+ * 404 downstream.
  */
 export async function resolvePropertyId(id: string): Promise<string | null> {
   const cached = propertyCache.get(id)
   if (cached) return cached.id
-  const row = await prisma.property.findFirst({
-    where: { OR: [{ id }, { parcelId: id }] },
+
+  // Direct match against the unique columns. externalId is `@unique` in the
+  // schema; querying it here is what makes RentCast/ATTOM ids resolvable.
+  const direct = await prisma.property.findFirst({
+    where: { OR: [{ id }, { parcelId: id }, { externalId: id }] },
     select: { id: true },
   })
-  return row?.id ?? null
+  if (direct) return direct.id
+
+  // Final fallback: parse slug-encoded address and look up by structured
+  // fields. This is what makes URLs like
+  // /api/properties/4009-Tyler-William-Ln,-Las-Vegas,-NV-89130/risk resolve
+  // instead of 404-ing the entire sub-resource tree.
+  const parsed = parseAddressSlug(id)
+  if (!parsed) return null
+
+  const slugMatch = await prisma.property.findFirst({
+    where: {
+      address: { equals: parsed.address, mode: 'insensitive' },
+      city: { equals: parsed.city, mode: 'insensitive' },
+      state: parsed.state,
+      zip: parsed.zip,
+    },
+    select: { id: true },
+  })
+  return slugMatch?.id ?? null
 }
 
 function prismaPropertyToDto(
