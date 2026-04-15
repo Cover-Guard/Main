@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { Property } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { PropertyCard } from '@/components/search/PropertyCard'
+import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
 import { Building2, AlertTriangle, RefreshCw } from 'lucide-react'
 
 interface SavedPropertiesPanelProps {
@@ -15,6 +16,7 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
   const [saved, setSaved] = useState<Array<{ property: Property }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
 
   useEffect(() => {
     getSavedProperties()
@@ -72,8 +74,16 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
       )}
       {compact && <h3 className="font-semibold text-gray-800">Recent Saved Properties</h3>}
       {displayed.map(({ property }) => (
-        <PropertyCard key={property.id} property={property} />
+        <PropertyCard key={property.id} property={property} onViewReport={() => setSelectedProperty(property)} />
       ))}
+
+      {selectedProperty && (
+        <PropertyRiskReportModal
+          property={selectedProperty}
+          open
+          onClose={() => setSelectedProperty(null)}
+        />
+      )}
     </div>
   )
 }
