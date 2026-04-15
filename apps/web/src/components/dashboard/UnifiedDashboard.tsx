@@ -1654,7 +1654,7 @@ function AnalyticsStrip() {
 
           <h2 className="mb-2 text-sm font-semibold text-gray-900">Top markets</h2>
 
-        <       <ul className="space-y-1.5">
+          <ul className="space-y-1.5">
 
             {MOCK_TOP_MARKETS.map((m) => {
 

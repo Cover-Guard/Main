@@ -538,7 +538,7 @@ export function AgentDashboard() {
 
             <option value="">All Types</option>
 
-            {uniqueTypes.map((t) => <option key=t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+            {uniqueTypes.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
 
           </select>
 
@@ -546,7 +546,7 @@ export function AgentDashboard() {
 
             value={filterClient}
 
-            onChange={(e} => setFilterClient(e.target.value)}
+            onChange={(e) => setFilterClient(e.target.value)}
 
             className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-teal-400"
 
