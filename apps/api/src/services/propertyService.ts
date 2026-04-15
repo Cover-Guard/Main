@@ -2,7 +2,7 @@ import { prisma } from '../utils/prisma'
 import { propertyCache } from '../utils/cache'
 import { logger } from '../utils/logger'
 import { searchPropertiesByAddress, fetchPropertyAVMValue } from '../integrations/propertyData'
-import { geocodeByPlaceId } from '../integrations/googleGeocode'
+import { geocodeByPlaceId, geocodeByAddress } from '../integrations/googleGeocode'
 import { PROPERTY_PUBLIC_SELECT } from '../utils/propertySelect'
 import type { PropertySearchParams, PropertySearchResult, Property } from '@coverguard/shared'
 import { randomUUID } from 'crypto'
@@ -404,6 +404,68 @@ export async function resolvePropertyId(id: string): Promise<string | null> {
     select: { id: true },
   })
   return slugMatch?.id ?? null
+}
+
+/**
+ * Resolve an incoming property id, and if it doesn't exist, try to create
+ * the row on-demand by geocoding the slug's address via Google. Enables
+ * direct-URL navigation to sub-resources like /risk and /report for
+ * properties that aren't yet in the DB — the user pastes a slug URL and
+ * the row is created transparently instead of 404-ing.
+ *
+ * Returns the canonical DB id, or null if the slug can't be parsed,
+ * can't be geocoded, or the DB insert fails.
+ */
+export async function ensurePropertyId(id: string): Promise<string | null> {
+  const existing = await resolvePropertyId(id)
+  if (existing) return existing
+
+  const parsed = parseAddressSlug(id)
+  if (!parsed) return null
+
+  const query = `${parsed.address}, ${parsed.city}, ${parsed.state} ${parsed.zip}`
+  const geocoded = await geocodeByAddress(query)
+  if (!geocoded || !geocoded.address || !geocoded.state) return null
+
+  // Before inserting, check once more by lat/lng proximity in case a row
+  // with a slightly different address normalization already exists — avoids
+  // creating near-duplicates of rows created via the placeId flow.
+  const LAT_TOLERANCE = 0.0005 // ~55 meters
+  const LNG_TOLERANCE = 0.0005
+  const nearby = await prisma.property.findFirst({
+    where: {
+      lat: { gte: geocoded.lat - LAT_TOLERANCE, lte: geocoded.lat + LAT_TOLERANCE },
+      lng: { gte: geocoded.lng - LNG_TOLERANCE, lte: geocoded.lng + LNG_TOLERANCE },
+      state: geocoded.state,
+    },
+    select: { id: true },
+  })
+  if (nearby) return nearby.id
+
+  try {
+    const newId = randomUUID()
+    await prisma.property.create({
+      data: {
+        id: newId,
+        address: geocoded.address,
+        city: geocoded.city,
+        state: geocoded.state,
+        zip: geocoded.zip,
+        county: geocoded.county,
+        lat: geocoded.lat,
+        lng: geocoded.lng,
+        propertyType: 'SINGLE_FAMILY',
+      },
+      select: { id: true },
+    })
+    return newId
+  } catch (err) {
+    logger.warn('ensurePropertyId: failed to create property from geocoded slug', {
+      id,
+      error: err instanceof Error ? err.message : err,
+    })
+    return null
+  }
 }
 
 function prismaPropertyToDto(

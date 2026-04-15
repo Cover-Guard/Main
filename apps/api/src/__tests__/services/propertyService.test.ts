@@ -32,6 +32,7 @@ jest.mock('../../integrations/propertyData', () => ({
 }))
 jest.mock('../../integrations/googleGeocode', () => ({
   geocodeByPlaceId: jest.fn(),
+  geocodeByAddress: jest.fn(),
 }))
 
 import { resolvePropertyId } from '../../services/propertyService'
