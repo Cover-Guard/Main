@@ -1,4 +1,4 @@
-Page_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_DownPage_Down'use client'
+'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import type { AnalyticsSummary } from '@coverguard/shared'
