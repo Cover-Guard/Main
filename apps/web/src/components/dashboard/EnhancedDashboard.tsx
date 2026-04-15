@@ -1758,9 +1758,9 @@ export function EnhancedDashboard() {
         </div>
       )}
 
-      {/* Dashboard Body — responsive grid: min 2, max 5 per row */}
+      {/* Dashboard Body — responsive grid: min 1, max 3 per row; cards ~2x taller */}
       <main className="max-w-screen-2xl mx-auto px-3 py-2">
-        <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {visiblePanels.map((panel) => {
             const PanelComponent = PANEL_COMPONENTS[panel.id];
             if (!PanelComponent) return null;
@@ -1773,11 +1773,11 @@ export function EnhancedDashboard() {
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handlePanelDrop(panel.id)}
                 onDragEnd={() => setDragItem(null)}
-                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all ${
+                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all flex flex-col min-h-[28rem] ${
                   isDragging ? 'opacity-40 ring-2 ring-indigo-400' : 'hover:shadow-md hover:border-indigo-200'
                 }`}
               >
-                <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100 bg-gray-50/50">
+                <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
                   <div className="flex items-center gap-1 min-w-0">
                     <GripVertical size={11} className="text-gray-300 flex-shrink-0" />
                     <panel.icon size={12} className="text-indigo-600 flex-shrink-0" />
@@ -1789,7 +1789,7 @@ export function EnhancedDashboard() {
                     </div>
                   )}
                 </div>
-                <div className="p-1.5">
+                <div className="p-1.5 flex-1 overflow-auto">
                   <PanelComponent />
                 </div>
               </div>
