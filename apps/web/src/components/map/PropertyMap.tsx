@@ -21,7 +21,9 @@ import {
   Shield,
   Eye,
   EyeOff,
+  FileText,
 } from 'lucide-react'
+import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
 
@@ -215,6 +217,7 @@ export function PropertyMap({
 }: PropertyMapProps) {
   const [activeLayers, setActiveLayers] = useState<Set<RiskLayer>>(new Set())
   const [popupInfo, setPopupInfo] = useState<Property | null>(null)
+  const [reportProperty, setReportProperty] = useState<Property | null>(null)
   const [expandedLayerInfo, setExpandedLayerInfo] = useState<RiskLayer | null>(null)
   const [clickedPin, setClickedPin] = useState<{ lat: number; lng: number; address?: string } | null>(null)
   const [layerToast, setLayerToast] = useState<{
@@ -436,12 +439,17 @@ export function PropertyMap({
                     <p className="text-xs text-gray-500">
                       {popupInfo.city}, {popupInfo.state} {popupInfo.zip}
                     </p>
-                    <a
-                      href={`/properties/${popupInfo.id}`}
-                      className="mt-2 inline-block text-xs font-medium text-brand-600 hover:underline"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReportProperty(popupInfo)
+                        setPopupInfo(null)
+                      }}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
                     >
-                      View full report â
-                    </a>
+                      <FileText className="h-3 w-3" />
+                      View Report
+                    </button>
                   </div>
                 </InfoWindow>
               )}
@@ -593,7 +601,7 @@ export function PropertyMap({
         </div>
       </div>
 
-      {/* ââ Overall risk badge (top-right) âââââââââââââââââââââââââ */}
+      {/* ââ Overall risk badge (top-right) ââââââââââââââââââââââââ */}
       {riskProfile && (
         <div className="absolute top-4 right-4 z-10">
           <div
@@ -645,6 +653,15 @@ export function PropertyMap({
             )}
           </div>
         </div>
+      )}
+
+      {/* Shared Property Risk Report modal — opened from map info window */}
+      {reportProperty && (
+        <PropertyRiskReportModal
+          property={reportProperty}
+          open
+          onClose={() => setReportProperty(null)}
+        />
       )}
     </div>
   )
@@ -825,7 +842,7 @@ class MapErrorBoundary extends Component<
   }
 }
 
-// âââ Loading Guard âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// âââ Loading Guard ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function MapLoadingGuard({ children }: { children: ReactNode }) {
   const isLoaded = useApiIsLoaded()
   if (!isLoaded) {
