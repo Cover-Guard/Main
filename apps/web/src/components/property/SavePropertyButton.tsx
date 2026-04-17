@@ -14,10 +14,16 @@ export function SavePropertyButton({ propertyId, className = '' }: SavePropertyB
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [loadedPropertyId, setLoadedPropertyId] = useState(propertyId)
+
+  if (loadedPropertyId !== propertyId) {
+    setLoadedPropertyId(propertyId)
+    setLoading(true)
+    setSaved(false)
+  }
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     getSavedProperties()
       .then((list: unknown) => {
         if (cancelled) return

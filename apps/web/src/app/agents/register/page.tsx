@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Shield, Users, ArrowLeft } from 'lucide-react'
@@ -29,14 +29,14 @@ export default function AgentRegisterPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { role: 'AGENT' }
   })
 
-  const role = watch('role')
+  const role = useWatch({ control, name: 'role' })
 
   async function onSubmit(data: FormData) {
     setError(null)

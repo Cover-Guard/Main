@@ -164,21 +164,25 @@ export function PropertyChecklists({ propertyId }: PropertyChecklistsProps) {
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<ChecklistType | null>(null)
 
-  const fetchChecklists = useCallback(async () => {
-    try {
-      const data = await getPropertyChecklists(propertyId)
-      setChecklists(data)
-      setError(null)
-    } catch {
-      setChecklists([])
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    let cancelled = false
+    getPropertyChecklists(propertyId)
+      .then((data) => {
+        if (cancelled) return
+        setChecklists(data)
+        setError(null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setChecklists([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
   }, [propertyId])
-
-  useEffect(() => {
-    fetchChecklists()
-  }, [fetchChecklists])
 
   const getChecklist = (type: ChecklistType) =>
     checklists.find((c) => c.checklistType === type)
