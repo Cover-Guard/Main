@@ -22,6 +22,8 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Sun,
+  CloudOff,
 } from 'lucide-react'
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
 
@@ -39,7 +41,7 @@ interface PropertyMapProps {
   className?: string
 }
 
-type RiskLayer = 'flood' | 'fire' | 'wind' | 'earthquake' | 'crime'
+type RiskLayer = 'flood' | 'fire' | 'wind' | 'earthquake' | 'crime' | 'heat' | 'drought'
 
 const RISK_LAYER_CONFIG: Record<
   RiskLayer,
@@ -91,6 +93,22 @@ const RISK_LAYER_CONFIG: Record<
     shows: 'Reported violent and property crime rates by jurisdiction.',
     source: 'FBI Crime Data Explorer',
     coverage: 'Aggregated by county — circle shows local intensity.',
+  },
+  heat: {
+    label: 'Extreme Heat',
+    color: '#f59e0b',
+    icon: Sun,
+    shows: 'Estimated days/year ≥100°F today and projected to 2050.',
+    source: 'NOAA NCEI state climatology + IPCC AR6 projections',
+    coverage: 'Score circle only — no public per-coordinate heat tile is available.',
+  },
+  drought: {
+    label: 'Drought',
+    color: '#b45309',
+    icon: CloudOff,
+    shows: 'Current US Drought Monitor severity (D0–D4) and 2050 precipitation projection.',
+    source: 'US Drought Monitor (Esri Living Atlas) + IPCC AR6',
+    coverage: 'Updated weekly. Circle intensity reflects subsidence + projected drying.',
   },
 }
 // âââ ArcGIS Tile Service URLs ââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -153,6 +171,17 @@ const ARCGIS_TILE_SERVICES: Partial<
       label: 'USGS Seismic Hazard',
     },
   ],
+  // US Drought Monitor (Esri Living Atlas) — same FeatureServer the backend
+  // queries for the per-property reading, exposed here as a map overlay.
+  drought: [
+    {
+      url: 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/US_Drought_Intensity_v1/FeatureServer',
+      layers: 'show:0',
+      label: 'US Drought Monitor',
+    },
+  ],
+  // No publicly hosted tile service for extreme-heat exposure; the heat layer
+  // surfaces only the score-driven `RiskCircleOverlay` (same as crime).
   // NOTE: No tile service is configured for `crime`. The FBI Crime Data
   // Explorer ArcGIS endpoint we previously pointed at
   // (services.arcgis.com/jIL9msH9OI208GCb/.../FBI_Crime_Data_Explorer/MapServer)
@@ -169,6 +198,8 @@ const MOCK_RISK_PROFILE: Record<RiskLayer, { score: number; level: RiskLevel }> 
   wind:       { score: 45, level: 'MODERATE' },
   earthquake: { score: 28, level: 'LOW' },
   crime:      { score: 55, level: 'MODERATE' },
+  heat:       { score: 50, level: 'HIGH' },
+  drought:    { score: 35, level: 'MODERATE' },
 }
 
 function riskLevelBadgeColor(level: RiskLevel): string {
@@ -264,7 +295,13 @@ export function PropertyMap({
 
   const getRiskScore = useCallback(
     (layer: RiskLayer): number | null => {
-      if (effectiveRiskProfile) return effectiveRiskProfile[layer].score
+      if (effectiveRiskProfile) {
+        // heat / drought are optional — fall back to mock when missing
+        const factor = effectiveRiskProfile[layer]
+        if (factor) return factor.score
+        if (useMock) return MOCK_RISK_PROFILE[layer].score
+        return null
+      }
       if (useMock) return MOCK_RISK_PROFILE[layer].score
       return null
     },
@@ -273,7 +310,12 @@ export function PropertyMap({
 
   const getRiskLevel = useCallback(
     (layer: RiskLayer): RiskLevel | null => {
-      if (effectiveRiskProfile) return effectiveRiskProfile[layer].level
+      if (effectiveRiskProfile) {
+        const factor = effectiveRiskProfile[layer]
+        if (factor) return factor.level
+        if (useMock) return MOCK_RISK_PROFILE[layer].level
+        return null
+      }
       if (useMock) return MOCK_RISK_PROFILE[layer].level
       return null
     },

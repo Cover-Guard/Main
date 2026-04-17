@@ -22,9 +22,10 @@ import {
   BarChart3, Activity, Home, Layers, Brain, LucideIcon, AlertTriangle
 } from 'lucide-react';
 
-import type { Property as SharedProperty, SavedPropertyWithProperty } from '@coverguard/shared';
+import type { Property as SharedProperty, SavedPropertyWithProperty, TickerKpi } from '@coverguard/shared';
 import { formatCurrency, formatAddress } from '@coverguard/shared';
 import { getSavedProperties } from '@/lib/api';
+import { useDashboardTicker } from '@/lib/hooks/useDashboardTicker';
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal';
 
 
@@ -206,16 +207,6 @@ interface PanelConfig {
   visible: boolean;
 
   span: 'full' | 'half' | 'third';
-
-}
-
-
-
-interface RealtimeValue {
-
-  value: number;
-
-  direction: 'up' | 'down';
 
 }
 
@@ -482,48 +473,6 @@ function Modal({ open, onClose, title, wide = false, children }: ModalProps) {
     </div>
 
   );
-
-}
-
-
-
-// ─── Real-time Ticker Hook ────────────────────────────────────────────────────
-
-
-
-function useRealtimeValue(base: number, variance: number = 0.02, interval: number = 3000): RealtimeValue {
-
-  const [value, setValue] = useState(base);
-
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
-
-
-
-  useEffect(() => {
-
-    const id = setInterval(() => {
-
-      setValue((prev) => {
-
-        const change = prev * variance * (Math.random() - 0.45);
-
-        const next = prev + change;
-
-        setDirection(change >= 0 ? 'up' : 'down');
-
-        return next;
-
-      });
-
-    }, interval);
-
-    return () => clearInterval(id);
-
-  }, [base, variance, interval]);
-
-
-
-  return { value, direction };
 
 }
 
@@ -1156,103 +1105,59 @@ const KPI_DETAILS: Record<string, KPIDetail> = {
 
 
 
+// Map TickerKpi `key` → display chrome (icon + colors). For KPIs that don't
+// appear in the configured KPI_KEYS list below, the mapping defaults to grey.
+const KPI_CHROME: Record<string, { icon: LucideIcon; color: string; bg: string; chartColor: string }> = {
+  portfolioValue: { icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50', chartColor: '#22c55e' },
+  savedCount:     { icon: Building2,  color: 'text-purple-600', bg: 'bg-purple-50', chartColor: '#8b5cf6' },
+  searchesLast7d: { icon: Activity,   color: 'text-blue-600',  bg: 'bg-blue-50',  chartColor: '#3b82f6' },
+  quoteRequests:  { icon: FileText,   color: 'text-amber-600', bg: 'bg-amber-50', chartColor: '#f59e0b' },
+  avgRiskScore:   { icon: Shield,     color: 'text-indigo-600', bg: 'bg-indigo-50', chartColor: '#6366f1' },
+  avgInsuranceCost: { icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', chartColor: '#10b981' },
+};
+
+const KPI_PANEL_KEYS: TickerKpi['key'][] = ['portfolioValue', 'savedCount', 'searchesLast7d', 'avgRiskScore'];
+
+function tickerToKpi(t: TickerKpi): KPI {
+  const chrome = KPI_CHROME[t.key] ?? { icon: Activity, color: 'text-gray-600', bg: 'bg-gray-50', chartColor: '#6b7280' };
+  // KPI's `dir` only has 'up' | 'down'. Map 'flat' to 'up' so the arrow renders
+  // (the live-dot already conveys "no change" via subtle pulsing).
+  const dir: 'up' | 'down' = t.direction === 'down' ? 'down' : 'up';
+  return {
+    label: t.label,
+    value: t.display,
+    raw: t.value ?? 0,
+    dir,
+    icon: chrome.icon,
+    color: chrome.color,
+    bg: chrome.bg,
+    chartColor: chrome.chartColor,
+  };
+}
+
 function KPIPanel() {
 
-  const premium = useRealtimeValue(190500, 0.003, 4000);
-
-  const lossRatio = useRealtimeValue(6.8, 0.05, 5000);
-
-  const properties = useRealtimeValue(47, 0.01, 8000);
-
-  const avgRisk = useRealtimeValue(58.2, 0.02, 6000);
+  const { data: ticker } = useDashboardTicker();
 
   const [selectedKPI, setSelectedKPI] = useState<KPI | null>(null);
 
-
-
-  const kpis: KPI[] = [
-
-    {
-
-      label: 'Total Premium (Monthly)',
-
-      value: fmt(premium.value),
-
-      raw: premium.value,
-
-      dir: premium.direction,
-
-      icon: DollarSign,
-
-      color: 'text-green-600',
-
-      bg: 'bg-green-50',
-
-      chartColor: '#22c55e',
-
-    },
-
-    {
-
-      label: 'Loss Ratio',
-
-      value: fmtPct(lossRatio.value),
-
-      raw: lossRatio.value,
-
-      dir: lossRatio.direction === 'up' ? 'down' : 'up',
-
-      icon: Activity,
-
-      color: 'text-blue-600',
-
-      bg: 'bg-blue-50',
-
-      chartColor: '#3b82f6',
-
-    },
-
-    {
-
-      label: 'Active Properties',
-
-      value: Math.round(properties.value).toString(),
-
-      raw: properties.value,
-
-      dir: properties.direction,
-
-      icon: Building2,
-
-      color: 'text-purple-600',
-
-      bg: 'bg-purple-50',
-
-      chartColor: '#8b5cf6',
-
-    },
-
-    {
-
-      label: 'Avg Risk Score',
-
-      value: avgRisk.value.toFixed(1),
-
-      raw: avgRisk.value,
-
-      dir: avgRisk.direction === 'up' ? 'down' : 'up',
-
-      icon: Shield,
-
-      color: 'text-indigo-600',
-
-      bg: 'bg-indigo-50',
-
-      chartColor: '#6366f1',
-
-    },
-
-  ];
+  // Build the 4 KPI cards from the live ticker. Fall back to skeleton placeholders
+  // while loading so the grid retains its shape.
+  const kpis: KPI[] = ticker
+    ? KPI_PANEL_KEYS
+        .map((key) => ticker.kpis.find((k) => k.key === key))
+        .filter((k): k is TickerKpi => !!k)
+        .map(tickerToKpi)
+    : KPI_PANEL_KEYS.map((key) => ({
+        label: key,
+        value: '—',
+        raw: 0,
+        dir: 'up',
+        icon: KPI_CHROME[key]?.icon ?? Activity,
+        color: KPI_CHROME[key]?.color ?? 'text-gray-600',
+        bg: KPI_CHROME[key]?.bg ?? 'bg-gray-50',
+        chartColor: KPI_CHROME[key]?.chartColor ?? '#6b7280',
+      }));
 
 
 

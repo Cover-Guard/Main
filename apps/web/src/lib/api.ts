@@ -15,6 +15,7 @@ import type {
   ChecklistType,
   ChecklistItem,
   SavedPropertyWithProperty,
+  DashboardTicker,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -232,6 +233,35 @@ export async function updateClient(id: string, data: Partial<Client>): Promise<C
 
 export async function deleteClient(id: string): Promise<void> {
   await apiFetch(`/api/clients/${id}`, { method: 'DELETE' })
+}
+
+// ─── PDF Download ────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the property report as a PDF Blob. The endpoint is authenticated, so
+ * we issue an authorized fetch and surface the response body as a Blob (rather
+ * than just navigating the browser to a URL — that wouldn't carry the token).
+ */
+export async function downloadPropertyReportPdf(propertyId: string): Promise<{ blob: Blob; filename: string }> {
+  const headers = await getAuthHeaders()
+  const res = await fetch(`${API_URL}/api/properties/${propertyId}/report.pdf`, {
+    headers: { ...headers },
+  })
+  if (!res.ok) {
+    throw new Error(`Report download failed (${res.status})`)
+  }
+  const blob = await res.blob()
+  // Pull filename from Content-Disposition (set by the API), fall back to a sensible default.
+  const disposition = res.headers.get('Content-Disposition') ?? ''
+  const match = /filename="?([^"]+)"?/i.exec(disposition)
+  const filename = match?.[1] ?? `coverguard-report-${propertyId}.pdf`
+  return { blob, filename }
+}
+
+// ─── Dashboard Ticker ────────────────────────────────────────────────────────
+
+export async function getDashboardTicker(): Promise<DashboardTicker> {
+  return apiFetch<DashboardTicker>('/api/dashboard/ticker')
 }
 
 // ─── AI Advisor ──────────────────────────────────────────────────────────────

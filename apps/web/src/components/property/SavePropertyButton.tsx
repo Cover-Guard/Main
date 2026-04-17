@@ -17,7 +17,6 @@ export function SavePropertyButton({ propertyId, className = '' }: SavePropertyB
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
     getSavedProperties()
       .then((list) => {
         if (cancelled) return

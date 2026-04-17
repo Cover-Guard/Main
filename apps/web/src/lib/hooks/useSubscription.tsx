@@ -73,29 +73,41 @@ export function SubscriptionProvider({
   const [loaded, setLoaded] = useState(!!overridePlan)
   const [loading, setLoading] = useState(!overridePlan)
 
-  const fetchSubscription = useCallback(async () => {
-    if (overridePlan) return // skip API when overridden
-    setLoading(true)
-    try {
-      const state = await getSubscriptionState()
-      if (state.active && state.subscription) {
-        const tier = subscriptionPlanToTier(
-          state.subscription.plan as 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM',
-        )
-        setPlan(tier)
-      } else {
+  /**
+   * Apply a fetched subscription state to local state. All setState calls live
+   * inside Promise callbacks (microtask-deferred) so this satisfies
+   * `react-hooks/set-state-in-effect` when invoked from a useEffect body.
+   */
+  const fetchSubscription = useCallback((): Promise<void> => {
+    if (overridePlan) return Promise.resolve()
+    return getSubscriptionState()
+      .then((state) => {
+        if (state.active && state.subscription) {
+          const tier = subscriptionPlanToTier(
+            state.subscription.plan as 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM',
+          )
+          setPlan(tier)
+        } else {
+          setPlan('free')
+        }
+      })
+      .catch(() => {
+        // If the API call fails (e.g. user not logged in), default to free.
+        // This is intentional — unauthenticated users see the free tier UI
+        // and gated features prompt them to register/upgrade.
         setPlan('free')
-      }
-    } catch {
-      // If the API call fails (e.g. user not logged in), default to free.
-      // This is intentional — unauthenticated users see the free tier UI
-      // and gated features prompt them to register/upgrade.
-      setPlan('free')
-    } finally {
-      setLoaded(true)
-      setLoading(false)
-    }
+      })
+      .finally(() => {
+        setLoaded(true)
+        setLoading(false)
+      })
   }, [overridePlan])
+
+  /** User-triggered refetch (e.g. after Stripe checkout). */
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    await fetchSubscription()
+  }, [fetchSubscription])
 
   useEffect(() => {
     fetchSubscription()
@@ -148,7 +160,7 @@ export function SubscriptionProvider({
       getUpgradeTarget: getUpgradeTargetFn,
       getFeatureName,
       getFeatureDesc,
-      refresh: fetchSubscription,
+      refresh,
     }),
     [
       plan,
@@ -161,7 +173,7 @@ export function SubscriptionProvider({
       getUpgradeTargetFn,
       getFeatureName,
       getFeatureDesc,
-      fetchSubscription,
+      refresh,
     ],
   )
 
