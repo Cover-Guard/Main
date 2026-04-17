@@ -16,6 +16,10 @@ import type {
   ChecklistItem,
   SavedPropertyWithProperty,
   DashboardTicker,
+  DealStats,
+  DealWithRelations,
+  DealStage,
+  DealFalloutReason,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -262,6 +266,56 @@ export async function downloadPropertyReportPdf(propertyId: string): Promise<{ b
 
 export async function getDashboardTicker(): Promise<DashboardTicker> {
   return apiFetch<DashboardTicker>('/api/dashboard/ticker')
+}
+
+// ─── Deals ───────────────────────────────────────────────────────────────────
+
+export async function listDeals(): Promise<DealWithRelations[]> {
+  return apiFetch<DealWithRelations[]>('/api/deals')
+}
+
+export async function getDealStats(): Promise<DealStats> {
+  return apiFetch<DealStats>('/api/deals/stats')
+}
+
+export interface CreateDealPayload {
+  title: string
+  stage?: DealStage
+  propertyId?: string | null
+  clientId?: string | null
+  dealValue?: number | null
+  carrierName?: string | null
+  notes?: string | null
+}
+
+export interface UpdateDealPayload {
+  title?: string
+  stage?: DealStage
+  propertyId?: string | null
+  clientId?: string | null
+  dealValue?: number | null
+  carrierName?: string | null
+  falloutReason?: DealFalloutReason | null
+  falloutNotes?: string | null
+  notes?: string | null
+}
+
+export async function createDeal(payload: CreateDealPayload): Promise<DealWithRelations> {
+  return apiFetch<DealWithRelations>('/api/deals', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateDeal(id: string, payload: UpdateDealPayload): Promise<DealWithRelations> {
+  return apiFetch<DealWithRelations>(`/api/deals/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteDeal(id: string): Promise<void> {
+  await apiFetch(`/api/deals/${id}`, { method: 'DELETE' })
 }
 
 // ─── AI Advisor ──────────────────────────────────────────────────────────────

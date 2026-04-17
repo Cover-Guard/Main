@@ -6,6 +6,7 @@ export * from './types/user'
 export * from './types/api'
 export * from './types/subscription'
 export * from './types/ticker'
+export * from './types/deal'
 
 // Utils
 export * from './utils/formatters'

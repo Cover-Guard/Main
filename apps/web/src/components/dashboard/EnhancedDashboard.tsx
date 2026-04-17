@@ -19,7 +19,7 @@ import {
   Building2, FileText, ArrowUpRight, ArrowDownRight,
 
   ChevronDown, ChevronUp, Check, Send, MapPin, DollarSign,
-  BarChart3, Activity, Home, Layers, Brain, LucideIcon, AlertTriangle
+  BarChart3, Activity, Home, Layers, Brain, LucideIcon, AlertTriangle, Briefcase
 } from 'lucide-react';
 
 import type { Property as SharedProperty, SavedPropertyWithProperty, TickerKpi } from '@coverguard/shared';
@@ -27,6 +27,7 @@ import { formatCurrency, formatAddress } from '@coverguard/shared';
 import { getSavedProperties } from '@/lib/api';
 import { useDashboardTicker } from '@/lib/hooks/useDashboardTicker';
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal';
+import { DealsKpiPanel } from '@/components/dashboard/DealsKpiPanel';
 
 
 
@@ -2483,29 +2484,33 @@ const DEFAULT_LAYOUT: PanelConfig[] = [
 
   { id: 'kpis', title: 'Key Metrics', icon: BarChart3, order: 1, visible: true, span: 'full' },
 
-  { id: 'clients', title: 'Client Management', icon: Building2, order: 2, visible: true, span: 'full' },
+  { id: 'deals', title: 'Deals & Fallout', icon: Briefcase, order: 2, visible: true, span: 'full' },
 
-  { id: 'properties', title: 'Saved Properties', icon: Home, order: 3, visible: true, span: 'full' },
+  { id: 'clients', title: 'Client Management', icon: Building2, order: 3, visible: true, span: 'full' },
 
-  { id: 'carriers', title: 'Active Carriers for Your Properties', icon: Shield, order: 4, visible: true, span: 'full' },
+  { id: 'properties', title: 'Saved Properties', icon: Home, order: 4, visible: true, span: 'full' },
 
-  { id: 'agentchat', title: 'Your Agent', icon: Send, order: 5, visible: true, span: 'third' },
+  { id: 'carriers', title: 'Active Carriers for Your Properties', icon: Shield, order: 5, visible: true, span: 'full' },
 
-  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 6, visible: true, span: 'third' },
+  { id: 'agentchat', title: 'Your Agent', icon: Send, order: 6, visible: true, span: 'third' },
 
-  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 7, visible: true, span: 'third' },
+  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 7, visible: true, span: 'third' },
 
-  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 8, visible: true, span: 'third' },
+  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 8, visible: true, span: 'third' },
+
+  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 9, visible: true, span: 'third' },
 
 ];
 
 
 
-const PANEL_COMPONENTS: Record<string, () => JSX.Element> = {
+const PANEL_COMPONENTS: Record<string, () => JSX.Element | null> = {
 
   insights: InsightsPanel,
 
   kpis: KPIPanel,
+
+  deals: DealsKpiPanel,
 
   clients: ClientManagementPanel,
 
