@@ -341,20 +341,29 @@ export function PropertyMap({
               onClick={(e) => {
                 const lat = e.detail?.latLng?.lat
                 const lng = e.detail?.latLng?.lng
-                if (lat != null && lng != null) {
-                  setClickedPin({ lat, lng })
-                  onMapClick?.({ lat, lng })
-                  // Reverse geocode to get address
-                  if (typeof google !== 'undefined' && google.maps?.Geocoder) {
-                    new google.maps.Geocoder().geocode(
-                      { location: { lat, lng } },
-                      (results, status) => {
-                        if (status === 'OK' && results?.[0]) {
-                          setClickedPin({ lat, lng, address: results[0].formatted_address })
-                        }
-                      },
-                    )
-                  }
+                if (
+                  lat == null || lng == null ||
+                  !Number.isFinite(lat) || !Number.isFinite(lng) ||
+                  Math.abs(lat) > 90 || Math.abs(lng) > 180
+                ) return
+                setClickedPin({ lat, lng })
+                onMapClick?.({ lat, lng })
+                // Reverse geocode to get address — keep prior pin even on failure
+                if (typeof google !== 'undefined' && google.maps?.Geocoder) {
+                  new google.maps.Geocoder().geocode(
+                    { location: { lat, lng } },
+                    (results, status) => {
+                      const address =
+                        status === 'OK' && results?.[0]
+                          ? results[0].formatted_address
+                          : 'Address unavailable'
+                      setClickedPin((prev) =>
+                        prev && prev.lat === lat && prev.lng === lng
+                          ? { ...prev, address }
+                          : prev,
+                      )
+                    },
+                  )
                 }
               }}
             >

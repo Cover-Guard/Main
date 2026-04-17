@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import type { Property } from '@coverguard/shared'
+import { useCallback, useEffect, useState } from 'react'
+import type { Property, SavedPropertyWithProperty } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { PropertyCard } from '@/components/search/PropertyCard'
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
@@ -13,17 +13,30 @@ interface SavedPropertiesPanelProps {
 }
 
 export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelProps) {
-  const [saved, setSaved] = useState<Array<{ property: Property }>>([])
+  const [saved, setSaved] = useState<SavedPropertyWithProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
 
-  useEffect(() => {
-    getSavedProperties()
-      .then((data) => setSaved(data as Array<{ property: Property }>))
+  const fetchSaved = useCallback(() => {
+    return getSavedProperties()
+      .then((data) => {
+        setSaved(data)
+        setError(null)
+      })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load saved properties'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetchSaved()
+  }, [fetchSaved])
+
+  const handleRetry = () => {
+    setError(null)
+    setLoading(true)
+    fetchSaved()
+  }
 
   const displayed = limit ? saved.slice(0, limit) : saved
 
@@ -44,7 +57,7 @@ export function SavedPropertiesPanel({ limit, compact }: SavedPropertiesPanelPro
         <p className="font-medium text-red-600">Could not load saved properties</p>
         <p className="mt-1 text-sm text-gray-400">Service temporarily unavailable. Please try again.</p>
         <button
-          onClick={() => { setError(null); setLoading(true); getSavedProperties().then(d => setSaved(d as Array<{ property: Property }>)).catch(err => setError(err instanceof Error ? err.message : 'Failed')).finally(() => setLoading(false)) }}
+          onClick={handleRetry}
           className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600 transition-colors"
         >
           <RefreshCw className="h-3.5 w-3.5" />

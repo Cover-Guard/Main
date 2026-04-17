@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { Property } from '@coverguard/shared'
 import {
-  Share2, Link2, Mail, Printer, GitCompareArrows, Check, Download,
+  Share2, Link2, Mail, Printer, GitCompareArrows, Check,
 } from 'lucide-react'
 
 interface ReportActionsProps {
@@ -78,11 +78,13 @@ export function ReportActions({
           </div>
         )}
       </div>
-      {/* Download / Print */}
-      <button onClick={onPrint} className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition" title="Download / Print">
-        <Download className="h-4 w-4" />
-      </button>
-      <button onClick={onPrint} className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition" title="Print report">
+      {/* Print (browser PDF via Print → Save as PDF) */}
+      <button
+        onClick={onPrint}
+        className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
+        title="Print report (use Save as PDF to download)"
+        aria-label="Print report"
+      >
         <Printer className="h-4 w-4" />
       </button>
       {/* Compare */}

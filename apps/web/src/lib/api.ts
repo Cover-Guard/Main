@@ -14,6 +14,7 @@ import type {
   PropertyChecklist,
   ChecklistType,
   ChecklistItem,
+  SavedPropertyWithProperty,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -143,15 +144,19 @@ export async function getPropertyCarriers(id: string): Promise<CarriersResult> {
   return apiFetch<CarriersResult>(`/api/properties/${id}/carriers`)
 }
 
-export async function getPropertyReport(id: string): Promise<{
+export interface PropertyReportBundle {
   property: Property
-  risk: PropertyRiskProfile
-  insurance: InsuranceCostEstimate
-  insurability: InsurabilityStatus
-  carriers: CarriersResult
+  // Risk is always computed; insurance / insurability / carriers can fail
+  // independently and come back null without failing the whole request.
+  risk: PropertyRiskProfile | null
+  insurance: InsuranceCostEstimate | null
+  insurability: InsurabilityStatus | null
+  carriers: CarriersResult | null
   publicData: PropertyPublicData | null
-}> {
-  return apiFetch(`/api/properties/${id}/report`)
+}
+
+export async function getPropertyReport(id: string): Promise<PropertyReportBundle> {
+  return apiFetch<PropertyReportBundle>(`/api/properties/${id}/report`)
 }
 
 export async function getPropertyPublicData(id: string): Promise<PropertyPublicData> {
@@ -197,8 +202,8 @@ export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName'
   return apiFetch('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) })
 }
 
-export async function getSavedProperties(): Promise<unknown[]> {
-  return apiFetch<unknown[]>('/api/auth/me/saved')
+export async function getSavedProperties(): Promise<SavedPropertyWithProperty[]> {
+  return apiFetch<SavedPropertyWithProperty[]>('/api/auth/me/saved')
 }
 
 export async function deleteAccount(): Promise<void> {

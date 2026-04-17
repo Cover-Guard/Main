@@ -2,7 +2,7 @@
 
 
 
-import { useState, useEffect, ReactNode, JSX } from 'react';
+import { useState, useEffect, useCallback, ReactNode, JSX } from 'react';
 
 import {
 
@@ -16,13 +16,13 @@ import {
 
   GripVertical, X, Settings, TrendingUp, TrendingDown, Shield,
 
-  Building2, FileText, RefreshCw, ArrowUpRight, ArrowDownRight,
+  Building2, FileText, ArrowUpRight, ArrowDownRight,
 
   ChevronDown, ChevronUp, Check, Send, MapPin, DollarSign,
   BarChart3, Activity, Home, Layers, Brain, LucideIcon, AlertTriangle
 } from 'lucide-react';
 
-import type { Property as SharedProperty } from '@coverguard/shared';
+import type { Property as SharedProperty, SavedPropertyWithProperty } from '@coverguard/shared';
 import { formatCurrency, formatAddress } from '@coverguard/shared';
 import { getSavedProperties } from '@/lib/api';
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal';
@@ -30,52 +30,6 @@ import { PropertyRiskReportModal } from '@/components/property/PropertyReportMod
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-
-
-interface Property {
-
-  id: number;
-
-  name: string;
-
-  address: string;
-
-  type: string;
-
-  value: number;
-
-  sqft: number;
-
-  yearBuilt: number;
-
-  riskScore: number;
-
-  riskLevel: string;
-
-  premium: number;
-
-  carrier: string;
-
-  coverageAmount: number;
-
-  floodZone: string;
-
-  windScore: number;
-
-  fireScore: number;
-
-  crimeScore: number;
-
-  seismicScore: number;
-
-  lastInspection: string;
-
-  claims: number;
-
-  image: string;
-
-}
 
 
 
@@ -205,20 +159,6 @@ interface Message {
 
 
 
-interface RiskCategory {
-
-  label: string;
-
-  score: number;
-
-  max: number;
-
-  color: string;
-
-}
-
-
-
 interface KPI {
 
   label: string;
@@ -282,22 +222,6 @@ interface RealtimeValue {
 
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-
-
-
-const SAVED_PROPERTIES: Property[] = [
-
-  { id: 1, name: 'Oakwood Commercial Plaza', address: '1420 Industrial Blvd, Austin, TX', type: 'Commercial', value: 4200000, sqft: 28000, yearBuilt: 2005, riskScore: 72, riskLevel: 'Moderate', premium: 18500, carrier: 'Hartford', coverageAmount: 5000000, floodZone: 'X', windScore: 3, fireScore: 2, crimeScore: 4, seismicScore: 1, lastInspection: '2025-11-15', claims: 1, image: '🏢' },
-
-  { id: 2, name: 'Riverside Apartment Complex', address: '880 River Rd, Portland, OR', type: 'Residential Multi', value: 8500000, sqft: 65000, yearBuilt: 1998, riskScore: 58, riskLevel: 'Low-Moderate', premium: 32000, carrier: 'Zurich', coverageAmount: 10000000, floodZone: 'AE', windScore: 2, fireScore: 4, crimeScore: 3, seismicScore: 5, lastInspection: '2026-01-20', claims: 0, image: '🏘️' },
-
-  { id: 3, name: 'Metro Distribution Center', address: '5500 Logistics Way, Dallas, TX', type: 'Industrial', value: 12000000, sqft: 120000, yearBuilt: 2018, riskScore: 41, riskLevel: 'Low', premium: 45000, carrier: 'Chubb', coverageAmount: 15000000, floodZone: 'X', windScore: 4, fireScore: 2, crimeScore: 2, seismicScore: 1, lastInspection: '2026-03-05', claims: 0, image: '🏭' },
-
-  { id: 4, name: 'Harborview Retail Strip', address: '220 Coastal Hwy, Miami, FL', type: 'Retail', value: 3800000, sqft: 18000, yearBuilt: 2012, riskScore: 85, riskLevel: 'High', premium: 28000, carrier: 'AIG', coverageAmount: 5000000, floodZone: 'VE', windScore: 5, fireScore: 2, crimeScore: 3, seismicScore: 1, lastInspection: '2025-09-10', claims: 3, image: '🏬' },
-
-  { id: 5, name: 'Summit Office Tower', address: '100 Financial Dr, Chicago, IL', type: 'Office', value: 22000000, sqft: 180000, yearBuilt: 2020, riskScore: 35, riskLevel: 'Low', premium: 67000, carrier: 'Liberty Mutual', coverageAmount: 25000000, floodZone: 'X', windScore: 2, fireScore: 1, crimeScore: 3, seismicScore: 2, lastInspection: '2026-02-28', claims: 0, image: '🏛️' },
-
-];
 
 
 
@@ -476,34 +400,6 @@ function Badge({ children, color = 'blue' }: BadgeProps) {
     </span>
 
   );
-
-}
-
-
-
-interface RiskBadgeProps {
-
-  level: string;
-
-}
-
-
-
-function RiskBadge({ level }: RiskBadgeProps) {
-
-  const map: Record<string, BadgeProps['color']> = {
-
-    Low: 'green',
-
-    'Low-Moderate': 'blue',
-
-    Moderate: 'yellow',
-
-    High: 'red',
-
-  };
-
-  return <Badge color={map[level] || 'gray'}>{level}</Badge>;
 
 }
 
@@ -723,331 +619,34 @@ function InsightsPanel() {
 
 
 
-// ─── Panel: Risk Report Modal ─────────────────────────────────────────────────
-
-
-
-interface RiskReportModalProps {
-
-  property: Property | null;
-
-  open: boolean;
-
-  onClose: () => void;
-
-  running: boolean;
-
-  onReRun: () => void;
-
-}
-
-
-
-function RiskReportModal({ property, open, onClose, running, onReRun }: RiskReportModalProps) {
-
-  if (!property) return null;
-
-
-
-  const riskCategories: RiskCategory[] = [
-
-    { label: 'Wind / Hurricane', score: property.windScore, max: 5, color: property.windScore >= 4 ? '#ef4444' : property.windScore >= 3 ? '#f59e0b' : '#22c55e' },
-
-    { label: 'Fire / Wildfire', score: property.fireScore, max: 5, color: property.fireScore >= 4 ? '#ef4444' : property.fireScore >= 3 ? '#f59e0b' : '#22c55e' },
-
-    { label: 'Crime / Theft', score: property.crimeScore, max: 5, color: property.crimeScore >= 4 ? '#ef4444' : property.crimeScore >= 3 ? '#f59e0b' : '#22c55e' },
-
-    { label: 'Seismic', score: property.seismicScore, max: 5, color: property.seismicScore >= 4 ? '#ef4444' : property.seismicScore >= 3 ? '#f59e0b' : '#22c55e' },
-
-    { label: 'Flood Zone', score: property.floodZone === 'VE' ? 5 : property.floodZone === 'AE' ? 4 : 1, max: 5, color: property.floodZone === 'VE' ? '#ef4444' : property.floodZone === 'AE' ? '#f59e0b' : '#22c55e' },
-
-  ];
-
-
-
-  return (
-
-    <Modal open={open} onClose={onClose} title={`Risk Report — ${property.name}`} wide>
-
-      <div className="space-y-4">
-
-        {running && (
-
-          <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-lg p-2.5">
-
-            <RefreshCw size={14} className="animate-spin" />
-
-            <span className="text-xs font-medium">Re-running risk analysis... Updated data will appear momentarily.</span>
-
-          </div>
-
-        )}
-
-
-
-        {/* Summary Header */}
-
-        <div className="grid grid-cols-4 gap-2.5">
-
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-
-            <p className="text-xs text-gray-500 uppercase tracking-wider">Overall Risk</p>
-
-            <p
-
-              className={`text-2xl font-bold mt-0.5 ${
-
-                property.riskScore >= 75 ? 'text-red-600' : property.riskScore >= 50 ? 'text-yellow-600' : 'text-green-600'
-
-              }`}
-
-            >
-
-              {property.riskScore}
-
-            </p>
-
-            <RiskBadge level={property.riskLevel} />
-
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-
-            <p className="text-xs text-gray-500 uppercase tracking-wider">Property Value</p>
-
-            <p className="text-xl font-bold mt-0.5 text-gray-900">{fmt(property.value)}</p>
-
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-
-            <p className="text-xs text-gray-500 uppercase tracking-wider">Annual Premium</p>
-
-            <p className="text-xl font-bold mt-0.5 text-gray-900">{fmt(property.premium)}</p>
-
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-
-            <p className="text-xs text-gray-500 uppercase tracking-wider">Flood Zone</p>
-
-            <p className="text-xl font-bold mt-0.5 text-gray-900">{property.floodZone}</p>
-
-          </div>
-
-        </div>
-
-
-
-        {/* Risk Breakdown */}
-
-        <div>
-
-          <h3 className="text-xs font-semibold text-gray-900 mb-2">Risk Factor Breakdown</h3>
-
-          <div className="space-y-1.5">
-
-            {riskCategories.map((cat) => (
-
-              <div key={cat.label} className="flex items-center gap-3">
-
-                <span className="text-xs text-gray-600 w-28">{cat.label}</span>
-
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
-
-                  <div
-
-                    className="h-2 rounded-full transition-all duration-500"
-
-                    style={{ width: `${(cat.score / cat.max) * 100}%`, backgroundColor: cat.color }}
-
-                  />
-
-                </div>
-
-                <span className="text-xs font-semibold w-8 text-right" style={{ color: cat.color }}>
-
-                  {cat.score}/{cat.max}
-
-                </span>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </div>
-
-
-
-        {/* Property Details */}
-
-        <div className="grid grid-cols-2 gap-2.5">
-
-          <div className="bg-gray-50 rounded-lg p-3">
-
-            <h4 className="text-xs font-semibold text-gray-900 mb-1.5">Property Details</h4>
-
-               <div className="space-y-0.5 text-xs">
-
-              <p>
-
-                <span className="text-gray-500">Type:</span> <span className="text-gray-900 font-medium">{property.type}</span>
-
-              </p>
-
-              <p>
-
-                <span className="text-gray-500">Sq Ft:</span> <span className="text-gray-900 font-medium">{property.sqft.toLocaleString()}</span>
-
-              </p>
-
-              <p>
-
-                <span className="text-gray-500">Built:</span> <span className="text-gray-900 font-medium">{property.yearBuilt}</span>
-
-              </p>
-
-              <p>
-
-                <span className="text-gray-500">Inspected:</span> <span className="text-gray-900 font-medium">{property.lastInspection}</span>
-
-              </p>
-
-            </div>
-
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-3">
-
-            <h4 className="text-xs font-semibold text-gray-900 mb-1.5">Coverage Summary</h4>
-
-            <div className="space-y-0.5 text-xs">
-
-              <p>
-
-                <span className="text-gray-500">Carrier:</span> <span className="text-gray-900 font-medium">{property.carrier}</span>
-
-              </p>
-
-              <p>
-
-                <span className="text-gray-500">Limit:</span> <span className="text-gray-900 font-medium">{fmt(property.coverageAmount)}</span>
-
-              </p>
-
-              <p>
-
-                <span className="text-gray-500">Premium:</span> <span className="text-gray-900 font-medium">{fmt(property.premium)}</span>
-
-              </p>
-
-              <p>
-
-                <span className="text-gray-500">Claims:</span> <span className="text-gray-900 font-medium">{property.claims}</span>
-
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-
-        {/* Recommendations */}
-
-        <div className="bg-indigo-50 rounded-lg p-3">
-
-          <h4 className="text-xs font-semibold text-indigo-900 mb-1">Recommendations</h4>
-
-          <ul className="space-y-0.5 text-xs text-indigo-800">
-
-            {property.riskScore >= 75 && (
-
-              <li>• Prioritize mitigation: Consider wind-resistive upgrades and updated flood barriers</li>
-
-            )}
-
-            {property.claims > 0 && <li>• Review claims history with carrier to negotiate improved terms at renewal</li>}
-
-            {property.floodZone !== 'X' && <li>• Evaluate supplemental flood insurance or excess coverage options</li>}
-
-            <li>• Schedule property re-inspection to capture any risk-reducing improvements</li>
-
-            <li>• Request competitive quotes from 2-3 alternative carriers before renewal</li>
-
-          </ul>
-
-        </div>
-
-
-
-        <div className="flex justify-end gap-2">
-
-          <button
-
-            onClick={onReRun}
-
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-medium transition-colors"
-
-          >
-
-            <RefreshCw size={12} className={running ? 'animate-spin' : ''} />
-
-            ReRun Analysis
-
-          </button>
-
-          <button
-
-            onClick={onClose}
-
-            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-xs font-medium transition-colors"
-
-          >
-
-            Close
-
-          </button>
-
-        </div>
-
-      </div>
-
-    </Modal>
-
-  );
-
-}
-
-
 
 // ─── Panel: Saved Properties (real data + shared report modal) ───────────────
 
-interface SavedPropertyRow {
-  id: string;
-  propertyId: string;
-  notes?: string;
-  tags?: string[];
-  savedAt?: string;
-  property: SharedProperty;
-}
-
 function SavedPropertiesPanel() {
-  const [saved, setSaved] = useState<SavedPropertyRow[]>([]);
+  const [saved, setSaved] = useState<SavedPropertyWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<SharedProperty | null>(null);
 
-  useEffect(() => {
-    getSavedProperties()
-      .then((data) => setSaved(data as SavedPropertyRow[]))
+  const fetchSaved = useCallback(() => {
+    return getSavedProperties()
+      .then((data) => {
+        setSaved(data);
+        setLoadError(null);
+      })
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load saved properties'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchSaved();
+  }, [fetchSaved]);
+
+  const handleRetry = () => {
+    setLoadError(null);
+    setLoading(true);
+    fetchSaved();
+  };
 
   if (loading) {
     return (
@@ -1065,14 +664,7 @@ function SavedPropertiesPanel() {
         <AlertTriangle className="mx-auto mb-2 h-7 w-7 text-red-400" />
         <p className="text-xs font-medium text-red-600">{loadError}</p>
         <button
-          onClick={() => {
-            setLoadError(null);
-            setLoading(true);
-            getSavedProperties()
-              .then((data) => setSaved(data as SavedPropertyRow[]))
-              .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed'))
-              .finally(() => setLoading(false));
-          }}
+          onClick={handleRetry}
           className="mt-2 px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-800 transition-colors"
         >
           Retry

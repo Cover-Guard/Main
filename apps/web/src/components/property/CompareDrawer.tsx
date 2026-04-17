@@ -1,14 +1,8 @@
 'use client'
 
-import type {
-  Property,
-  PropertyRiskProfile,
-  InsuranceCostEstimate as IInsuranceCostEstimate,
-  CarriersResult,
-  PropertyPublicData,
-  InsurabilityStatus,
-} from '@coverguard/shared'
+import type { Property } from '@coverguard/shared'
 import { formatAddress } from '@coverguard/shared'
+import type { PropertyReportBundle } from '@/lib/api'
 import { RiskSummary } from './RiskSummary'
 import { RiskBreakdown } from './RiskBreakdown'
 import { InsurabilityPanel } from './InsurabilityPanel'
@@ -18,14 +12,7 @@ import { PropertyImages } from './PropertyImages'
 import { RiskCostCard } from './RiskCostCard'
 import { Loader2, AlertTriangle, TrendingUp, Search } from 'lucide-react'
 
-interface ReportData {
-  property: Property
-  risk: PropertyRiskProfile
-  insurance: IInsuranceCostEstimate
-  insurability: InsurabilityStatus
-  carriers: CarriersResult
-  publicData: PropertyPublicData | null
-}
+type ReportData = PropertyReportBundle
 
 type ReportState =
   | { status: 'idle' }
@@ -99,23 +86,25 @@ export function CompareDrawer({
             <div className="space-y-6">
               {compareState.data.risk && <RiskSummary profile={compareState.data.risk} />}
               {compareState.data.insurability && <InsurabilityPanel status={compareState.data.insurability} />}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-gray-500" />
-                  Cost to Insure by Risk
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {riskCategories.map((cat) => (
-                    <RiskCostCard
-                      key={cat}
-                      category={cat}
-                      meta={riskMeta[cat] ?? { label: cat, color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' }}
-                      riskProfile={compareState.data.risk}
-                      costEstimate={compareState.data.insurance}
-                    />
-                  ))}
+              {compareState.data.risk && compareState.data.insurance && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-gray-500" />
+                    Cost to Insure by Risk
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {riskCategories.map((cat) => (
+                      <RiskCostCard
+                        key={cat}
+                        category={cat}
+                        meta={riskMeta[cat] ?? { label: cat, color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' }}
+                        riskProfile={compareState.data.risk!}
+                        costEstimate={compareState.data.insurance!}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               {compareState.data.risk && <RiskBreakdown profile={compareState.data.risk} />}
             </div>
           )}
