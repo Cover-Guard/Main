@@ -6,6 +6,7 @@ import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
 import { getInsurabilityStatus } from '../services/insurabilityService'
 import { getPropertyPublicData } from '../services/publicPropertyDataService'
+import { generatePropertyReportPdf } from '../services/pdfReportService'
 import { getOrFetchWalkScore } from '../services/walkscoreService'
 import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } from '../utils/cache'
 import { logger } from '../utils/logger'
@@ -302,6 +303,49 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
     if (forceRefresh) setNoCacheHeaders(res)
     else setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: { property, risk, insurance, insurability, carriers, publicData } })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ─── Report PDF download ────────────────────────────────────────────────────
+
+propertiesRouter.get('/:id/report.pdf', requireAuth, async (req, res, next) => {
+  try {
+    // Already resolved by the `id` param middleware (string after ensurePropertyId).
+    const id = String(req.params.id)
+    const [property, risk] = await Promise.all([
+      getPropertyById(id),
+      getOrComputeRiskProfile(id, false),
+    ])
+    if (!property) {
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Property not found' } })
+      return
+    }
+    // Insurance / insurability / carriers fail independently — we still emit
+    // a PDF if one of them is unavailable, with a placeholder for the section.
+    const [insurance, insurability, carriers] = await Promise.all([
+      getOrComputeInsuranceEstimate(id, false).catch((err) => {
+        logger.warn('PDF: insurance estimate unavailable', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
+      getInsurabilityStatus(id, false).catch((err) => {
+        logger.warn('PDF: insurability unavailable', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
+      getCarriersForProperty(id, false).catch((err) => {
+        logger.warn('PDF: carriers unavailable', { propertyId: id, error: err instanceof Error ? err.message : err })
+        return null
+      }),
+    ])
+
+    const pdf = await generatePropertyReportPdf({ property, risk, insurance, insurability, carriers })
+
+    const safeAddr = property.address.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'property'
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="coverguard-report-${safeAddr}.pdf"`)
+    res.setHeader('Cache-Control', 'private, max-age=300')
+    res.send(pdf)
   } catch (err) {
     next(err)
   }

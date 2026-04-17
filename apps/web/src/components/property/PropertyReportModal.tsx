@@ -1,16 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import type {
-  Property,
-  PropertyRiskProfile,
-  InsuranceCostEstimate as IInsuranceCostEstimate,
-  InsurabilityStatus,
-  CarriersResult,
-  PropertyPublicData,
-} from '@coverguard/shared'
+import type { Property } from '@coverguard/shared'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
-import { getPropertyReport } from '@/lib/api'
+import { getPropertyReport, type PropertyReportBundle } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -37,14 +30,7 @@ interface PropertyRiskReportModalProps {
   compareProperty?: Property | null
 }
 
-interface ReportData {
-  property: Property
-  risk: PropertyRiskProfile
-  insurance: IInsuranceCostEstimate
-  insurability: InsurabilityStatus
-  carriers: CarriersResult
-  publicData: PropertyPublicData | null
-}
+type ReportData = PropertyReportBundle
 
 type ReportState =
   | { status: 'idle' }
@@ -220,23 +206,30 @@ export function PropertyRiskReportModal({
                     <div className="space-y-6">
                       {state.data.risk && <RiskSummary profile={state.data.risk} />}
                       {state.data.insurability && <InsurabilityPanel status={state.data.insurability} />}
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                          <TrendingUp className="h-4 w-4 text-gray-500" />
-                          Cost to Insure by Risk
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {RISK_CATEGORIES.map((cat) => (
-                            <RiskCostCard
-                              key={cat}
-                              category={cat}
-                              meta={RISK_META[cat]}
-                              riskProfile={state.data.risk}
-                              costEstimate={state.data.insurance}
-                            />
-                          ))}
+                      {state.data.risk && state.data.insurance && (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-gray-500" />
+                            Cost to Insure by Risk
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {RISK_CATEGORIES.map((cat) => (
+                              <RiskCostCard
+                                key={cat}
+                                category={cat}
+                                meta={RISK_META[cat]}
+                                riskProfile={state.data.risk!}
+                                costEstimate={state.data.insurance!}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
+                      {state.data.risk && !state.data.insurance && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                          Insurance cost estimate is temporarily unavailable for this property.
+                        </div>
+                      )}
                       {state.data.risk && <RiskBreakdown profile={state.data.risk} />}
                       {state.data.risk && <StateRiskContext profile={state.data.risk} />}
                     </div>

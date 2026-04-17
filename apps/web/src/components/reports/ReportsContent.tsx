@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import type { Property } from '@coverguard/shared'
+import type { Property, SavedPropertyWithProperty } from '@coverguard/shared'
 import { getSavedProperties } from '@/lib/api'
 import { formatCurrency, formatAddress } from '@coverguard/shared'
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal'
@@ -18,37 +18,32 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 
-interface SavedPropertyRow {
-  id: string
-  propertyId: string
-  notes?: string
-  tags?: string[]
-  savedAt?: string
-  property: Property
-}
-
 export function ReportsContent({ embedded = false }: { embedded?: boolean } = {}) {
-  const [saved, setSaved] = useState<SavedPropertyRow[]>([])
+  const [saved, setSaved] = useState<SavedPropertyWithProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
 
-  const loadReports = () => {
-    setLoadError(null)
-    setLoading(true)
-    getSavedProperties()
-      .then((data) => setSaved(data as SavedPropertyRow[]))
-      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load reports'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    getSavedProperties()
-      .then((data) => setSaved(data as SavedPropertyRow[]))
+  const fetchReports = useCallback(() => {
+    return getSavedProperties()
+      .then((data) => {
+        setSaved(data)
+        setLoadError(null)
+      })
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load reports'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    fetchReports()
+  }, [fetchReports])
+
+  const handleRetry = () => {
+    setLoadError(null)
+    setLoading(true)
+    fetchReports()
+  }
 
   const filtered = saved.filter((row) => {
     if (!search.trim()) return true
@@ -113,7 +108,7 @@ export function ReportsContent({ embedded = false }: { embedded?: boolean } = {}
           <p className="font-semibold text-red-600">Failed to load reports</p>
           <p className="text-sm text-gray-400 mt-1">{loadError}</p>
           <button
-            onClick={loadReports}
+            onClick={handleRetry}
             className="mt-4 px-4 py-2 text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors"
           >
             Retry

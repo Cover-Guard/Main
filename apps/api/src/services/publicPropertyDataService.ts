@@ -26,27 +26,55 @@ import type {
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
+// Two distinct keys:
+//   GOOGLE_MAPS_KEY            — server-only, for outbound calls (Places, etc.).
+//                                Never embedded in URLs returned to the client.
+//   GOOGLE_MAPS_PUBLIC_KEY     — browser-safe key (the same one Next.js exposes
+//                                via NEXT_PUBLIC_GOOGLE_MAPS_API_KEY). Embedded
+//                                in Street View / Static Maps image URLs that
+//                                the client renders directly.
 const GOOGLE_MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
+const GOOGLE_MAPS_PUBLIC_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY || ''
 const RENTCAST_API_KEY = process.env.RENTCAST_API_KEY || ''
 const WALK_SCORE_KEY = process.env.WALK_SCORE_API_KEY || ''
 const ATTOM_BASE_URL = 'https://api.gateway.attomdata.com/propertyapi/v1.0.0'
 
 // ─── Google Street View & Satellite Images ───────────────────────────────────
 
+function buildGoogleImageUrl(
+  endpoint: 'streetview' | 'staticmap',
+  params: Record<string, string | number>,
+): string {
+  if (!GOOGLE_MAPS_PUBLIC_KEY) return ''
+  const url = new URL(`https://maps.googleapis.com/maps/api/${endpoint}`)
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v))
+  url.searchParams.set('key', GOOGLE_MAPS_PUBLIC_KEY)
+  return url.toString()
+}
+
 function getGoogleStreetViewUrl(lat: number, lng: number, heading = 0): string {
-  if (!GOOGLE_MAPS_KEY) return ''
-  return `https://maps.googleapis.com/maps/api/streetview?size=800x500&location=${lat},${lng}&heading=${heading}&pitch=10&fov=90&key=${GOOGLE_MAPS_KEY}`
+  return buildGoogleImageUrl('streetview', {
+    size: '800x500',
+    location: `${lat},${lng}`,
+    heading,
+    pitch: 10,
+    fov: 90,
+  })
 }
 
 function getGoogleSatelliteUrl(lat: number, lng: number, zoom = 18): string {
-  if (!GOOGLE_MAPS_KEY) return ''
-  return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${zoom}&size=800x500&maptype=satellite&key=${GOOGLE_MAPS_KEY}`
+  return buildGoogleImageUrl('staticmap', {
+    center: `${lat},${lng}`,
+    zoom,
+    size: '800x500',
+    maptype: 'satellite',
+  })
 }
 
 function buildPropertyImages(property: Property): PropertyImage[] {
   const images: PropertyImage[] = []
 
-  if (!GOOGLE_MAPS_KEY || !property.lat || !property.lng) return images
+  if (!GOOGLE_MAPS_PUBLIC_KEY || !property.lat || !property.lng) return images
 
   // Front view
   images.push({
@@ -376,8 +404,12 @@ async function fetchNearbyAmenities(lat: number, lng: number): Promise<NearbyAme
   // Fetch top 2 amenity types in parallel to reduce API calls
   const fetches = amenityTypes.map(async ({ type, mapped }) => {
     try {
-      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&rankby=distance&type=${type}&key=${GOOGLE_MAPS_KEY}`
-      const res = await fetch(url, { signal: AbortSignal.timeout(8_000) })
+      const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
+      url.searchParams.set('location', `${lat},${lng}`)
+      url.searchParams.set('rankby', 'distance')
+      url.searchParams.set('type', type)
+      url.searchParams.set('key', GOOGLE_MAPS_KEY)
+      const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8_000) })
       if (!res.ok) return []
 
       const data = (await res.json()) as { results?: GooglePlaceResult[] }
@@ -427,8 +459,14 @@ async function fetchWalkScore(lat: number, lng: number, address: string): Promis
   }
 
   try {
-    const url = `https://api.walkscore.com/score?format=json&lat=${lat}&lon=${lng}&address=${encodeURIComponent(address)}&transit=1&wsapikey=${WALK_SCORE_KEY}`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) })
+    const url = new URL('https://api.walkscore.com/score')
+    url.searchParams.set('format', 'json')
+    url.searchParams.set('lat', String(lat))
+    url.searchParams.set('lon', String(lng))
+    url.searchParams.set('address', address)
+    url.searchParams.set('transit', '1')
+    url.searchParams.set('wsapikey', WALK_SCORE_KEY)
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8_000) })
     if (!res.ok) return estimateWalkScore(lat, lng)
 
     const data = (await res.json()) as WalkScoreResponse

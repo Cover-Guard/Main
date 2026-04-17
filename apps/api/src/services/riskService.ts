@@ -18,7 +18,15 @@ import {
   fetchEsriFloodHazard,
   fetchEsriLandslideRisk,
   fetchEsriSocialVulnerability,
+  fetchEsriDroughtMonitor,
+  type EsriDroughtResult,
 } from '../integrations/riskData'
+import {
+  computeHeatRisk,
+  computeDroughtRisk,
+  type HeatRiskComputed,
+  type DroughtRiskComputed,
+} from '../integrations/climateRisk'
 import {
   getStateProfile,
   computeComplianceScore,
@@ -303,6 +311,7 @@ export async function getOrComputeRiskProfile(
       elevation, historicalEq, fuelModel, nriData, sinkholeData, damData, superfundData,
       esriFloodHazard, esriLandslide, esriSvi,
       femaDisasters,
+      droughtMonitor,
     ] = await Promise.all([
       // Primary sources
       safe(fetchFloodRisk(property.lat, property.lng, property.zip ?? ''), { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }, 'FEMA Flood'),
@@ -324,7 +333,17 @@ export async function getOrComputeRiskProfile(
       safe(fetchEsriSocialVulnerability(property.lat, property.lng), null, 'Esri CDC SVI'),
       // Federal disaster declaration history (last 10 years, state-level)
       safe(fetchOpenFemaDisasterHistory(property.lat, property.lng, property.state), null, 'OpenFEMA Disasters'),
+      // Climate projection sources
+      safe(fetchEsriDroughtMonitor(property.lat, property.lng), null, 'US Drought Monitor (Esri)'),
     ])
+
+    // Climate projection scoring (computed sync from state + lat + drought monitor)
+    const heatRisk = computeHeatRisk(property.state, property.lat)
+    const droughtRisk = computeDroughtRisk(
+      property.state,
+      droughtMonitor?.droughtLevel ?? null,
+      droughtMonitor?.droughtIntensity ?? 0,
+    )
 
     // Enhance flood score with elevation data (low elevation = higher risk)
     // Low elevation increases flooding vulnerability from storm surge, tidal flooding,
@@ -508,6 +527,9 @@ export async function getOrComputeRiskProfile(
       femaDisasters,
       stateContext,
       complianceScore,
+      droughtMonitor,
+      heatRisk,
+      droughtRisk,
     })
     riskCache.set(propertyId, dto, RISK_CACHE_TTL_SECONDS * 1000)
     return dto
@@ -534,6 +556,9 @@ interface EnrichmentData {
   femaDisasters?: FemaDisasterHistory | null
   stateContext?: StateRiskContext
   complianceScore?: number
+  droughtMonitor?: EsriDroughtResult | null
+  heatRisk?: HeatRiskComputed
+  droughtRisk?: DroughtRiskComputed
 }
 
 function prismaProfileToDto(
@@ -803,6 +828,56 @@ function prismaProfileToDto(
       propertyCrimeIndex: p.propertyCrimeIndex,
       nationalAverageDiff: p.nationalAvgDiff,
     },
+    heat: enrichment?.heatRisk
+      ? {
+          level: enrichment.heatRisk.level,
+          score: enrichment.heatRisk.score,
+          trend: 'WORSENING' as RiskTrend,
+          description:
+            'Extreme-heat exposure modeled from state climate normals and latitude, with a mid-century projection (RCP 4.5 / SSP2-4.5).',
+          details: [
+            `Estimated ${enrichment.heatRisk.extremeHeatDays} day(s)/yr ≥ 100°F at this location`,
+            enrichment.heatRisk.projectedHeatDays2050 != null
+              ? `Projected ${enrichment.heatRisk.projectedHeatDays2050} day(s)/yr ≥ 100°F by 2050`
+              : 'No mid-century projection available for this state',
+          ],
+          dataSource: 'NOAA NCEI state climatology + IPCC AR6 regional projections',
+          lastUpdated: now,
+          extremeHeatDays: enrichment.heatRisk.extremeHeatDays,
+          projectedHeatDays2050: enrichment.heatRisk.projectedHeatDays2050,
+          urbanHeatIslandEffect: enrichment.heatRisk.urbanHeatIslandEffect,
+          coolingInfrastructureDeficit: enrichment.heatRisk.coolingInfrastructureDeficit,
+        }
+      : undefined,
+    drought: enrichment?.droughtRisk
+      ? {
+          level: enrichment.droughtRisk.level,
+          score: enrichment.droughtRisk.score,
+          trend: enrichment.droughtRisk.projectedPrecipitationChange2050 != null &&
+            enrichment.droughtRisk.projectedPrecipitationChange2050 < -2
+            ? ('WORSENING' as RiskTrend)
+            : ('STABLE' as RiskTrend),
+          description:
+            'Current US Drought Monitor reading combined with mid-century precipitation projections and state-level subsidence (expansive-clay) risk.',
+          details: [
+            enrichment.droughtMonitor?.droughtLabel
+              ? `Current condition: ${enrichment.droughtMonitor.droughtLabel} (${enrichment.droughtRisk.droughtMonitorCategory})`
+              : `Current drought monitor category: ${enrichment.droughtRisk.droughtMonitorCategory}`,
+            enrichment.droughtRisk.projectedPrecipitationChange2050 != null
+              ? `Projected precipitation change by 2050: ${enrichment.droughtRisk.projectedPrecipitationChange2050 > 0 ? '+' : ''}${enrichment.droughtRisk.projectedPrecipitationChange2050}%`
+              : 'No mid-century precipitation projection available for this state',
+            enrichment.droughtRisk.subsidenceRisk
+              ? `Foundation-subsidence risk from soil shrink/swell: ${enrichment.droughtRisk.subsidenceRisk}`
+              : 'Subsidence risk not characterized for this state',
+          ],
+          dataSource: 'US Drought Monitor (Esri) + IPCC AR6 + USGS swelling-clay susceptibility',
+          lastUpdated: now,
+          palmerDroughtIndex: enrichment.droughtRisk.palmerDroughtIndex,
+          droughtMonitorCategory: enrichment.droughtRisk.droughtMonitorCategory,
+          projectedPrecipitationChange2050: enrichment.droughtRisk.projectedPrecipitationChange2050,
+          subsidenceRisk: enrichment.droughtRisk.subsidenceRisk,
+        }
+      : undefined,
     generatedAt: p.generatedAt.toISOString(),
     cacheTtlSeconds: RISK_CACHE_TTL_SECONDS,
     complianceScore: enrichment?.complianceScore,
