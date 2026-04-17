@@ -88,8 +88,3 @@ export interface PanelConfig {
   visible: boolean;
   span: 'full' | 'half' | 'third';
 }
-
-export interface RealtimeValue {
-  value: number;
-  direction: 'up' | 'down';
-}

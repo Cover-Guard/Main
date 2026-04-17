@@ -27,6 +27,27 @@ export interface SavedProperty {
   savedAt: string
 }
 
+/**
+ * Shape returned by `GET /api/auth/me/saved` — a SavedProperty joined with the
+ * full Property record (and a small projection of the linked Client, if any).
+ */
+export interface SavedPropertyWithProperty {
+  id: string
+  propertyId: string
+  notes: string | null
+  tags: string[]
+  savedAt: string
+  clientId: string | null
+  property: import('./property').Property
+  client: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+    status: ClientStatus
+  } | null
+}
+
 export interface PropertyReport {
   id: string
   userId: string

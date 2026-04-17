@@ -73,33 +73,15 @@ export function SubscriptionProvider({
   const [loaded, setLoaded] = useState(!!overridePlan)
   const [loading, setLoading] = useState(!overridePlan)
 
-  const refresh = useCallback(async () => {
-    if (overridePlan) return
-    setLoading(true)
-    try {
-      const state = await getSubscriptionState()
-      if (state.active && state.subscription) {
-        const tier = subscriptionPlanToTier(
-          state.subscription.plan as 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM',
-        )
-        setPlan(tier)
-      } else {
-        setPlan('free')
-      }
-    } catch {
-      setPlan('free')
-    } finally {
-      setLoaded(true)
-      setLoading(false)
-    }
-  }, [overridePlan])
-
-  useEffect(() => {
-    if (overridePlan) return
-    let cancelled = false
-    getSubscriptionState()
+  /**
+   * Apply a fetched subscription state to local state. All setState calls live
+   * inside Promise callbacks (microtask-deferred) so this satisfies
+   * `react-hooks/set-state-in-effect` when invoked from a useEffect body.
+   */
+  const fetchSubscription = useCallback((): Promise<void> => {
+    if (overridePlan) return Promise.resolve()
+    return getSubscriptionState()
       .then((state) => {
-        if (cancelled) return
         if (state.active && state.subscription) {
           const tier = subscriptionPlanToTier(
             state.subscription.plan as 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM',
@@ -113,18 +95,23 @@ export function SubscriptionProvider({
         // If the API call fails (e.g. user not logged in), default to free.
         // This is intentional — unauthenticated users see the free tier UI
         // and gated features prompt them to register/upgrade.
-        if (cancelled) return
         setPlan('free')
       })
       .finally(() => {
-        if (cancelled) return
         setLoaded(true)
         setLoading(false)
       })
-    return () => {
-      cancelled = true
-    }
   }, [overridePlan])
+
+  /** User-triggered refetch (e.g. after Stripe checkout). */
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    await fetchSubscription()
+  }, [fetchSubscription])
+
+  useEffect(() => {
+    fetchSubscription()
+  }, [fetchSubscription])
 
   const limits = useMemo(() => getPlanLimits(plan), [plan])
 

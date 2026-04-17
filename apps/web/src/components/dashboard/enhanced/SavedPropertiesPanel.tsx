@@ -1,34 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Building2, FileText, MapPin } from 'lucide-react';
-import type { Property as SharedProperty } from '@coverguard/shared';
+import type { Property as SharedProperty, SavedPropertyWithProperty } from '@coverguard/shared';
 import { formatAddress, formatCurrency } from '@coverguard/shared';
 import { getSavedProperties } from '@/lib/api';
 import { PropertyRiskReportModal } from '@/components/property/PropertyReportModal';
 import { Badge } from './utils';
 
-interface SavedPropertyRow {
-  id: string;
-  propertyId: string;
-  notes?: string;
-  tags?: string[];
-  savedAt?: string;
-  property: SharedProperty;
-}
-
 export function SavedPropertiesPanel() {
-  const [saved, setSaved] = useState<SavedPropertyRow[]>([]);
+  const [saved, setSaved] = useState<SavedPropertyWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<SharedProperty | null>(null);
 
-  useEffect(() => {
-    getSavedProperties()
-      .then((data) => setSaved(data as SavedPropertyRow[]))
+  const fetchSaved = useCallback(() => {
+    return getSavedProperties()
+      .then((data) => {
+        setSaved(data);
+        setLoadError(null);
+      })
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load saved properties'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchSaved();
+  }, [fetchSaved]);
+
+  const handleRetry = () => {
+    setLoadError(null);
+    setLoading(true);
+    fetchSaved();
+  };
 
   if (loading) {
     return (
@@ -46,14 +50,7 @@ export function SavedPropertiesPanel() {
         <AlertTriangle className="mx-auto mb-2 h-7 w-7 text-red-400" />
         <p className="text-xs font-medium text-red-600">{loadError}</p>
         <button
-          onClick={() => {
-            setLoadError(null);
-            setLoading(true);
-            getSavedProperties()
-              .then((data) => setSaved(data as SavedPropertyRow[]))
-              .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed'))
-              .finally(() => setLoading(false));
-          }}
+          onClick={handleRetry}
           className="mt-2 px-3 py-1.5 bg-gray-900 text-white rounded text-xs font-medium hover:bg-gray-800 transition-colors"
         >
           Retry

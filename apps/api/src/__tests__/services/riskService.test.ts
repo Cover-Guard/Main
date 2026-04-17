@@ -50,6 +50,7 @@ jest.mock('../../integrations/riskData', () => ({
   fetchEsriLandslideRisk: jest.fn().mockResolvedValue(null),
   fetchEsriSocialVulnerability: jest.fn().mockResolvedValue(null),
   fetchOpenFemaDisasterHistory: jest.fn().mockResolvedValue(null),
+  fetchEsriDroughtMonitor: jest.fn().mockResolvedValue(null),
 }))
 
 import { prisma } from '../../utils/prisma'

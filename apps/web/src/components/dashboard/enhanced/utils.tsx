@@ -1,8 +1,7 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode } from 'react';
 import { X } from 'lucide-react';
-import type { RealtimeValue } from './types';
 
 export const fmt = (n: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
@@ -86,21 +85,3 @@ export function Modal({ open, onClose, title, wide = false, children }: ModalPro
   );
 }
 
-export function useRealtimeValue(base: number, variance: number = 0.02, interval: number = 3000): RealtimeValue {
-  const [value, setValue] = useState(base);
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setValue((prev) => {
-        const change = prev * variance * (Math.random() - 0.45);
-        const next = prev + change;
-        setDirection(change >= 0 ? 'up' : 'down');
-        return next;
-      });
-    }, interval);
-    return () => clearInterval(id);
-  }, [base, variance, interval]);
-
-  return { value, direction };
-}

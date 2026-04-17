@@ -2,8 +2,9 @@
 
 import { useCallback, useRef, useState } from 'react'
 import type { Property } from '@coverguard/shared'
+import { downloadPropertyReportPdf } from '@/lib/api'
 import {
-  Share2, Link2, Mail, Printer, GitCompareArrows, Check, Download,
+  Share2, Link2, Mail, Printer, GitCompareArrows, Check, Download, Loader2,
 } from 'lucide-react'
 
 interface ReportActionsProps {
@@ -19,7 +20,31 @@ export function ReportActions({
 }: ReportActionsProps) {
   const [shareOpen, setShareOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const shareRef = useRef<HTMLDivElement>(null)
+
+  const handleDownload = useCallback(async () => {
+    if (downloading) return
+    setDownloading(true)
+    setDownloadError(null)
+    try {
+      const { blob, filename } = await downloadPropertyReportPdf(property.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : 'Download failed')
+      setTimeout(() => setDownloadError(null), 4000)
+    } finally {
+      setDownloading(false)
+    }
+  }, [property.id, downloading])
 
   const reportUrl =
     typeof window !== 'undefined'
@@ -78,11 +103,23 @@ export function ReportActions({
           </div>
         )}
       </div>
-      {/* Download / Print */}
-      <button onClick={onPrint} className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition" title="Download / Print">
-        <Download className="h-4 w-4" />
+      {/* Download PDF (server-rendered) */}
+      <button
+        onClick={handleDownload}
+        disabled={downloading}
+        className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        title={downloadError ?? 'Download PDF report'}
+        aria-label="Download PDF report"
+      >
+        {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
       </button>
-      <button onClick={onPrint} className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition" title="Print report">
+      {/* Print (browser print dialog) */}
+      <button
+        onClick={onPrint}
+        className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
+        title="Print report"
+        aria-label="Print report"
+      >
         <Printer className="h-4 w-4" />
       </button>
       {/* Compare */}

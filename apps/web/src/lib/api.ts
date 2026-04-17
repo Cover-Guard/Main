@@ -14,6 +14,12 @@ import type {
   PropertyChecklist,
   ChecklistType,
   ChecklistItem,
+  SavedPropertyWithProperty,
+  DashboardTicker,
+  DealStats,
+  DealWithRelations,
+  DealStage,
+  DealFalloutReason,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -143,15 +149,19 @@ export async function getPropertyCarriers(id: string): Promise<CarriersResult> {
   return apiFetch<CarriersResult>(`/api/properties/${id}/carriers`)
 }
 
-export async function getPropertyReport(id: string): Promise<{
+export interface PropertyReportBundle {
   property: Property
-  risk: PropertyRiskProfile
-  insurance: InsuranceCostEstimate
-  insurability: InsurabilityStatus
-  carriers: CarriersResult
+  // Risk is always computed; insurance / insurability / carriers can fail
+  // independently and come back null without failing the whole request.
+  risk: PropertyRiskProfile | null
+  insurance: InsuranceCostEstimate | null
+  insurability: InsurabilityStatus | null
+  carriers: CarriersResult | null
   publicData: PropertyPublicData | null
-}> {
-  return apiFetch(`/api/properties/${id}/report`)
+}
+
+export async function getPropertyReport(id: string): Promise<PropertyReportBundle> {
+  return apiFetch<PropertyReportBundle>(`/api/properties/${id}/report`)
 }
 
 export async function getPropertyPublicData(id: string): Promise<PropertyPublicData> {
@@ -197,8 +207,8 @@ export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName'
   return apiFetch('/api/auth/me', { method: 'PATCH', body: JSON.stringify(data) })
 }
 
-export async function getSavedProperties(): Promise<unknown[]> {
-  return apiFetch<unknown[]>('/api/auth/me/saved')
+export async function getSavedProperties(): Promise<SavedPropertyWithProperty[]> {
+  return apiFetch<SavedPropertyWithProperty[]>('/api/auth/me/saved')
 }
 
 export async function deleteAccount(): Promise<void> {
@@ -227,6 +237,85 @@ export async function updateClient(id: string, data: Partial<Client>): Promise<C
 
 export async function deleteClient(id: string): Promise<void> {
   await apiFetch(`/api/clients/${id}`, { method: 'DELETE' })
+}
+
+// ─── PDF Download ────────────────────────────────────────────────────────────
+
+/**
+ * Fetch the property report as a PDF Blob. The endpoint is authenticated, so
+ * we issue an authorized fetch and surface the response body as a Blob (rather
+ * than just navigating the browser to a URL — that wouldn't carry the token).
+ */
+export async function downloadPropertyReportPdf(propertyId: string): Promise<{ blob: Blob; filename: string }> {
+  const headers = await getAuthHeaders()
+  const res = await fetch(`${API_URL}/api/properties/${propertyId}/report.pdf`, {
+    headers: { ...headers },
+  })
+  if (!res.ok) {
+    throw new Error(`Report download failed (${res.status})`)
+  }
+  const blob = await res.blob()
+  // Pull filename from Content-Disposition (set by the API), fall back to a sensible default.
+  const disposition = res.headers.get('Content-Disposition') ?? ''
+  const match = /filename="?([^"]+)"?/i.exec(disposition)
+  const filename = match?.[1] ?? `coverguard-report-${propertyId}.pdf`
+  return { blob, filename }
+}
+
+// ─── Dashboard Ticker ────────────────────────────────────────────────────────
+
+export async function getDashboardTicker(): Promise<DashboardTicker> {
+  return apiFetch<DashboardTicker>('/api/dashboard/ticker')
+}
+
+// ─── Deals ───────────────────────────────────────────────────────────────────
+
+export async function listDeals(): Promise<DealWithRelations[]> {
+  return apiFetch<DealWithRelations[]>('/api/deals')
+}
+
+export async function getDealStats(): Promise<DealStats> {
+  return apiFetch<DealStats>('/api/deals/stats')
+}
+
+export interface CreateDealPayload {
+  title: string
+  stage?: DealStage
+  propertyId?: string | null
+  clientId?: string | null
+  dealValue?: number | null
+  carrierName?: string | null
+  notes?: string | null
+}
+
+export interface UpdateDealPayload {
+  title?: string
+  stage?: DealStage
+  propertyId?: string | null
+  clientId?: string | null
+  dealValue?: number | null
+  carrierName?: string | null
+  falloutReason?: DealFalloutReason | null
+  falloutNotes?: string | null
+  notes?: string | null
+}
+
+export async function createDeal(payload: CreateDealPayload): Promise<DealWithRelations> {
+  return apiFetch<DealWithRelations>('/api/deals', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateDeal(id: string, payload: UpdateDealPayload): Promise<DealWithRelations> {
+  return apiFetch<DealWithRelations>(`/api/deals/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteDeal(id: string): Promise<void> {
+  await apiFetch(`/api/deals/${id}`, { method: 'DELETE' })
 }
 
 // ─── AI Advisor ──────────────────────────────────────────────────────────────

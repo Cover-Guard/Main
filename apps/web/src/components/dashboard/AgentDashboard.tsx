@@ -48,7 +48,7 @@ import { getSavedProperties, getClients } from '@/lib/api'
 
 import { formatCurrency, formatAddress } from '@coverguard/shared'
 
-import type { Property, Client } from '@coverguard/shared'
+import type { Property, Client, SavedPropertyWithProperty } from '@coverguard/shared'
 
 import { SearchBar } from '@/components/search/SearchBar'
 
@@ -66,25 +66,7 @@ import { cn } from '@/lib/utils'
 
 
 
-interface SavedPropertyRow {
-
-  id: string
-
-  propertyId: string
-
-  notes: string | null
-
-  tags: string[]
-
-  savedAt: string
-
-  clientId: string | null
-
-  property: Property
-
-  client?: { id: string; firstName: string; lastName: string; email: string; status: string } | null
-
-}
+type SavedPropertyRow = SavedPropertyWithProperty
 
 
 
@@ -144,7 +126,7 @@ export function AgentDashboard() {
 
     Promise.all([
 
-      getSavedProperties().then((data) => data as SavedPropertyRow[]),
+      getSavedProperties(),
 
       getClients().catch(() => [] as Client[]),
 

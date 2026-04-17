@@ -5,6 +5,7 @@ import {
   Activity,
   BarChart3,
   Brain,
+  Briefcase,
   Building2,
   GripVertical,
   Home,
@@ -15,6 +16,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
+import { DealsKpiPanel } from '@/components/dashboard/DealsKpiPanel';
 import { ActiveCarriersPanel } from './enhanced/ActiveCarriersPanel';
 import { ClientManagementPanel } from './enhanced/ClientManagementPanel';
 import { ForecastPanel } from './enhanced/ForecastPanel';
@@ -30,18 +32,20 @@ import { LiveDot } from './enhanced/utils';
 const DEFAULT_LAYOUT: PanelConfig[] = [
   { id: 'insights', title: 'Insights', icon: Brain, order: 0, visible: true, span: 'full' },
   { id: 'kpis', title: 'Key Metrics', icon: BarChart3, order: 1, visible: true, span: 'full' },
-  { id: 'clients', title: 'Client Management', icon: Building2, order: 2, visible: true, span: 'full' },
-  { id: 'properties', title: 'Saved Properties', icon: Home, order: 3, visible: true, span: 'full' },
-  { id: 'carriers', title: 'Active Carriers for Your Properties', icon: Shield, order: 4, visible: true, span: 'full' },
-  { id: 'agentchat', title: 'Your Agent', icon: Send, order: 5, visible: true, span: 'third' },
-  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 6, visible: true, span: 'third' },
-  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 7, visible: true, span: 'third' },
-  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 8, visible: true, span: 'third' },
+  { id: 'deals', title: 'Deals & Fallout', icon: Briefcase, order: 2, visible: true, span: 'full' },
+  { id: 'clients', title: 'Client Management', icon: Building2, order: 3, visible: true, span: 'full' },
+  { id: 'properties', title: 'Saved Properties', icon: Home, order: 4, visible: true, span: 'full' },
+  { id: 'carriers', title: 'Active Carriers for Your Properties', icon: Shield, order: 5, visible: true, span: 'full' },
+  { id: 'agentchat', title: 'Your Agent', icon: Send, order: 6, visible: true, span: 'third' },
+  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 7, visible: true, span: 'third' },
+  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 8, visible: true, span: 'third' },
+  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 9, visible: true, span: 'third' },
 ];
 
-const PANEL_COMPONENTS: Record<string, () => JSX.Element> = {
+const PANEL_COMPONENTS: Record<string, () => JSX.Element | null> = {
   insights: InsightsPanel,
   kpis: KPIPanel,
+  deals: DealsKpiPanel,
   clients: ClientManagementPanel,
   properties: SavedPropertiesPanel,
   carriers: ActiveCarriersPanel,
