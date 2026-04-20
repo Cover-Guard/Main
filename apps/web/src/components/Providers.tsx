@@ -2,6 +2,8 @@
 
 import { useEffect, type ReactNode } from 'react'
 import { SubscriptionProvider } from '@/lib/hooks/useSubscription'
+import { NotificationsProvider } from '@/lib/hooks/useNotifications'
+import { Toaster } from '@/components/ui/sonner'
 
 /**
  * Client-side providers that wrap the entire app.
@@ -117,8 +119,11 @@ function ReleaseResilience() {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SubscriptionProvider>
-      <ReleaseResilience />
-      {children}
+      <NotificationsProvider>
+        <ReleaseResilience />
+        {children}
+        <Toaster />
+      </NotificationsProvider>
     </SubscriptionProvider>
   )
 }
