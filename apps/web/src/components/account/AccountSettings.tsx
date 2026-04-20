@@ -9,11 +9,13 @@ import {
   Settings, Shield, FileText, Trash2, Edit2, Check, X, Loader2,
   LogOut, Eye, EyeOff, Save, Bell, ChevronDown, ChevronUp, User as UserIcon,
   AlertTriangle, Lock, Calendar, BadgeCheck, Camera, CreditCard, ExternalLink,
+  Sparkles,
 } from 'lucide-react'
+import { ReleaseNotes } from '@/components/release-notes'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'account' | 'subscription' | 'notifications' | 'legal' | 'delete'
+type Tab = 'account' | 'subscription' | 'notifications' | 'updates' | 'legal' | 'delete'
 
 interface NotificationPrefs {
   riskAlerts: boolean
@@ -419,6 +421,7 @@ export function AccountSettings() {
     { id: 'subscription', label: 'Subscription', icon: <CreditCard className="h-4 w-4" /> },
     { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
     { id: 'legal', label: 'Legal & Privacy', icon: <Shield className="h-4 w-4" /> },
+    { id: 'updates', label: "What's New", icon: <Sparkles className="h-4 w-4" /> },
     { id: 'delete', label: 'Delete Account', icon: <Trash2 className="h-4 w-4" /> },
   ]
 
@@ -992,6 +995,21 @@ export function AccountSettings() {
           )}
 
           {/* ── Delete Account Tab ────────────────────────────────────── */}
+          {activeTab === 'updates' && (
+            <div>
+              <SectionHeader
+                title="What's New"
+                subtitle="Updates, improvements, and fixes shipped to production."
+              />
+              <ReleaseNotes
+                owner="Cover-Guard"
+                repo="Main"
+                baseBranch="main"
+                variant="panel"
+              />
+            </div>
+          )}
+
           {activeTab === 'delete' && (
             <div className="bg-white rounded-xl border border-red-200 p-4">
               <div className="flex items-start gap-3 mb-5">
