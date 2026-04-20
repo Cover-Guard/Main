@@ -61,6 +61,36 @@ export function errorHandler(
       })
       return
     }
+
+    // Table does not exist in the current database → 503.
+    // This is an operational state (a migration has not been applied), not a
+    // client bug. Return a service-unavailable so clients can back off and so
+    // the error rate dashboard clearly flags the missing migration instead of
+    // lumping it in with generic 500s.
+    if (err.code === 'P2021') {
+      logger.error('Missing database table — migration likely not applied: %s', err.message)
+      res.status(503).json({
+        success: false,
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'A required database object is missing. Please try again later.',
+        },
+      })
+      return
+    }
+
+    // Column does not exist → 503. Same reasoning as P2021.
+    if (err.code === 'P2022') {
+      logger.error('Missing database column — migration likely not applied: %s', err.message)
+      res.status(503).json({
+        success: false,
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'A required database object is missing. Please try again later.',
+        },
+      })
+      return
+    }
   }
 
   // Prisma: validation error → 400

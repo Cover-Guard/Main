@@ -71,13 +71,17 @@ interface UserActivity {
   recent: RecentSavedActivity[]
 }
 
+// NOTE: `marketValue` is NOT selected here because it is not a persisted
+// Property column — it is enriched at read time by propertyService via the
+// AVM (Automated Valuation Model) fetch. Selecting it via Prisma triggers a
+// PrismaClientValidationError ("Unknown field marketValue on Property") which
+// the errorHandler maps to HTTP 400 — previously breaking /api/dashboard/ticker.
 const PROPERTY_FIELDS = {
   id: true,
   address: true,
   city: true,
   state: true,
   estimatedValue: true,
-  marketValue: true,
 } as const
 
 async function loadUserActivity(userId: string): Promise<UserActivity> {
@@ -126,7 +130,7 @@ async function loadUserActivity(userId: string): Promise<UserActivity> {
   ])
 
   const portfolioValue = saved.reduce((sum, s) => {
-    const val = s.property?.marketValue ?? s.property?.estimatedValue ?? 0
+    const val = s.property?.estimatedValue ?? 0
     return sum + val
   }, 0)
 
@@ -134,7 +138,7 @@ async function loadUserActivity(userId: string): Promise<UserActivity> {
   // least 7 days ago. Approximation — we don't snapshot historical values.
   const priorSavedRecords = saved.filter((s) => s.savedAt < sevenDaysAgo)
   const priorPortfolioValue = priorSavedRecords.reduce((sum, s) => {
-    const val = s.property?.marketValue ?? s.property?.estimatedValue ?? 0
+    const val = s.property?.estimatedValue ?? 0
     return sum + val
   }, 0)
 
@@ -151,7 +155,7 @@ async function loadUserActivity(userId: string): Promise<UserActivity> {
     address: s.property?.address ?? '',
     city: s.property?.city ?? '',
     state: s.property?.state ?? '',
-    estimatedValue: s.property?.marketValue ?? s.property?.estimatedValue ?? null,
+    estimatedValue: s.property?.estimatedValue ?? null,
     riskScore: s.property?.riskProfile?.overallRiskScore ?? null,
     savedAt: s.savedAt.toISOString(),
   }))
