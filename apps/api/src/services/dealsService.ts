@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../utils/prisma'
+import { logger } from '../utils/logger'
 import type {
   Deal,
   DealFalloutBreakdown,
@@ -19,6 +20,24 @@ import {
   DealFalloutReason as PrismaDealFalloutReason,
 } from '../generated/prisma/client'
 import type { Prisma } from '../generated/prisma/client'
+
+/**
+ * Detect "table does not exist" (Prisma P2021) and "column does not exist"
+ * (Prisma P2022) errors. These fire when the `deals` migration has not been
+ * applied to the target database. In that state every deals read would 500,
+ * which breaks the dashboard even though deals are an opt-in feature. We
+ * degrade to empty lists / zero stats until the migration is applied.
+ *
+ * This is specifically *not* catching generic Prisma errors — only the two
+ * schema-drift codes. A real DB error (permission denied, connection lost,
+ * etc.) still propagates up so the errorHandler can respond appropriately.
+ */
+function isMissingSchemaError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  if (err.name !== 'PrismaClientKnownRequestError') return false
+  const code = (err as Error & { code?: string }).code
+  return code === 'P2021' || code === 'P2022'
+}
 
 const DEAL_INCLUDE = {
   property: { select: { id: true, address: true, city: true, state: true } },
@@ -74,12 +93,22 @@ export interface UpdateDealInput {
 }
 
 export async function listDeals(userId: string): Promise<DealWithRelations[]> {
-  const deals = await prisma.deal.findMany({
-    where: { userId },
-    include: DEAL_INCLUDE,
-    orderBy: { createdAt: 'desc' },
-  })
-  return deals.map(toDto)
+  try {
+    const deals = await prisma.deal.findMany({
+      where: { userId },
+      include: DEAL_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    })
+    return deals.map(toDto)
+  } catch (err) {
+    if (isMissingSchemaError(err)) {
+      logger.warn(
+        'deals table missing — returning empty list. Apply the supabase/migrations/20260417000000_add_deals.sql migration to enable the deals pipeline.',
+      )
+      return []
+    }
+    throw err
+  }
 }
 
 export async function createDeal(userId: string, input: CreateDealInput): Promise<DealWithRelations> {
@@ -154,17 +183,60 @@ export async function deleteDeal(userId: string, id: string): Promise<boolean> {
 
 // ─── Stats aggregation ──────────────────────────────────────────────────────
 
-export async function getDealStats(userId: string): Promise<DealStats> {
-  const deals = await prisma.deal.findMany({
-    where: { userId },
-    select: {
-      stage: true,
-      dealValue: true,
-      falloutReason: true,
-      openedAt: true,
-      closedAt: true,
+/** Empty stats shape used when the deals table is missing. Kept in sync with
+ *  the full return shape below so the UI never sees partial data. */
+function emptyDealStats(): DealStats {
+  const stageCounts: Record<DealStage, DealStageCount> = DEAL_STAGES.reduce(
+    (acc, stage) => {
+      acc[stage] = { stage, count: 0, totalValue: 0 }
+      return acc
     },
-  })
+    {} as Record<DealStage, DealStageCount>,
+  )
+  return {
+    totalDeals: 0,
+    closedWonCount: 0,
+    fellOutCount: 0,
+    activeCount: 0,
+    closeRate: null,
+    closedWonValue: 0,
+    fellOutValue: 0,
+    avgCloseTimeDays: null,
+    byStage: DEAL_STAGES.map((s) => stageCounts[s]),
+    falloutBreakdown: [],
+    generatedAt: new Date().toISOString(),
+  }
+}
+
+export async function getDealStats(userId: string): Promise<DealStats> {
+  type DealAggRow = {
+    stage: PrismaDealStage
+    dealValue: number | null
+    falloutReason: PrismaDealFalloutReason | null
+    openedAt: Date
+    closedAt: Date | null
+  }
+  let deals: DealAggRow[]
+  try {
+    deals = await prisma.deal.findMany({
+      where: { userId },
+      select: {
+        stage: true,
+        dealValue: true,
+        falloutReason: true,
+        openedAt: true,
+        closedAt: true,
+      },
+    })
+  } catch (err) {
+    if (isMissingSchemaError(err)) {
+      logger.warn(
+        'deals table missing — returning zeroed stats. Apply the supabase/migrations/20260417000000_add_deals.sql migration to enable the deals pipeline.',
+      )
+      return emptyDealStats()
+    }
+    throw err
+  }
 
   // Initialize per-stage counters so the UI always shows every stage.
   const stageCounts: Record<DealStage, DealStageCount> = DEAL_STAGES.reduce(

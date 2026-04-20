@@ -131,6 +131,43 @@ describe('errorHandler', () => {
         }),
       )
     })
+
+    // P2021 / P2022 surface when a migration has not been applied (table or
+    // column missing). They are operational states, not client bugs — map to
+    // 503 so retries back off and monitoring clearly flags schema drift.
+    it('returns 503 for P2021 (table does not exist)', () => {
+      const err = makePrismaError(
+        'P2021',
+        "The table `public.deals` does not exist in the current database.",
+      )
+      const { res, status, json } = makeRes()
+
+      errorHandler(err, req, res, next)
+
+      expect(status).toHaveBeenCalledWith(503)
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({ code: 'SERVICE_UNAVAILABLE' }),
+        }),
+      )
+    })
+
+    it('returns 503 for P2022 (column does not exist)', () => {
+      const err = makePrismaError(
+        'P2022',
+        "The column `Property.marketValue` does not exist in the current database.",
+      )
+      const { res, status, json } = makeRes()
+
+      errorHandler(err, req, res, next)
+
+      expect(status).toHaveBeenCalledWith(503)
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({ code: 'SERVICE_UNAVAILABLE' }),
+        }),
+      )
+    })
   })
 
   describe('Prisma validation error', () => {

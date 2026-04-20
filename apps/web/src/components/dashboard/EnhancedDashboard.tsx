@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useState } from 'react';
+import { JSX, useEffect, useState } from 'react';
 import {
   Activity,
   BarChart3,
@@ -59,6 +59,22 @@ export function EnhancedDashboard() {
   const [layout, setLayout] = useState<PanelConfig[]>(DEFAULT_LAYOUT);
   const [showCustomize, setShowCustomize] = useState(false);
   const [dragItem, setDragItem] = useState<number | null>(null);
+
+  // `new Date().toLocaleString()` evaluates to a different value on the
+  // server (server TZ, server clock) and on the client (client TZ, client
+  // clock), which triggers React hydration error #418 ("Text content does
+  // not match server-rendered HTML"). Keep the SSR/first-client render
+  // stable (null → "—") and only set the real timestamp after mount so the
+  // initial hydration is deterministic.
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  useEffect(() => {
+    const update = () => setLastSyncedAt(new Date().toLocaleString());
+    update();
+    // Refresh every 30s so the footer stays roughly current without creating
+    // a new timer on every render.
+    const id = window.setInterval(update, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const movePanel = (fromIdx: number, toIdx: number) => {
     setLayout((prev) => {
@@ -209,7 +225,14 @@ export function EnhancedDashboard() {
 
       <footer className="max-w-7xl mx-auto px-4 py-2 text-center">
         <p className="text-xs text-gray-400">
-          Last synced: {new Date().toLocaleString()} · Auto-refresh active
+          {/* suppressHydrationWarning is belt-and-braces — the useEffect
+              above already guarantees the first client render matches SSR
+              (both render "—"). The attribute just silences any future
+              regression if a child accidentally reintroduces non-deterministic
+              text inside this paragraph. */}
+          <span suppressHydrationWarning>
+            Last synced: {lastSyncedAt ?? '—'} · Auto-refresh active
+          </span>
         </p>
       </footer>
     </div>
