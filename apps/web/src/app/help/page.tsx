@@ -7,11 +7,7 @@ import {
   MarketingFooter,
   HelpAdvisorPanel,
 } from '@/components/marketing'
-import {
-  ReleaseNotes,
-  HowToWalkthrough,
-  useWalkthroughTrigger,
-} from '@/components/release-notes'
+import { ReleaseNotes } from '@/components/release-notes'
 import {
   Search,
   Sparkles,
@@ -194,7 +190,6 @@ const categories: Array<Article['category'] | 'All'> = [
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function HelpPage() {
-  const { run, start, stop } = useWalkthroughTrigger()
   const [query, setQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState<Article['category'] | 'All'>('All')
   const [openFaq, setOpenFaq] = useState<number | null>(0)
@@ -443,7 +438,6 @@ export default function HelpPage() {
             repo="Main"
             baseBranch="main"
             variant="page"
-            onStartWalkthrough={start}
           />
         </section>
 
@@ -631,7 +625,6 @@ export default function HelpPage() {
           </div>
         </section>
       </main>
-      <HowToWalkthrough run={run} onFinish={stop} autoRunOnce={false} />
       <MarketingFooter />
     </>
   )

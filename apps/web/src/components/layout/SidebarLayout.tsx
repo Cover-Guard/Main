@@ -23,7 +23,7 @@ import { MobileDrawer } from '@/components/mobile/MobileDrawer'
 import { getMe } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@coverguard/shared'
-import { HowToWalkthrough } from '@/components/release-notes'
+import { NewFeaturesTourLauncher } from '@/components/release-notes/NewFeaturesTourLauncher'
 
 const navItems = [
   { href: '/check',     label: 'Search',     icon: Search,          exact: true },
@@ -268,7 +268,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           <AIAdvisor />
         </div>
       </div>
-      <HowToWalkthrough autoRunOnce />
+      <NewFeaturesTourLauncher owner="Cover-Guard" repo="Main" />
     </>
   )
 }
