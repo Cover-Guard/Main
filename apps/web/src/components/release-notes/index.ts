@@ -1,3 +1,5 @@
 export { ReleaseNotes } from './ReleaseNotes'
-export { HowToWalkthrough, useWalkthroughTrigger, DEFAULT_STEPS } from './HowToWalkthrough'
+export { FeatureTour } from './FeatureTour'
+export { NewFeaturesTourLauncher } from './NewFeaturesTourLauncher'
+export { extractHeroImage, extractExcerpt, extractCTA } from './parsePRBody'
 export type { Category, PullRequest, ReleaseItem, ReleaseGroup } from './helpers'

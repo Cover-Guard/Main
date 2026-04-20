@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { FeatureTour } from './FeatureTour'
 import {
   fetchMergedPRs,
   categorizePR,
@@ -63,6 +64,7 @@ export function ReleaseNotes({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Category | 'all'>(initialFilter)
+  const [tourOpen, setTourOpen] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -118,6 +120,11 @@ export function ReleaseNotes({
 
   const unseen = useMemo(() => countUnseen(prs), [prs])
 
+  const tourItems = useMemo(
+    () => enriched.filter((p) => p.category === 'added' || p.category === 'enhanced'),
+    [enriched]
+  )
+
   const header = (
     <div className="flex items-start justify-between gap-4">
       <div>
@@ -127,14 +134,14 @@ export function ReleaseNotes({
           {variant === 'panel' ? '.' : ' shipped to production.'}
         </p>
       </div>
-      {variant === 'page' && onStartWalkthrough && (
+      {variant === 'page' && (
         <Button
           type="button"
           size="sm"
-          onClick={onStartWalkthrough}
+          onClick={() => (onStartWalkthrough ? onStartWalkthrough() : setTourOpen(true))}
           data-tour="start-walkthrough"
         >
-          Take the tour
+          See what&apos;s new
         </Button>
       )}
       {variant === 'panel' && unseen > 0 && (
@@ -226,6 +233,11 @@ export function ReleaseNotes({
         </CardHeader>
         <CardContent>{body}</CardContent>
       </Card>
+      <FeatureTour
+        items={tourItems}
+        open={tourOpen}
+        onClose={() => setTourOpen(false)}
+      />
     </section>
   )
 }
