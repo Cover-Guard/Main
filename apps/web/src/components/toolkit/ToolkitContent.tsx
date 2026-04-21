@@ -1,11 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
 import { ToolkitFeaturedRail } from '@/components/toolkit/ToolkitFeaturedRail'
+import { LiveDot } from '@/components/dashboard/enhanced/utils'
 import { isDemoMode } from '@/lib/mockData'
 import {
-  ArrowLeft,
   Wrench,
   DollarSign,
   ClipboardList,
@@ -20,6 +19,8 @@ import {
   Building2,
   MessageSquare,
   BookOpen,
+  GripVertical,
+  Settings,
 } from 'lucide-react'
 
 // ─── Hard Market Data ──────────────────────────────────────────────────────
@@ -1130,8 +1131,33 @@ const TOOLS = [
   },
 ]
 
+interface ToolLayoutEntry {
+  id: string
+  order: number
+  visible: boolean
+}
+
+const DEFAULT_LAYOUT: ToolLayoutEntry[] = TOOLS.map((t, i) => ({
+  id: t.id,
+  order: i,
+  visible: true,
+}))
+
 export function ToolkitContent() {
   const [openId, setOpenId] = useState<string | null>(null)
+  const [layout, setLayout] = useState<ToolLayoutEntry[]>(DEFAULT_LAYOUT)
+  const [showCustomize, setShowCustomize] = useState(false)
+  const [dragItem, setDragItem] = useState<number | null>(null)
+
+  // Match the dashboard's hydration-safe "last synced" footer so SSR and the
+  // first client render agree on a stable "—" placeholder.
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  useEffect(() => {
+    const update = () => setLastSyncedAt(new Date().toLocaleString())
+    update()
+    const id = window.setInterval(update, 30_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   function toggle(id: string) {
     setOpenId((prev) => (prev === id ? null : id))
@@ -1140,56 +1166,200 @@ export function ToolkitContent() {
   const gridRef = useRef<HTMLDivElement>(null)
   const openToolById = (id: string) => {
     setOpenId(id)
-    // Scroll the grid into view after state updates paint the open tool.
+    setLayout((prev) => prev.map((p) => (p.id === id ? { ...p, visible: true } : p)))
     requestAnimationFrame(() => {
       gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
+  const movePanel = (fromIdx: number, toIdx: number) => {
+    setLayout((prev) => {
+      const items = [...prev]
+      const [moved] = items.splice(fromIdx, 1)
+      items.splice(toIdx, 0, moved)
+      return items.map((item, i) => ({ ...item, order: i }))
+    })
+  }
+  const toggleVisibility = (id: string) =>
+    setLayout((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)))
+  const resetLayout = () => setLayout(DEFAULT_LAYOUT)
+
+  const handlePanelDragStart = (panelId: string) => {
+    const idx = layout.findIndex((p) => p.id === panelId)
+    if (idx !== -1) setDragItem(idx)
+  }
+  const handlePanelDrop = (panelId: string) => {
+    if (dragItem === null) return
+    const toIdx = layout.findIndex((p) => p.id === panelId)
+    if (toIdx !== -1 && toIdx !== dragItem) movePanel(dragItem, toIdx)
+    setDragItem(null)
+  }
+
+  const toolById = new Map(TOOLS.map((t) => [t.id, t]))
+  const visiblePanels = layout
+    .filter((p) => p.visible)
+    .sort((a, b) => a.order - b.order)
+    .map((entry) => ({ entry, tool: toolById.get(entry.id)! }))
+    .filter((p) => p.tool)
+
   return (
-    <div className="p-3 lg:p-4 max-w-full mx-auto">
-      <div className="flex items-center gap-3 mb-2">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div className="flex items-center gap-2">
-          <Wrench className="h-5 w-5 text-gray-700" />
-          <h1 className="text-heading text-foreground">Agent Toolkit</h1>
-        </div>
-      </div>
-      <p className="text-body text-muted-foreground mb-5 ml-[44px]">
-        AI-powered tools for insurance-savvy real estate professionals
-      </p>
-
-      <ToolkitFeaturedRail
-        demoMode={typeof window !== 'undefined' && isDemoMode()}
-        onOpenCostEstimator={() => openToolById('cost-estimator')}
-        onOpenHardMarket={() => openToolById('hard-market')}
-        onOpenEmailTemplates={() => openToolById('email-templates')}
-      />
-
-      <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {TOOLS.map(({ id, icon: Icon, iconBg, iconColor, title, description, content }) => {
-          const isOpen = openId === id
-          return (
-            <div key={id} className={`bg-white rounded-xl border border-gray-200 overflow-hidden transition-all hover:shadow-panel-hover hover:border-gray-300 ${isOpen ? 'md:col-span-2 lg:col-span-3' : ''}`}>
-              <button type="button" onClick={() => toggle(id)} className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left">
-                <div className={`h-10 w-10 rounded-lg ${iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
-                  <Icon className={`h-5 w-5 ${iconColor}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-subheading text-foreground">{title}</p>
-                  <p className="text-caption text-muted-foreground mt-0.5 line-clamp-2">{description}</p>
-                </div>
-                <div className="shrink-0 mt-1">
-                  {isOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
-                </div>
-              </button>
-              {isOpen && <div className="px-4 pb-4 border-t border-gray-100">{content}</div>}
+    <div className="min-h-full bg-gray-50">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-indigo-600 rounded-lg">
+              <Wrench size={16} className="text-white" />
             </div>
-          )
-        })}
-      </div>
+            <div>
+              <h1 className="text-sm font-bold text-gray-900">Agent Toolkit</h1>
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                <LiveDot /> AI-powered tools for insurance-savvy agents
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowCustomize((s) => !s)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Settings size={13} />
+            Customize
+          </button>
+        </div>
+      </header>
+
+      {showCustomize && (
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-900">Customize Tools</h3>
+              <div className="flex gap-2">
+                <button onClick={resetLayout} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+                  Reset
+                </button>
+                <button
+                  onClick={() => setShowCustomize(false)}
+                  className="text-xs text-gray-500 hover:text-gray-700 font-medium ml-2"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              {layout
+                .slice()
+                .sort((a, b) => a.order - b.order)
+                .map((entry, idx) => {
+                  const tool = toolById.get(entry.id)
+                  if (!tool) return null
+                  const Icon = tool.icon
+                  return (
+                    <div
+                      key={entry.id}
+                      draggable
+                      onDragStart={() => setDragItem(idx)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        if (dragItem !== null) {
+                          movePanel(dragItem, idx)
+                          setDragItem(null)
+                        }
+                      }}
+                      className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded border border-gray-200 cursor-move hover:bg-gray-100 transition-colors"
+                    >
+                      <GripVertical size={12} className="text-gray-400" />
+                      <Icon size={12} className="text-gray-500" />
+                      <span
+                        className={`text-xs flex-1 ${
+                          entry.visible ? 'text-gray-900 font-medium' : 'text-gray-400 line-through'
+                        }`}
+                      >
+                        {tool.title}
+                      </span>
+                      <button
+                        onClick={() => toggleVisibility(entry.id)}
+                        className={`text-xs px-1.5 py-px rounded font-medium ${
+                          entry.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
+                        }`}
+                      >
+                        {entry.visible ? 'On' : 'Off'}
+                      </button>
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="max-w-screen-2xl mx-auto px-3 py-2">
+        <ToolkitFeaturedRail
+          demoMode={typeof window !== 'undefined' && isDemoMode()}
+          onOpenCostEstimator={() => openToolById('cost-estimator')}
+          onOpenHardMarket={() => openToolById('hard-market')}
+          onOpenEmailTemplates={() => openToolById('email-templates')}
+        />
+
+        <div ref={gridRef} className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {visiblePanels.map(({ tool }) => {
+            const { id, icon: Icon, iconBg, iconColor, title, description, content } = tool
+            const isOpen = openId === id
+            const isDragging = dragItem !== null && layout[dragItem]?.id === id
+            return (
+              <div
+                key={id}
+                draggable
+                onDragStart={() => handlePanelDragStart(id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handlePanelDrop(id)}
+                onDragEnd={() => setDragItem(null)}
+                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all flex flex-col ${
+                  isOpen ? 'sm:col-span-2 lg:col-span-3' : ''
+                } ${
+                  isDragging ? 'opacity-40 ring-2 ring-indigo-400' : 'hover:shadow-md hover:border-indigo-200'
+                }`}
+              >
+                <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <GripVertical size={11} className="text-gray-300 flex-shrink-0" />
+                    <Icon size={12} className="text-indigo-600 flex-shrink-0" />
+                    <h2 className="text-[11px] font-semibold text-gray-900 truncate">{title}</h2>
+                  </div>
+                  {isOpen && (
+                    <div className="flex items-center gap-0.5 flex-shrink-0">
+                      <LiveDot />
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggle(id)}
+                  className="flex items-start gap-3 px-3 py-3 hover:bg-gray-50 transition-colors text-left w-full"
+                >
+                  <div className={`h-10 w-10 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+                    <Icon className={`h-5 w-5 ${iconColor}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{description}</p>
+                  </div>
+                  <div className="shrink-0 mt-1 text-gray-400">
+                    {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </div>
+                </button>
+                {isOpen && <div className="px-4 pb-4 border-t border-gray-100">{content}</div>}
+              </div>
+            )
+          })}
+        </div>
+      </main>
+
+      <footer className="max-w-7xl mx-auto px-4 py-2 text-center">
+        <p className="text-xs text-gray-400">
+          <span suppressHydrationWarning>
+            Last synced: {lastSyncedAt ?? '—'} · {TOOLS.length} tools available
+          </span>
+        </p>
+      </footer>
     </div>
   )
 }
