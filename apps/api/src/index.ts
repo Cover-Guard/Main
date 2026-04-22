@@ -16,6 +16,7 @@ import { advisorRouter } from './routes/advisor'
 import { stripeRouter, stripeWebhookRouter } from './routes/stripe'
 import { dashboardRouter } from './routes/dashboard'
 import { dealsRouter } from './routes/deals'
+import { notificationsRouter } from './routes/notifications'
 
 
 
@@ -223,6 +224,8 @@ app.use('/api/clients', requestTimeout(40_000), clientsRouter)
 app.use('/api/advisor', requestTimeout(40_000), advisorRouter)
 app.use('/api/dashboard', requestTimeout(15_000), dashboardRouter)
 app.use('/api/deals', requestTimeout(15_000), dealsRouter)
+// Push subscription + notification dispatch (email + web push fan-out).
+app.use('/api', requestTimeout(20_000), notificationsRouter)
 
 
 
