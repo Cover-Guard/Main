@@ -62,7 +62,7 @@ export default function DemoPage() {
       form.reset()
     } catch {
       setFormState('error')
-      setErrorMsg('Something went wrong. Please email us directly at investor@coverguard.io')
+      setErrorMsg('Something went wrong. Please email us directly at sales@coverguard.io')
     }
   }
 
