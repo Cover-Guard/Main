@@ -1180,6 +1180,14 @@ export interface NriResult {
   hurricaneRisk: string | null
   tornadoRisk: string | null
   wildfireRisk: string | null
+  /** Heat Wave risk rating (HWAV_RISKR): 'Very High', 'Relatively High', … */
+  heatWaveRisk: string | null
+  /** Heat Wave expected annual loss (total) — useful for triage copy */
+  heatWaveExpectedAnnualLoss: number | null
+  /** Strong Wind risk rating — supplements hurricane/tornado for inland wind */
+  strongWindRisk: string | null
+  /** Drought risk rating — supplemental signal for the drought layer */
+  droughtRisk: string | null
 }
 
 export async function fetchFemaNri(lat: number, lng: number): Promise<NriResult | null> {
@@ -1199,6 +1207,7 @@ export async function fetchFemaNri(lat: number, lng: number): Promise<NriResult 
           return null
         }
         const ealRaw = field('EAL_VALT', 'EAL_VALUE', 'EAL_VALB')
+        const hwavEalRaw = field('HWAV_EALT', 'HWAV_EAL_VALUE', 'HWAV_EAL')
         return {
           riskRating: (field('RISK_RATNG', 'RISK_RATING') as string | null),
           expectedAnnualLoss: typeof ealRaw === 'number' ? ealRaw : typeof ealRaw === 'string' ? parseFloat(ealRaw) || null : null,
@@ -1209,6 +1218,10 @@ export async function fetchFemaNri(lat: number, lng: number): Promise<NriResult 
           hurricaneRisk: (field('HRCN_RISKR', 'HRCN_RISKS', 'HRCN_SCORE') as string | null),
           tornadoRisk: (field('TRND_RISKR', 'TRND_RISKS', 'TRND_SCORE') as string | null),
           wildfireRisk: (field('WFIR_RISKR', 'WFIR_RISKS', 'WFIR_SCORE') as string | null),
+          heatWaveRisk: (field('HWAV_RISKR', 'HWAV_RISKS', 'HWAV_SCORE') as string | null),
+          heatWaveExpectedAnnualLoss: typeof hwavEalRaw === 'number' ? hwavEalRaw : typeof hwavEalRaw === 'string' ? parseFloat(hwavEalRaw) || null : null,
+          strongWindRisk: (field('SWND_RISKR', 'SWND_RISKS', 'SWND_SCORE') as string | null),
+          droughtRisk: (field('DRGT_RISKR', 'DRGT_RISKS', 'DRGT_SCORE') as string | null),
         }
       }
     }

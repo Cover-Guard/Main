@@ -358,8 +358,10 @@ export async function getOrComputeRiskProfile(
       safe(fetchEsriDroughtMonitor(property.lat, property.lng), null, 'US Drought Monitor (Esri)'),
     ])
 
-    // Climate projection scoring (computed sync from state + lat + drought monitor)
-    const heatRisk = computeHeatRisk(property.state, property.lat)
+    // Climate projection scoring. Prefer FEMA NRI HWAV_RISKR as the
+    // authoritative heat rating when available — the state × latitude
+    // estimate is only a fallback when NRI has no data for the tract.
+    const heatRisk = computeHeatRisk(property.state, property.lat, nriData?.heatWaveRisk ?? null)
     const droughtRisk = computeDroughtRisk(
       property.state,
       droughtMonitor?.droughtLevel ?? null,
