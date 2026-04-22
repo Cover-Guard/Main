@@ -152,25 +152,46 @@ function computeFireScore(fireData: FireRiskExtended): number {
   return score
 }
 
-function computeWindScore(windData: WindRiskExtended): number {
+function nriHurricaneRatingBoost(rating: string | null | undefined): number {
+  if (!rating) return 0
+  const r = rating.trim().toLowerCase()
+  if (r === 'very high') return 20
+  if (r === 'relatively high') return 12
+  if (r === 'relatively moderate') return 6
+  if (r === 'relatively low') return 2
+  return 0
+}
+
+function computeWindScore(
+  windData: WindRiskExtended,
+  nriHurricaneRisk: string | null | undefined = null,
+): number {
   const hurricaneRisk = windData.hurricaneRisk ?? false
   const tornadoRisk = windData.tornadoRisk ?? false
   const hailRisk = windData.hailRisk ?? false
   const sloshCategory = windData.sloshCategory ?? null
+  const inCoastalFloodHazardZone = windData.inCoastalFloodHazardZone ?? false
   const historicalTornado = windData.historicalTornadoCount ?? 0
   const historicalHail = windData.historicalHailCount ?? 0
 
   let score = 10
 
-  // Hurricane risk with SLOSH category differentiation
+  // Hurricane risk. NOAA retired the per-category SLOSH services, so
+  // `sloshCategory` is now almost always null. Category differentiation
+  // flows in from (a) NRI `hurricaneRisk` rating (authoritative), and
+  // (b) Esri IBTrACS `esriHurricaneMaxCategory` (historical exposure).
   if (hurricaneRisk) {
     if (sloshCategory != null) {
-      // SLOSH category: 1 (minimal surge) to 5 (catastrophic)
-      // Cat 1 surge zone → score 55; Cat 5 → score 90
+      // Legacy path: if the old SLOSH category is somehow still set, use it
       score = Math.max(score, Math.min(100, 45 + sloshCategory * 9))
     } else {
-      score = Math.max(score, 70) // Hurricane state but no SLOSH data
+      score = Math.max(score, 70) // Hurricane state baseline
     }
+    // Coastal flood hazard composite zone bumps the baseline —
+    // this is where storm surge actually reaches the property.
+    if (inCoastalFloodHazardZone) score = Math.max(score, 78)
+    // NRI hurricane rating (FEMA census-tract authoritative)
+    score = Math.min(100, score + nriHurricaneRatingBoost(nriHurricaneRisk))
     // Historical hurricane track proximity boosts further
     const historicalHurricane = windData.historicalHurricaneCount ?? 0
     if (historicalHurricane > 10) score = Math.min(100, score + 10)
@@ -388,7 +409,7 @@ export async function getOrComputeRiskProfile(
       }
     }
     const rawFireScore = computeFireScore(fireData2)
-    const rawWindScore = computeWindScore(windData)
+    const rawWindScore = computeWindScore(windData, nriData?.hurricaneRisk ?? null)
 
     // Enhance earthquake score with historical events
     const rawEarthquakeScore = computeEarthquakeScore(earthquakeData, historicalEq)
