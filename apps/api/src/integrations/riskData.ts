@@ -322,11 +322,22 @@ export async function fetchFireRisk(lat: number, lng: number, state: string): Pr
   return result
 }
 
-/** USDA Wildfire Risk to Communities via Esri — enriches fire data with hazard potential */
+/** USDA Wildfire Risk to Communities via Esri — enriches fire data with hazard potential.
+ *  NOTE: `apps.fs.usda.gov` runs a WAF that returns 403 to requests without a
+ *  browser-like `Referer`/`User-Agent` from non-residential egress IPs. We set
+ *  both so server-side calls from cloud egress aren't filtered. If the primary
+ *  source still fails, Cal Fire FHSZ + USFS WUI + NIFC + LANDFIRE already
+ *  provide fire coverage. */
 async function fetchEsriWildfireRiskEnrichment(lat: number, lng: number, result: FireRiskExtended): Promise<void> {
   try {
     const url = `https://apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire/RMRS_WRC_WildfireRisk/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=WHPS_CLASS,RISK_RATING,BP,FL&returnGeometry=false&resultRecordCount=1&f=json`
-    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        Referer: 'https://wildfirerisk.org/',
+        'User-Agent': 'CoverGuard/1.0 (+https://coverguard.app)',
+      },
+    })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const attrs = data.features?.[0]?.attributes
@@ -1329,9 +1340,16 @@ export interface EsriWildfireRiskResult {
 
 export async function fetchEsriWildfireRisk(lat: number, lng: number): Promise<EsriWildfireRiskResult | null> {
   try {
-    // USDA Forest Service Wildfire Risk to Communities — hosted on Esri ArcGIS
+    // USDA Forest Service Wildfire Risk to Communities — hosted on Esri ArcGIS.
+    // See `fetchEsriWildfireRiskEnrichment` for the WAF/Referer rationale.
     const url = `https://apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire/RMRS_WRC_WildfireRisk/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=WHPS_CLASS,RISK_RATING,BP,FL&returnGeometry=false&resultRecordCount=1&f=json`
-    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await limitedFetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        Referer: 'https://wildfirerisk.org/',
+        'User-Agent': 'CoverGuard/1.0 (+https://coverguard.app)',
+      },
+    })
     if (res.ok) {
       const data = (await res.json()) as ArcGISFeatureResult
       const attrs = data.features?.[0]?.attributes
