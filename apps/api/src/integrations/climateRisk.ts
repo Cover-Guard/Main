@@ -51,10 +51,32 @@ export interface HeatRiskComputed {
 }
 
 /**
- * Compute heat risk from state + latitude. Lower latitude → hotter; combined
- * with state climatology to produce a 0–100 score.
+ * Map FEMA NRI HWAV_RISKR rating string → (score, level). FEMA ratings are
+ * the authoritative census-tract source — use them when available.
  */
-export function computeHeatRisk(state: string | null | undefined, lat: number): HeatRiskComputed {
+function nriHeatRatingToScore(rating: string | null | undefined): { score: number; level: RiskLevel } | null {
+  if (!rating) return null
+  const r = rating.trim().toLowerCase()
+  if (r === 'very high') return { score: 90, level: 'EXTREME' }
+  if (r === 'relatively high') return { score: 72, level: 'VERY_HIGH' }
+  if (r === 'relatively moderate') return { score: 55, level: 'HIGH' }
+  if (r === 'relatively low') return { score: 30, level: 'MODERATE' }
+  if (r === 'very low') return { score: 12, level: 'LOW' }
+  if (r === 'no rating' || r === 'not applicable' || r === 'insufficient data') return null
+  return null
+}
+
+/**
+ * Compute heat risk. Prefers FEMA NRI Heat Wave risk rating (HWAV_RISKR)
+ * when available — the census-tract-level authoritative source. Falls back
+ * to a state-climatology × latitude estimate when NRI data is missing
+ * (triage quality, not property-level).
+ */
+export function computeHeatRisk(
+  state: string | null | undefined,
+  lat: number,
+  nriHwavRisk: string | null = null,
+): HeatRiskComputed {
   const code = (state ?? '').toUpperCase()
   const stateDays = STATE_EXTREME_HEAT_DAYS[code] ?? 8
 
@@ -65,13 +87,19 @@ export function computeHeatRisk(state: string | null | undefined, lat: number): 
     lat <= 41 ? 0.85 : 0.65
   const extremeHeatDays = Math.round(stateDays * latFactor)
 
-  // Score: 0 days → 5; 30 days → 50; 100+ days → 95
-  const score = Math.max(5, Math.min(95, Math.round(extremeHeatDays * 0.9 + 5)))
-  const level: RiskLevel =
-    score >= 80 ? 'EXTREME' :
-    score >= 65 ? 'VERY_HIGH' :
-    score >= 45 ? 'HIGH' :
-    score >= 25 ? 'MODERATE' : 'LOW'
+  // Primary: NRI HWAV_RISKR when provided
+  const nriScore = nriHeatRatingToScore(nriHwavRisk)
+
+  // Fallback: climatology-based estimate. 0 days → 5; 30 days → 50; 100+ days → 95
+  const computedScore = Math.max(5, Math.min(95, Math.round(extremeHeatDays * 0.9 + 5)))
+  const computedLevel: RiskLevel =
+    computedScore >= 80 ? 'EXTREME' :
+    computedScore >= 65 ? 'VERY_HIGH' :
+    computedScore >= 45 ? 'HIGH' :
+    computedScore >= 25 ? 'MODERATE' : 'LOW'
+
+  const score = nriScore?.score ?? computedScore
+  const level = nriScore?.level ?? computedLevel
 
   // Projection: hot regions warm faster (RCP 4.5 / SSP2-4.5 ≈ +50% extreme days by 2050)
   const projectionMultiplier = HOT_REGION_STATES.has(code) ? 1.5 : 1.3
