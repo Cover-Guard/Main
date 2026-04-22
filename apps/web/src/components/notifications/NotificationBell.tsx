@@ -32,9 +32,13 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement | null>(null)
 
   // Reflect current browser permission so we can show the correct CTA.
+  // These setState calls sync state from a browser API (Notification.permission)
+  // that can only be read client-side — same pattern + suppression as
+  // SidebarLayout.tsx's localStorage hydration effect.
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!('Notification' in window)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPushStatus('unsupported')
       return
     }

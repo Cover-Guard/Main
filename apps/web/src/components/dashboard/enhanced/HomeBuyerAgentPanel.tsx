@@ -117,12 +117,18 @@ export function HomeBuyerAgentPanel() {
 
   useEffect(() => {
     if (tab !== 'dm') return;
+    // refreshConversations calls setState inside — that's the whole point of the
+    // effect (sync DB → state on tab enter). Same pattern + same suppression as
+    // SidebarLayout.tsx.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshConversations();
   }, [tab, refreshConversations]);
 
   // ── DMs: load messages for the active conversation + realtime sub ──────
   useEffect(() => {
     if (tab !== 'dm' || !activeConvId) {
+      // Clear stale messages when the active conversation goes away.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDmMessages([]);
       return;
     }
