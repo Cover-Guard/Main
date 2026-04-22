@@ -9,10 +9,14 @@
  */
 
 const findFirstMock = jest.fn()
+const createMock = jest.fn()
 
 jest.mock('../../utils/prisma', () => ({
   prisma: {
-    property: { findFirst: (...args: unknown[]) => findFirstMock(...args) },
+    property: {
+      findFirst: (...args: unknown[]) => findFirstMock(...args),
+      create: (...args: unknown[]) => createMock(...args),
+    },
   },
 }))
 
@@ -35,10 +39,15 @@ jest.mock('../../integrations/googleGeocode', () => ({
   geocodeByAddress: jest.fn(),
 }))
 
-import { resolvePropertyId } from '../../services/propertyService'
+import { resolvePropertyId, ensurePropertyId } from '../../services/propertyService'
+import { geocodeByAddress } from '../../integrations/googleGeocode'
+
+const mockedGeocode = geocodeByAddress as jest.MockedFunction<typeof geocodeByAddress>
 
 beforeEach(() => {
   findFirstMock.mockReset()
+  createMock.mockReset()
+  mockedGeocode.mockReset()
 })
 
 describe('resolvePropertyId', () => {
@@ -97,5 +106,111 @@ describe('resolvePropertyId', () => {
 
     expect(id).toBeNull()
     expect(findFirstMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+/**
+ * ensurePropertyId — the wrapper that falls back to Google geocoding +
+ * on-demand row creation when resolvePropertyId can't find a match. This
+ * is what makes direct-URL navigation to a never-seen-before address slug
+ * work (e.g. /api/properties/6529-Bradford-Ln,-Las-Vegas,-NV-89108/report
+ * for a property that was never surfaced by the search flow).
+ */
+describe('ensurePropertyId', () => {
+  it('returns the canonical id when resolvePropertyId finds a direct match, without geocoding', async () => {
+    findFirstMock.mockResolvedValueOnce({ id: 'existing-uuid' })
+
+    const id = await ensurePropertyId('rentcast-12345')
+
+    expect(id).toBe('existing-uuid')
+    expect(mockedGeocode).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+  })
+
+  it('geocodes and creates a new row when the slug parses but no existing row matches', async () => {
+    // resolvePropertyId: no direct hit, no slug match
+    findFirstMock.mockResolvedValueOnce(null)
+    findFirstMock.mockResolvedValueOnce(null)
+    // ensurePropertyId lat/lng proximity check: also no near-duplicate
+    findFirstMock.mockResolvedValueOnce(null)
+
+    mockedGeocode.mockResolvedValueOnce({
+      placeId: 'ChIJtestBradford',
+      address: '6529 Bradford Ln',
+      city: 'Las Vegas',
+      state: 'NV',
+      zip: '89108',
+      county: 'Clark County',
+      lat: 36.2138,
+      lng: -115.2387,
+      formattedAddress: '6529 Bradford Ln, Las Vegas, NV 89108, USA',
+    })
+
+    createMock.mockResolvedValueOnce({ id: 'new-uuid' })
+
+    const id = await ensurePropertyId('6529-Bradford-Ln,-Las-Vegas,-NV-89108')
+
+    expect(typeof id).toBe('string')
+    expect(id).not.toBeNull()
+    expect(mockedGeocode).toHaveBeenCalledWith('6529 Bradford Ln, Las Vegas, NV 89108')
+    expect(createMock).toHaveBeenCalledTimes(1)
+    const createData = createMock.mock.calls[0]?.[0]?.data
+    expect(createData).toMatchObject({
+      address: '6529 Bradford Ln',
+      city: 'Las Vegas',
+      state: 'NV',
+      zip: '89108',
+      county: 'Clark County',
+      lat: 36.2138,
+      lng: -115.2387,
+      propertyType: 'SINGLE_FAMILY',
+    })
+  })
+
+  it('returns an existing nearby id instead of creating a duplicate when lat/lng proximity matches', async () => {
+    // No resolvePropertyId hit
+    findFirstMock.mockResolvedValueOnce(null)
+    findFirstMock.mockResolvedValueOnce(null)
+    // But lat/lng proximity finds an existing row (e.g. created earlier
+    // via placeId flow with a slightly different address normalization)
+    findFirstMock.mockResolvedValueOnce({ id: 'nearby-uuid' })
+
+    mockedGeocode.mockResolvedValueOnce({
+      placeId: 'ChIJtestBradford',
+      address: '6529 Bradford Ln',
+      city: 'Las Vegas',
+      state: 'NV',
+      zip: '89108',
+      county: 'Clark County',
+      lat: 36.2138,
+      lng: -115.2387,
+      formattedAddress: '6529 Bradford Ln, Las Vegas, NV 89108, USA',
+    })
+
+    const id = await ensurePropertyId('6529-Bradford-Ln,-Las-Vegas,-NV-89108')
+
+    expect(id).toBe('nearby-uuid')
+    expect(createMock).not.toHaveBeenCalled()
+  })
+
+  it('returns null when the slug parses but geocoding fails (e.g. missing API key)', async () => {
+    findFirstMock.mockResolvedValueOnce(null)
+    findFirstMock.mockResolvedValueOnce(null)
+    mockedGeocode.mockResolvedValueOnce(null)
+
+    const id = await ensurePropertyId('1-Nowhere-St,-Atlantis,-XX-00000')
+
+    expect(id).toBeNull()
+    expect(createMock).not.toHaveBeenCalled()
+  })
+
+  it('returns null without geocoding when the identifier is not a parseable slug', async () => {
+    findFirstMock.mockResolvedValueOnce(null)
+
+    const id = await ensurePropertyId('totally-not-a-slug')
+
+    expect(id).toBeNull()
+    expect(mockedGeocode).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateProperty, resolvePropertyId, ensurePropertyId } from '../services/propertyService'
+import { searchProperties, suggestProperties, getPropertyById, geocodeAndCreateProperty, ensurePropertyId } from '../services/propertyService'
 import { getOrComputeRiskProfile } from '../services/riskService'
 import { getOrComputeInsuranceEstimate } from '../services/insuranceService'
 import { getCarriersForProperty } from '../services/carriersService'
@@ -23,6 +23,7 @@ export const propertiesRouter = Router()
 propertiesRouter.param('id', async (req, res, next, id) => {
   if (!id || id === 'undefined' || id === 'null' || id.length > 200) {
     res.status(400).json({
+      success: false,
       error: { code: 'BAD_REQUEST', message: 'A valid property ID is required' },
     })
     return
@@ -37,6 +38,25 @@ propertiesRouter.param('id', async (req, res, next, id) => {
   try {
     const resolved = await ensurePropertyId(id)
     if (!resolved) {
+      // `ensurePropertyId` returned null. Distinguish between:
+      //   (a) the identifier is a slug we couldn't geocode → 422 (client
+      //       gave us a real-looking address but we can't validate it), and
+      //   (b) the identifier isn't a known id AND doesn't parse as a slug
+      //       → 404 (nothing we can do).
+      // The distinction lets the frontend show a useful message instead of
+      // a generic "property not found" when the underlying problem is a
+      // missing Google Maps key or a transient geocoding failure.
+      const looksLikeSlug = id.includes(',-')
+      if (looksLikeSlug) {
+        res.status(422).json({
+          success: false,
+          error: {
+            code: 'GEOCODE_FAILED',
+            message: 'Could not validate this address. Please try a different address.',
+          },
+        })
+        return
+      }
       res.status(404).json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Property not found' },
@@ -46,13 +66,25 @@ propertiesRouter.param('id', async (req, res, next, id) => {
     if (resolved !== id) {
       req.params.id = resolved
     }
+    next()
   } catch (err) {
-    logger.warn('ensurePropertyId failed in :id param middleware', {
+    // A thrown error (DB down, unexpected exception in geocoding) is a
+    // server-side problem — surface it as 503 instead of silently falling
+    // through with the unresolved slug, which would cause downstream
+    // handlers to 404 with a misleading "property not found" message.
+    logger.error('ensurePropertyId threw in :id param middleware', {
       id,
       error: err instanceof Error ? err.message : err,
+      stack: err instanceof Error ? err.stack : undefined,
+    })
+    res.status(503).json({
+      success: false,
+      error: {
+        code: 'RESOLUTION_FAILED',
+        message: 'Could not resolve property. Please try again in a moment.',
+      },
     })
   }
-  next()
 })
 
 // ─── Cache-Control helper ─────────────────────────────────────────────────────
@@ -255,20 +287,18 @@ propertiesRouter.get('/:id/insurance', async (req, res, next) => {
 propertiesRouter.get('/:id/report', async (req, res, next) => {
   try {
     const forceRefresh = req.query.refresh === 'true'
-    // Resolve slug/external IDs (e.g. RentCast address slugs) to the canonical
-    // DB id before calling downstream services, which all use findUniqueOrThrow
-    // on `id` and would otherwise throw for slug lookups.
-    const rawId = req.params.id
-    const resolvedId = await resolvePropertyId(rawId)
-    if (!resolvedId) {
-      res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Property not found' },
-      })
-      return
-    }
-    const id = resolvedId
-    // Fetch property + compute risk + public data in parallel
+    // The `:id` param middleware has already run `ensurePropertyId`, which
+    // resolves slug/external IDs (e.g. RentCast address slugs) to the
+    // canonical DB id, geocoding and creating the row on-demand when the
+    // slug is valid but the property has never been seen before. By this
+    // point `req.params.id` is guaranteed to be the canonical UUID — no
+    // further resolution is needed here.
+    const id = req.params.id
+    // Fetch property + compute risk + public data in parallel. Risk is
+    // computed-and-persisted on first call by getOrComputeRiskProfile
+    // (which upserts into the RiskProfile table), so a freshly-created
+    // property from `ensurePropertyId` gets its risk profile written on
+    // this very request.
     const [property, risk, publicData] = await Promise.all([
       getPropertyById(id),
       getOrComputeRiskProfile(id, forceRefresh),
@@ -278,6 +308,9 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
       }),
     ])
     if (!property) {
+      // Should be unreachable — the middleware would have already 404'd —
+      // but guard anyway in case of a race between ensurePropertyId and
+      // a concurrent delete.
       res.status(404).json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Property not found' },
@@ -300,6 +333,44 @@ propertiesRouter.get('/:id/report', async (req, res, next) => {
         return null
       }),
     ])
+
+    // Persist a PropertyReport row for authenticated users so reports
+    // show up under /api/auth/me/reports and the agent dashboard's
+    // "recently generated" list. Unauthenticated requests (public
+    // previews) still get the data back — they just aren't logged.
+    // The userId is extracted from the JWT WITHOUT signature verification;
+    // this is acceptable here because PropertyReport rows are analytics
+    // artifacts, not access-controlled resources (same pattern as
+    // SearchHistory). We dedupe to at most one report row per
+    // (user, property) per hour to avoid spamming the table when the
+    // page re-renders during a Suspense stream.
+    const userId = extractUnverifiedUserIdForAnalytics(req)
+    if (userId) {
+      const ONE_HOUR_AGO = new Date(Date.now() - 60 * 60 * 1000)
+      prisma.propertyReport
+        .findFirst({
+          where: { userId, propertyId: id, generatedAt: { gt: ONE_HOUR_AGO } },
+          select: { id: true },
+        })
+        .then((recent) => {
+          if (!recent) {
+            return prisma.propertyReport.create({
+              data: { userId, propertyId: id, reportType: 'FULL' },
+              select: { id: true },
+            })
+          }
+          return null
+        })
+        .catch((err) => {
+          // Non-fatal — we've already built the response.
+          logger.warn('Failed to persist PropertyReport row', {
+            userId,
+            propertyId: id,
+            error: err instanceof Error ? err.message : err,
+          })
+        })
+    }
+
     if (forceRefresh) setNoCacheHeaders(res)
     else setCacheHeaders(res, 3600, 300)
     res.json({ success: true, data: { property, risk, insurance, insurability, carriers, publicData } })
