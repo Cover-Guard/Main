@@ -12,6 +12,7 @@ export * from './types/chat'
 // Utils
 export * from './utils/formatters'
 export * from './utils/validators'
+export * from './utils/bindPath'
 
 // Constants
 export * from './constants'
