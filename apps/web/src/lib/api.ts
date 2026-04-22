@@ -20,6 +20,7 @@ import type {
   DealWithRelations,
   DealStage,
   DealFalloutReason,
+  CarrierExitAlert,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -380,5 +381,21 @@ export async function createPortalSession(): Promise<{ url: string }> {
   return apiFetch('/api/stripe/portal', {
     method: 'POST',
     body: JSON.stringify({ returnUrl: `${window.location.origin}/account` }),
+  })
+}
+
+// ─── Alerts (VA-01 carrier exits) ─────────────────────────────────────────────
+
+export async function getCarrierExitAlerts(params?: { severity?: 'INFO' | 'WARNING' | 'CRITICAL'; limit?: number }): Promise<CarrierExitAlert[]> {
+  const qs = new URLSearchParams()
+  if (params?.severity) qs.set('severity', params.severity)
+  if (params?.limit) qs.set('limit', String(params.limit))
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return apiFetch(`/api/alerts/carrier-exits${suffix}`)
+}
+
+export async function acknowledgeCarrierExitAlert(id: string): Promise<void> {
+  await apiFetch(`/api/alerts/carrier-exits/${encodeURIComponent(id)}/acknowledge`, {
+    method: 'POST',
   })
 }
