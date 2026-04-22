@@ -652,7 +652,14 @@ async function fetchNearestQuaternaryFault(lat: number, lng: number, result: Ear
 
 /** Extended wind result with SLOSH category and SPC event data */
 export interface WindRiskExtended extends Partial<WindRisk> {
+  /** @deprecated NOAA retired per-category SLOSH MapServer services. Kept for
+   *  backward compatibility; always `null` now. Use `inCoastalFloodHazardZone`
+   *  + `esriHurricaneMaxCategory` instead. */
   sloshCategory?: number | null
+  /** True when the property sits inside NOAA's Coastal Flood Hazard Composite
+   *  (SLOSH surge + FEMA flood + SLR merged). Proxy for surge exposure now
+   *  that the per-category SLOSH query services are gone. */
+  inCoastalFloodHazardZone?: boolean
   historicalTornadoCount?: number
   historicalHailCount?: number
   historicalHurricaneCount?: number
@@ -678,16 +685,19 @@ export async function fetchWindRisk(lat: number, lng: number, state: string): Pr
     hailRisk: hailStates.includes(state),
     designWindSpeed: computeDesignWindSpeed(lat, state),
     sloshCategory: null,
+    inCoastalFloodHazardZone: false,
     historicalTornadoCount: 0,
     historicalHailCount: 0,
     historicalHurricaneCount: 0,
   }
 
-  // Run wind data sources in parallel (including Esri Living Atlas hurricane tracks)
+  // Run wind data sources in parallel. `fetchHistoricalHurricaneTracks`
+  // (NOAA NGDC Gulf Data Atlas) was removed — that service now returns
+  // "Service not started" (HTTP 500 in the JSON body). The Esri Living Atlas
+  // IBTrACS service covers the same data and is still live.
   await Promise.all([
-    fetchSloshHurricaneSurge(lat, lng, result),
+    fetchCoastalFloodHazardZone(lat, lng, result),
     fetchSpcStormEvents(lat, lng, result),
-    fetchHistoricalHurricaneTracks(lat, lng, result),
     fetchEsriHurricaneTracksEnrichment(lat, lng, result),
   ])
 
@@ -765,38 +775,40 @@ function computeDesignWindSpeed(lat: number, state: string): number {
   return 115
 }
 
-/** NOAA SLOSH Hurricane Surge Zones — returns lowest category (1-5) that causes surge at this point.
- *  Uses NOAA Coastal Flood Exposure Mapper CFEM_NHC_Surge services (Cat1, Cat3, Cat5)
- *  queried in parallel. The lowest category where the point falls within the surge zone
- *  is the result (Cat1 = highest risk, surge from weakest hurricanes). */
-async function fetchSloshHurricaneSurge(lat: number, lng: number, result: WindRiskExtended): Promise<void> {
+/** NOAA Coastal Flood Hazard — "is this point in the coastal flood hazard composite?"
+ *
+ *  NOTE: NOAA retired the per-category SLOSH services (`CFEM_NHC_Surge_Cat{1,3,5}/
+ *  MapServer`) — each now returns an ArcGIS 404 JSON body (wrapped in HTTP 200,
+ *  which is why the previous try/catch swallowed it silently and `sloshCategory`
+ *  was `null` for every property). We replace the old per-category probe with
+ *  an `identify` against the current `CFEM_CoastalFloodHazardComposite` service
+ *  (same source the tile overlay uses). The composite merges SLOSH surge +
+ *  FEMA flood zones + SLR, so we can no longer pin a specific Saffir-Simpson
+ *  category — instead we surface a boolean `inCoastalFloodHazardZone` and let
+ *  `computeWindScore` treat it as a risk boost. Category differentiation now
+ *  comes exclusively from `fetchEsriHurricaneTracksEnrichment` (historical
+ *  track Saffir-Simpson MAX_CAT). */
+async function fetchCoastalFloodHazardZone(lat: number, lng: number, result: WindRiskExtended): Promise<void> {
   if (!result.hurricaneRisk) return
   try {
-    // Query Cat1, Cat3, Cat5 in parallel to determine the minimum hurricane category
-    // that produces storm surge at this location. Each CFEM service covers a different
-    // worst-case scenario: Cat1 = smallest surge footprint, Cat5 = largest.
-    const categories: number[] = [1, 3, 5]
-    const checks = await Promise.allSettled(
-      categories.map(async (cat) => {
-        const url = `https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_NHC_Surge_Cat${cat}/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&returnCountOnly=true&f=json`
-        const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
-        if (!res.ok) return null
-        const data = (await res.json()) as { count?: number }
-        return (data.count ?? 0) > 0 ? cat : null
-      }),
-    )
-
-    const foundCategories = checks
-      .filter((r): r is PromiseFulfilledResult<number | null> => r.status === 'fulfilled')
-      .map((r) => r.value)
-      .filter((v): v is number => v !== null)
-
-    if (foundCategories.length > 0) {
-      result.hurricaneRisk = true
-      result.sloshCategory = Math.min(...foundCategories)
+    // The composite service has 35 per-state layers (0–34). `identify` with
+    // `layers=visible` is the supported way to ask "what layer(s) cover this
+    // point?" without knowing which state layer applies.
+    const extent = `${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}`
+    const url =
+      `https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_CoastalFloodHazardComposite/MapServer/identify` +
+      `?geometry=${encodeURIComponent(JSON.stringify({ x: lng, y: lat }))}` +
+      `&geometryType=esriGeometryPoint&sr=4326&layers=visible&tolerance=2` +
+      `&mapExtent=${extent}&imageDisplay=256,256,96&returnGeometry=false&f=json`
+    const res = await limitedFetch(url, { signal: AbortSignal.timeout(6000) })
+    if (!res.ok) return
+    const data = (await res.json()) as { results?: Array<{ attributes?: Record<string, unknown> }> }
+    const hits = data.results ?? []
+    if (hits.length > 0) {
+      result.inCoastalFloodHazardZone = true
     }
   } catch (err) {
-    logger.warn('NOAA SLOSH API unavailable', { err })
+    logger.warn('NOAA Coastal Flood Hazard Composite API unavailable', { err })
   }
 }
 
@@ -861,37 +873,12 @@ async function fetchSpcStormEvents(lat: number, lng: number, result: WindRiskExt
   }
 }
 
-/** NOAA Historical Hurricane Tracks — IBTrACS data via Gulf Data Atlas + USGS earthquake catalog approach.
- *  Uses NOAA NCEI Gulf Data Atlas service for Gulf/Atlantic hurricane tracks. */
-async function fetchHistoricalHurricaneTracks(lat: number, lng: number, result: WindRiskExtended): Promise<void> {
-  if (!result.hurricaneRisk) return
-  try {
-    // NOAA Gulf Data Atlas — IBTrACS tropical storm/hurricane tracks (1851-2012)
-    const bufferDeg = 1.1 // ~75 miles
-    const envelope = `${lng - bufferDeg},${lat - bufferDeg},${lng + bufferDeg},${lat + bufferDeg}`
-    const url = `https://gis.ngdc.noaa.gov/arcgis/rest/services/GulfDataAtlas/TropicalStorms_Hurricanes/MapServer/0/query?geometry=${encodeURIComponent(envelope)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=YEAR_,MAX_WIND,NAME&where=MAX_WIND>=64&resultRecordCount=100&returnGeometry=false&f=json`
-    const res = await limitedFetch(url, { signal: AbortSignal.timeout(8000) })
-    if (res.ok) {
-      const data = (await res.json()) as ArcGISFeatureResult
-      const tracks = data.features ?? []
-      result.historicalHurricaneCount = tracks.length
-
-      if (tracks.length > 0) {
-        result.hurricaneRisk = true
-        // Check for major hurricanes (Category 3+, winds >= 96 kt)
-        const majorHurricanes = tracks.filter((t) => {
-          const wind = t.attributes?.MAX_WIND as number | null
-          return wind != null && wind >= 96
-        })
-        if (majorHurricanes.length > 2) {
-          result.designWindSpeed = Math.max(result.designWindSpeed ?? 115, 170)
-        }
-      }
-    }
-  } catch (err) {
-    logger.warn('NOAA Historical Hurricane Tracks API unavailable', { err })
-  }
-}
+// NOTE: The legacy `fetchHistoricalHurricaneTracks` helper (NOAA NGDC Gulf Data
+// Atlas — `TropicalStorms_Hurricanes/MapServer`) was deleted. That service
+// now returns an ArcGIS 500 JSON body ("Service not started"); the Esri Living
+// Atlas `Hurricanes_v1` FeatureServer covers the same IBTrACS data and is still
+// live. Track counts and design-wind boosting now come exclusively from
+// `fetchEsriHurricaneTracksEnrichment`.
 
 // ─── Crime Risk (FBI Crime Data Explorer + Census ACS fallback) ──────────────
 
