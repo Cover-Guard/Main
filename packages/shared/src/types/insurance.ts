@@ -83,6 +83,60 @@ export interface CarriersResult {
 export type MarketCondition = 'SOFT' | 'MODERATE' | 'HARD' | 'CRISIS'
 
 /**
+ * Carrier-availability snapshot for a ZIP at a point in time. The delta-detection
+ * job diffs two snapshots to surface VA-01 carrier-exit / re-open alerts.
+ *
+ * Spec: docs/gtm/value-add-activities/01-carrier-exit-alert.md
+ */
+export interface CarrierAvailabilitySnapshot {
+  zip: string
+  capturedAt: string
+  entries: CarrierAvailabilityEntry[]
+}
+
+export interface CarrierAvailabilityEntry {
+  carrierId: string
+  carrierName: string
+  status: CarrierWritingStatus
+}
+
+export type CarrierExitEventKind =
+  | 'EXIT'       // was ACTIVELY_WRITING, now NOT_WRITING / LIMITED / SURPLUS_LINES
+  | 'REOPEN'     // was NOT_WRITING, now ACTIVELY_WRITING
+  | 'RESTRICT'   // was ACTIVELY_WRITING, now LIMITED
+  | 'LIFT_RESTRICTION' // was LIMITED, now ACTIVELY_WRITING
+
+export interface CarrierExitEvent {
+  zip: string
+  carrierId: string
+  carrierName: string
+  kind: CarrierExitEventKind
+  previousStatus: CarrierWritingStatus
+  currentStatus: CarrierWritingStatus
+  detectedAt: string
+}
+
+export interface CarrierExitAlert {
+  id: string
+  zip: string
+  event: CarrierExitEvent
+  /** How many of the agent's book policies live in this ZIP. Zero for pure-interest alerts. */
+  affectedPolicyCount: number
+  /** Derived headline — "State Farm closed 94103" etc. */
+  headline: string
+  /** Suggested next action shown on the alert. */
+  callToAction: string
+  /** Severity driven by kind + affected-policy count. */
+  severity: AlertSeverity
+  /** ISO timestamp. */
+  createdAt: string
+  /** Whether the agent has dismissed or acknowledged the alert. */
+  acknowledged: boolean
+}
+
+export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
+
+/**
  * Bind-path indicator — compresses multi-peril risk + live carrier availability
  * into a single Green/Yellow/Red signal an agent, realtor, LO, or buyer can
  * read in under a second.

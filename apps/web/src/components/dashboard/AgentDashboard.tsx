@@ -58,6 +58,8 @@ import { PropertyRiskReportModal } from '@/components/property/PropertyReportMod
 
 import { ClientsPanel } from '@/components/dashboard/ClientsPanel'
 
+import { CarrierExitAlertsWidget } from '@/components/dashboard/CarrierExitAlertsWidget'
+
 import { AgentDashboardHero } from '@/components/dashboard/AgentDashboardHero'
 
 import { isDemoMode } from '@/lib/mockData'
@@ -275,6 +277,20 @@ export function AgentDashboard() {
         searchSlot={<SearchBar className="max-w-full" />}
 
       />
+
+
+
+      {/* VA-01: Carrier-exit alerts surface right under the hero so they're
+
+          impossible to miss. Component handles its own loading / empty / error
+
+          states. Spec: docs/gtm/value-add-activities/01-carrier-exit-alert.md */}
+
+      <div className="mb-4">
+
+        <CarrierExitAlertsWidget />
+
+      </div>
 
 
 
