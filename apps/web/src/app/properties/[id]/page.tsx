@@ -10,9 +10,10 @@ import { GatedInsuranceEstimate } from '@/components/property/GatedInsuranceEsti
 import { GatedCompareButton } from '@/components/property/GatedCompareButton'
 import { PropertyDetails } from '@/components/property/PropertyDetails'
 import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
+import { BindPathBadge } from '@/components/property/BindPathBadge'
 import { MitigationSavingsCard } from '@/components/property/MitigationSavingsCard'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
-import { computeMitigationPlan } from '@coverguard/shared'
+import { computeBindPath, computeMitigationPlan } from '@coverguard/shared'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
 import { PropertyChecklists } from '@/components/property/PropertyChecklists'
 import { PropertyImages } from '@/components/property/PropertyImages'
@@ -82,6 +83,24 @@ async function InsurabilitySection({ id, isDummy }: { id: string; isDummy?: bool
     : await getPropertyInsurability(id).catch(() => null)
   if (!status) return null
   return <InsurabilityPanel status={status} />
+}
+
+/**
+ * Bind-Path Indicator section — renders a Green/Yellow/Red badge based on the
+ * combination of live carrier availability and insurability.
+ *
+ * Spec: docs/gtm/value-add-activities/04-bind-path-indicator.md
+ */
+async function BindPathSection({ id, isDummy }: { id: string; isDummy?: boolean }) {
+  const [carriersData, status] = isDummy
+    ? [dummyCarriers, dummyInsurability]
+    : await Promise.all([
+        getPropertyCarriers(id).catch(() => null),
+        getPropertyInsurability(id).catch(() => null),
+      ])
+  if (!carriersData || !status) return null
+  const bindPath = computeBindPath(carriersData, status)
+  return <BindPathBadge bindPath={bindPath} />
 }
 
 /**
@@ -160,6 +179,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
   // ── Mobile tab content ─────────────────────────────────────────────────
   const overviewPanel = (
     <div className="space-y-4 p-4">
+      <Suspense fallback={<SectionSkeleton className="h-20 w-full" />}>
+        <BindPathSection id={id} isDummy={isDummy} />
+      </Suspense>
       <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
         <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} marketValue={prop.marketValue} />
       </Suspense>
@@ -284,6 +306,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
           <div className="grid gap-8 lg:grid-cols-3">
             {/* Left / main column */}
             <div className="space-y-8 lg:col-span-2">
+              <Suspense fallback={<SectionSkeleton className="h-20 w-full" />}>
+                <BindPathSection id={id} isDummy={isDummy} />
+              </Suspense>
               <Suspense fallback={<SectionSkeleton className="h-48 w-full" />}>
                 <PublicDataSection id={id} address={fullAddress} isDummy={isDummy} marketValue={prop.marketValue} />
               </Suspense>

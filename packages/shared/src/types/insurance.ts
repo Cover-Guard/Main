@@ -83,6 +83,26 @@ export interface CarriersResult {
 export type MarketCondition = 'SOFT' | 'MODERATE' | 'HARD' | 'CRISIS'
 
 /**
+ * Bind-path indicator — compresses multi-peril risk + live carrier availability
+ * into a single Green/Yellow/Red signal an agent, realtor, LO, or buyer can
+ * read in under a second.
+ *
+ * Spec: docs/gtm/value-add-activities/04-bind-path-indicator.md
+ */
+export type BindPathLevel = 'GREEN' | 'YELLOW' | 'RED'
+
+export interface BindPath {
+  /** Classification level. */
+  level: BindPathLevel
+  /** Count of carriers actively writing in this market. */
+  openCarrierCount: number
+  /** Perils whose level is HIGH, VERY_HIGH, or EXTREME. */
+  highRiskPerils: string[]
+  /** Plain-English rationale for the classification. */
+  reason: string
+}
+
+/**
  * Mitigation savings — actions a property owner can take to lower their
  * expected insurance premium. Drives a re-quote reason for the agent and a
  * tangible engagement loop for the buyer.
