@@ -101,3 +101,64 @@ export interface BindPath {
   /** Plain-English rationale for the classification. */
   reason: string
 }
+
+/**
+ * Mitigation savings — actions a property owner can take to lower their
+ * expected insurance premium. Drives a re-quote reason for the agent and a
+ * tangible engagement loop for the buyer.
+ *
+ * Spec: docs/gtm/value-add-activities/06-mitigation-savings.md
+ */
+
+/** Which peril a mitigation action primarily addresses. */
+export type MitigationPeril = 'flood' | 'fire' | 'wind' | 'earthquake' | 'crime' | 'general'
+
+/** A single mitigation action the homeowner could take. */
+export interface MitigationAction {
+  /** Stable identifier for analytics + referencing. */
+  id: string
+  /** Short human-readable action name. */
+  title: string
+  /** One-sentence explainer rendered under the title. */
+  description: string
+  /** The primary peril this action targets. */
+  peril: MitigationPeril
+  /** Typical carrier discount band as a percentage of annual premium (0.05 = 5%). */
+  estimatedDiscountMin: number
+  estimatedDiscountMax: number
+  /** Typical one-time investment cost in USD (band). */
+  investmentCostMin: number
+  investmentCostMax: number
+  /** Optional attribution for the discount source (e.g. "FORTIFIED Roof"). */
+  source?: string
+}
+
+/**
+ * A personalized mitigation suggestion — a MitigationAction evaluated against
+ * this specific property's premium and risk profile.
+ */
+export interface MitigationSuggestion {
+  action: MitigationAction
+  /** Mid-point annualized savings in USD at the current premium. */
+  estimatedAnnualSavings: number
+  /** Mid-point one-time investment in USD. */
+  estimatedInvestment: number
+  /** Payback window in years (investment ÷ annual savings), rounded to 1 decimal. */
+  paybackYears: number
+  /** Why this action was selected for this property (peril level, etc.). */
+  rationale: string
+}
+
+/** A ranked bundle of mitigation suggestions for a property. */
+export interface MitigationPlan {
+  propertyId: string
+  /** Baseline annual premium the savings were computed against. */
+  baselineAnnualPremium: number
+  /** Suggestions in priority order (best ROI first). */
+  suggestions: MitigationSuggestion[]
+  /** Sum of estimatedAnnualSavings across all suggestions. */
+  totalPotentialAnnualSavings: number
+  /** Required caveat — estimates, not a binding offer. */
+  disclaimer: string
+  generatedAt: string
+}

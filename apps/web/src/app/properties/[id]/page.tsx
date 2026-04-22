@@ -11,8 +11,9 @@ import { GatedCompareButton } from '@/components/property/GatedCompareButton'
 import { PropertyDetails } from '@/components/property/PropertyDetails'
 import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { BindPathBadge } from '@/components/property/BindPathBadge'
+import { MitigationSavingsCard } from '@/components/property/MitigationSavingsCard'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
-import { computeBindPath } from '@coverguard/shared'
+import { computeBindPath, computeMitigationPlan } from '@coverguard/shared'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
 import { PropertyChecklists } from '@/components/property/PropertyChecklists'
 import { PropertyImages } from '@/components/property/PropertyImages'
@@ -102,6 +103,27 @@ async function BindPathSection({ id, isDummy }: { id: string; isDummy?: boolean 
   return <BindPathBadge bindPath={bindPath} />
 }
 
+/**
+ * Mitigation Savings section — shows the top ways this owner can reduce their
+ * premium, computed from insurability + baseline insurance cost.
+ *
+ * Spec: docs/gtm/value-add-activities/06-mitigation-savings.md
+ */
+async function MitigationSavingsSection({ id, isDummy }: { id: string; isDummy?: boolean }) {
+  const [status, estimate] = isDummy
+    ? [dummyInsurability, dummyInsuranceEstimate]
+    : await Promise.all([
+        getPropertyInsurability(id).catch(() => null),
+        getPropertyInsurance(id).catch(() => null),
+      ])
+  if (!status || !estimate) return null
+  const plan = computeMitigationPlan(id, status, estimate.estimatedAnnualTotal)
+  if (plan.suggestions.length === 0) return null
+  // Auto-expand when the baseline premium is elevated — signals urgency.
+  const autoExpand = estimate.estimatedAnnualTotal >= 4000
+  return <MitigationSavingsCard plan={plan} defaultExpanded={autoExpand} />
+}
+
 async function CarriersSection({ id, address, isDummy }: { id: string; address: string; isDummy?: boolean }) {
   const [carriersData, insuranceEstimate] = isDummy
     ? [dummyCarriers, dummyInsuranceEstimate]
@@ -168,6 +190,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
       </Suspense>
       <Suspense fallback={<SectionSkeleton />}>
         <InsurabilitySection id={id} isDummy={isDummy} />
+      </Suspense>
+      <Suspense fallback={<SectionSkeleton className="h-32 w-full" />}>
+        <MitigationSavingsSection id={id} isDummy={isDummy} />
       </Suspense>
     </div>
   )
@@ -292,6 +317,9 @@ export default async function PropertyPage({ params }: PropertyPageProps) {
               </Suspense>
               <Suspense fallback={<SectionSkeleton />}>
                 <InsurabilitySection id={id} isDummy={isDummy} />
+              </Suspense>
+              <Suspense fallback={<SectionSkeleton className="h-32 w-full" />}>
+                <MitigationSavingsSection id={id} isDummy={isDummy} />
               </Suspense>
               <Suspense fallback={<><SectionSkeleton /><SectionSkeleton /></>}>
                 <RiskSection id={id} isDummy={isDummy} />
