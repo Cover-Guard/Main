@@ -9,7 +9,6 @@ import {
   List,
   Play,
   Sparkles,
-  Wrench,
   CheckCircle2,
   AlertCircle,
   ExternalLink,
@@ -58,9 +57,23 @@ interface Props {
   initialIndex?: number
 }
 
+// Inline component so the "enhanced" category shows a branded image
+// (see /public/enhancements.svg) instead of a generic wrench icon.
+function EnhancementImage({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/enhancements.svg"
+      alt=""
+      aria-hidden="true"
+      className={className}
+    />
+  )
+}
+
 const CATEGORY_ICON: Record<Category, React.ComponentType<{ className?: string }>> = {
   added: Sparkles,
-  enhanced: Wrench,
+  enhanced: EnhancementImage,
   fixed: CheckCircle2,
   other: AlertCircle,
 }
