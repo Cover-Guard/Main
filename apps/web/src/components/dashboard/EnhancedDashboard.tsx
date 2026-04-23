@@ -4,16 +4,17 @@ import { JSX, useState } from 'react';
 import {
   Activity,
   BarChart3,
+  Bot,
   Brain,
   Briefcase,
   Building2,
   GripVertical,
   Home,
   Layers,
-  Send,
   Settings,
   Shield,
   TrendingUp,
+  X,
 } from 'lucide-react';
 
 import { DealsKpiPanel } from '@/components/dashboard/DealsKpiPanel';
@@ -37,10 +38,9 @@ const DEFAULT_LAYOUT: PanelConfig[] = [
   { id: 'clients', title: 'Client Management', icon: Building2, order: 3, visible: true, span: 'full' },
   { id: 'properties', title: 'Saved Properties', icon: Home, order: 4, visible: true, span: 'full' },
   { id: 'carriers', title: 'Active Carriers for Your Properties', icon: Shield, order: 5, visible: true, span: 'full' },
-  { id: 'agentchat', title: 'Your Agent', icon: Send, order: 6, visible: true, span: 'third' },
-  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 7, visible: true, span: 'third' },
-  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 8, visible: true, span: 'third' },
-  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 9, visible: true, span: 'third' },
+  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 6, visible: true, span: 'third' },
+  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 7, visible: true, span: 'third' },
+  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 8, visible: true, span: 'third' },
 ];
 
 const PANEL_COMPONENTS: Record<string, () => JSX.Element | null> = {
@@ -50,7 +50,6 @@ const PANEL_COMPONENTS: Record<string, () => JSX.Element | null> = {
   clients: ClientManagementPanel,
   properties: SavedPropertiesPanel,
   carriers: ActiveCarriersPanel,
-  agentchat: HomeBuyerAgentPanel,
   forecast: ForecastPanel,
   risktrend: RiskTrendPanel,
   portfolio: PortfolioMixPanel,
@@ -60,6 +59,10 @@ export function EnhancedDashboard() {
   const [layout, setLayout] = useState<PanelConfig[]>(DEFAULT_LAYOUT);
   const [showCustomize, setShowCustomize] = useState(false);
   const [dragItem, setDragItem] = useState<number | null>(null);
+  // Right-side AI Agent drawer. When open, takes 25% of viewport width and
+  // the rest of the page reflows to the remaining 75% so the user can keep
+  // working in the dashboard while chatting with the agent.
+  const [agentOpen, setAgentOpen] = useState(false);
 
   const movePanel = (fromIdx: number, toIdx: number) => {
     setLayout((prev) => {
@@ -89,7 +92,12 @@ export function EnhancedDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+    <div
+      className={`min-h-screen bg-gray-50 transition-[padding] duration-300 ease-out ${
+        agentOpen ? 'pr-[25vw]' : ''
+      }`}
+    >
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -105,6 +113,19 @@ export function EnhancedDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
+            <button
+              onClick={() => setAgentOpen((v) => !v)}
+              aria-pressed={agentOpen}
+              aria-label={agentOpen ? 'Close AI Agent panel' : 'Open AI Agent panel'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors shadow-sm ${
+                agentOpen
+                  ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <Bot size={13} />
+              Your Agent
+            </button>
             <button
               onClick={() => setShowCustomize(!showCustomize)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
@@ -217,5 +238,35 @@ export function EnhancedDashboard() {
         </p>
       </footer>
     </div>
+
+    {/* Right-side AI Agent drawer.
+        Fixed-position so it spans the full viewport top-to-bottom; the
+        outer page reflows to pr-[25vw] above so the dashboard sits in the
+        remaining 75% and stays usable while the agent is open. */}
+    <aside
+      aria-label="AI Agent"
+      aria-hidden={!agentOpen}
+      className={`fixed top-0 right-0 h-screen w-1/4 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col transform transition-transform duration-300 ease-out ${
+        agentOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+      }`}
+    >
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Bot size={14} className="text-indigo-600 flex-shrink-0" />
+          <h2 className="text-xs font-semibold text-gray-900 truncate">Your Agent</h2>
+        </div>
+        <button
+          onClick={() => setAgentOpen(false)}
+          aria-label="Close AI Agent panel"
+          className="p-1 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-hidden p-2">
+        <HomeBuyerAgentPanel />
+      </div>
+    </aside>
+    </>
   );
 }
