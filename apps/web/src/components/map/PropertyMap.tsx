@@ -71,12 +71,12 @@ const RISK_LAYER_CONFIG: Record<
     coverage: 'Highest detail in forested and wildland-adjacent areas.',
   },
   wind: {
-    label: 'Hurricane',
+    label: 'Hurricane Surge',
     color: '#a855f7',
     icon: Wind,
-    shows: 'Category-3 hurricane storm surge inundation zones.',
-    source: 'NOAA SLOSH model',
-    coverage: 'Coastal regions only — inland areas show no overlay.',
+    shows: 'NOAA Coastal Flood Hazard Composite — SLOSH storm surge + FEMA flood zones + sea-level rise.',
+    source: 'NOAA Coastal Flood Exposure Mapper (per-category SLOSH services retired; composite is the active replacement)',
+    coverage: 'Coastal regions only — inland areas show no overlay. Composite does not distinguish Saffir-Simpson categories.',
   },
   earthquake: {
     label: 'Earthquake',
@@ -87,28 +87,28 @@ const RISK_LAYER_CONFIG: Record<
     coverage: 'Shading can be subtle in low-risk regions.',
   },
   crime: {
-    label: 'Crime',
+    label: 'Crime & Vulnerability',
     color: '#6b7280',
     icon: ShieldAlert,
-    shows: 'Reported violent and property crime rates by jurisdiction.',
-    source: 'FBI Crime Data Explorer',
-    coverage: 'Aggregated by county — circle shows local intensity.',
+    shows: 'Violent + property crime (FBI) plus CDC Social Vulnerability Index by census tract.',
+    source: 'FBI Crime Data Explorer (score) + CDC SVI via Esri Living Atlas (overlay)',
+    coverage: 'FBI has no public tile service; the overlay shows SVI, which correlates with crime via socioeconomic factors.',
   },
   heat: {
     label: 'Extreme Heat',
     color: '#f59e0b',
     icon: Sun,
-    shows: 'Estimated days/year ≥100°F today and projected to 2050.',
-    source: 'NOAA NCEI state climatology + IPCC AR6 projections',
-    coverage: 'Score circle only — no public per-coordinate heat tile is available.',
+    shows: 'FEMA NRI Heat Wave risk rating by census tract. Score also reflects ≥100°F days today and projected to 2050.',
+    source: 'FEMA National Risk Index (HWAV_RISKR) + NOAA NCEI state climatology + IPCC AR6 projections',
+    coverage: 'Nationwide census-tract coverage via FEMA NRI.',
   },
   drought: {
     label: 'Drought',
     color: '#b45309',
     icon: CloudOff,
-    shows: 'Current US Drought Monitor severity (D0–D4) and 2050 precipitation projection.',
-    source: 'US Drought Monitor (Esri Living Atlas) + IPCC AR6',
-    coverage: 'Updated weekly. Circle intensity reflects subsidence + projected drying.',
+    shows: 'Current US Drought Monitor severity (D0–D4) polygons.',
+    source: 'US Drought Monitor (Esri Living Atlas) + IPCC AR6 precipitation projections',
+    coverage: 'Updated weekly. Overlay renders active drought polygons; circle reflects subsidence + projected drying.',
   },
 }
 // âââ ArcGIS Tile Service URLs ââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -171,25 +171,78 @@ const ARCGIS_TILE_SERVICES: Partial<
       label: 'USGS Seismic Hazard',
     },
   ],
-  // US Drought Monitor (Esri Living Atlas) — same FeatureServer the backend
-  // queries for the per-property reading, exposed here as a map overlay.
-  drought: [
-    {
-      url: 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/US_Drought_Intensity_v1/FeatureServer',
-      layers: 'show:0',
-      label: 'US Drought Monitor',
+  // Drought, Heat, and Crime are rendered by `ArcGISFeatureOverlay` below (GeoJSON
+  // via `google.maps.Data`) — see `ARCGIS_FEATURE_SERVICES`. Those sources are
+  // FeatureServer-only and do not support MapServer's `/export` tile operation,
+  // so we render polygons client-side instead of as raster tiles.
+}
+
+// ─── ArcGIS FeatureServer overlays ──────────────────────────────────────────
+// For layers whose only public source is a FeatureServer (no MapServer
+// `/export` support), we fetch GeoJSON for the current viewport and render
+// polygons via `google.maps.Data`. One entry per risk layer.
+interface FeatureServiceConfig {
+  url: string // .../FeatureServer/N
+  label: string
+  outFields: string // comma-separated
+  where?: string // optional SQL WHERE filter
+  styleField: string // attribute whose value selects the style
+  styleMap: Record<string, { fill: string; stroke: string; fillOpacity?: number }>
+  fallbackStyle: { fill: string; stroke: string; fillOpacity?: number }
+  /** Don't fetch at zoom levels below this — prevents pulling 80k+ features. */
+  minZoom: number
+  /** Max features per request (ArcGIS default is 1000–2000). */
+  resultRecordCount: number
+}
+
+const ARCGIS_FEATURE_SERVICES: Partial<Record<RiskLayer, FeatureServiceConfig>> = {
+  drought: {
+    url: 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/US_Drought_Intensity_v1/FeatureServer/0',
+    label: 'US Drought Monitor',
+    outFields: 'dm,Name',
+    styleField: 'dm',
+    styleMap: {
+      '0': { fill: '#fde68a', stroke: '#d97706', fillOpacity: 0.28 }, // D0 Abnormally Dry
+      '1': { fill: '#fcd34d', stroke: '#b45309', fillOpacity: 0.32 }, // D1 Moderate
+      '2': { fill: '#fb923c', stroke: '#9a3412', fillOpacity: 0.38 }, // D2 Severe
+      '3': { fill: '#ef4444', stroke: '#7f1d1d', fillOpacity: 0.42 }, // D3 Extreme
+      '4': { fill: '#991b1b', stroke: '#450a0a', fillOpacity: 0.5 },  // D4 Exceptional
     },
-  ],
-  // No publicly hosted tile service for extreme-heat exposure; the heat layer
-  // surfaces only the score-driven `RiskCircleOverlay` (same as crime).
-  // NOTE: No tile service is configured for `crime`. The FBI Crime Data
-  // Explorer ArcGIS endpoint we previously pointed at
-  // (services.arcgis.com/jIL9msH9OI208GCb/.../FBI_Crime_Data_Explorer/MapServer)
-  // does not exist and returned 400 Bad Request in production. No stable,
-  // publicly-hosted FBI UCR tile service is currently available. Crime risk
-  // is still surfaced to users via `RiskCircleOverlay`, which renders a
-  // colored circle driven by the backend risk score — no raster overlay
-  // needed.
+    fallbackStyle: { fill: '#b45309', stroke: '#7c2d12', fillOpacity: 0.25 },
+    minZoom: 4, // USDM polygons are continent-scale; OK to show early
+    resultRecordCount: 1000,
+  },
+  heat: {
+    url: 'https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/NRI_CensusTracts_v117/FeatureServer/0',
+    label: 'FEMA NRI Heat Wave',
+    outFields: 'HWAV_RISKR,STCOFIPS',
+    where: "HWAV_RISKR IS NOT NULL AND HWAV_RISKR <> 'No Rating'",
+    styleField: 'HWAV_RISKR',
+    styleMap: {
+      'Very High':            { fill: '#991b1b', stroke: '#450a0a', fillOpacity: 0.42 },
+      'Relatively High':      { fill: '#ef4444', stroke: '#7f1d1d', fillOpacity: 0.34 },
+      'Relatively Moderate':  { fill: '#f59e0b', stroke: '#b45309', fillOpacity: 0.28 },
+      'Relatively Low':       { fill: '#fbbf24', stroke: '#92400e', fillOpacity: 0.22 },
+      'Very Low':             { fill: '#fde68a', stroke: '#a16207', fillOpacity: 0.18 },
+    },
+    fallbackStyle: { fill: '#f59e0b', stroke: '#b45309', fillOpacity: 0.2 },
+    // NRI tracts are very granular — only fetch at city/neighborhood zoom.
+    minZoom: 9,
+    resultRecordCount: 2000,
+  },
+  crime: {
+    url: 'https://services3.arcgis.com/ZvidGQkLaDJxRSJ2/arcgis/rest/services/CDC_SVI_2020/FeatureServer/0',
+    label: 'CDC Social Vulnerability Index',
+    outFields: 'RPL_THEMES,COUNTY,STATE',
+    where: 'RPL_THEMES >= 0',
+    styleField: 'RPL_THEMES',
+    // RPL_THEMES is a 0–1 percentile; ArcGISFeatureOverlay bins it numerically
+    // (styleMap keys are discrete strings and can't express a range).
+    styleMap: {},
+    fallbackStyle: { fill: '#6b7280', stroke: '#1f2937', fillOpacity: 0.25 },
+    minZoom: 8,
+    resultRecordCount: 2000,
+  },
 }
 // ─── Mock risk data for demo when no real risk profile is provided ──────────
 const MOCK_RISK_PROFILE: Record<RiskLayer, { score: number; level: RiskLevel }> = {
@@ -422,6 +475,15 @@ export function PropertyMap({
                     opacity={0.55}
                   />
                 ))
+              })}
+
+              {/* FeatureServer overlays (GeoJSON-rendered polygons) for
+                  layers whose only public source is a FeatureServer
+                  (Drought, Heat via NRI, Crime via CDC SVI). */}
+              {Array.from(activeLayers).map((layer) => {
+                const cfg = ARCGIS_FEATURE_SERVICES[layer]
+                if (!cfg) return null
+                return <ArcGISFeatureOverlay key={`feat-${layer}`} config={cfg} />
               })}
 
               {/* ââ Risk score circle overlays ââââââââââââââââââââââââââ */}
@@ -810,6 +872,132 @@ function findOverlayIndex(
     if (map.overlayMapTypes.getAt(i) === overlay) return i
   }
   return -1
+}
+
+// ─── ArcGIS Feature (GeoJSON) Overlay ───────────────────────────────────────
+// For FeatureServer sources that do not support raster `/export` tiles
+// (US Drought Monitor, FEMA NRI Census Tracts, CDC SVI), we fetch GeoJSON for
+// the current viewport and render polygons via `google.maps.Data`. Fetches
+// are debounced on map idle events and gated by `minZoom` so we don't pull
+// 80k+ features at continental zoom.
+function ArcGISFeatureOverlay({ config }: { config: FeatureServiceConfig }) {
+  const map = useMap()
+  const dataLayerRef = useRef<google.maps.Data | null>(null)
+  const lastKeyRef = useRef<string>('')
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Pick a style for a given value. Numeric percentile fields (e.g. CDC SVI
+  // RPL_THEMES) are binned; string ratings (e.g. HWAV_RISKR) use the map.
+  const styleForValue = useCallback(
+    (raw: unknown): google.maps.Data.StyleOptions => {
+      if (typeof raw === 'number') {
+        // Percentile binning for 0–1 numeric fields.
+        const v = raw
+        const bin =
+          v >= 0.75 ? { fill: '#991b1b', stroke: '#450a0a', fillOpacity: 0.42 } :
+          v >= 0.5  ? { fill: '#ef4444', stroke: '#7f1d1d', fillOpacity: 0.34 } :
+          v >= 0.25 ? { fill: '#f59e0b', stroke: '#b45309', fillOpacity: 0.26 } :
+                      { fill: '#fde68a', stroke: '#a16207', fillOpacity: 0.18 }
+        return {
+          fillColor: bin.fill,
+          fillOpacity: bin.fillOpacity,
+          strokeColor: bin.stroke,
+          strokeWeight: 1,
+          strokeOpacity: 0.7,
+          clickable: false,
+        }
+      }
+      const key = raw == null ? null : String(raw)
+      const style = (key && config.styleMap[key]) || config.fallbackStyle
+      return {
+        fillColor: style.fill,
+        fillOpacity: style.fillOpacity ?? 0.3,
+        strokeColor: style.stroke,
+        strokeWeight: 1,
+        strokeOpacity: 0.7,
+        clickable: false,
+      }
+    },
+    [config],
+  )
+
+  useEffect(() => {
+    if (!map) return
+
+    // Create the Data layer for this overlay.
+    const data = new google.maps.Data({ map })
+    data.setStyle((feature) => {
+      const raw = feature.getProperty(config.styleField)
+      return styleForValue(raw)
+    })
+    dataLayerRef.current = data
+
+    const fetchForBounds = async () => {
+      const bounds = map.getBounds()
+      const zoom = map.getZoom()
+      if (!bounds || typeof zoom !== 'number') return
+      if (zoom < config.minZoom) {
+        // Clear at low zoom so we don't leave stale features on the map.
+        data.forEach((f) => data.remove(f))
+        return
+      }
+
+      const ne = bounds.getNorthEast()
+      const sw = bounds.getSouthWest()
+      const bboxKey = `${zoom}|${sw.lng().toFixed(3)},${sw.lat().toFixed(3)},${ne.lng().toFixed(3)},${ne.lat().toFixed(3)}`
+      if (bboxKey === lastKeyRef.current) return
+      lastKeyRef.current = bboxKey
+
+      // Cancel in-flight fetch if the user kept panning.
+      abortRef.current?.abort()
+      const ac = new AbortController()
+      abortRef.current = ac
+
+      const envelope = `${sw.lng()},${sw.lat()},${ne.lng()},${ne.lat()}`
+      const params = new URLSearchParams({
+        geometry: envelope,
+        geometryType: 'esriGeometryEnvelope',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        outFields: config.outFields,
+        outSR: '4326',
+        returnGeometry: 'true',
+        resultRecordCount: String(config.resultRecordCount),
+        f: 'geojson',
+      })
+      if (config.where) params.set('where', config.where)
+
+      try {
+        const res = await fetch(`${config.url}/query?${params.toString()}`, { signal: ac.signal })
+        if (!res.ok) return
+        const geo = (await res.json()) as GeoJSON.FeatureCollection
+        // Replace features atomically: clear then add.
+        data.forEach((f) => data.remove(f))
+        if (Array.isArray(geo.features) && geo.features.length > 0) {
+          data.addGeoJson(geo)
+        }
+      } catch (err) {
+        // AbortError is expected on rapid map pan; swallow silently.
+        if ((err as { name?: string })?.name !== 'AbortError') {
+          console.warn(`[${config.label}] FeatureServer fetch failed`, err)
+        }
+      }
+    }
+
+    // Debounce via `idle` (fires once after pan/zoom stops).
+    const idleListener = map.addListener('idle', fetchForBounds)
+    // Kick off an initial fetch in case the map is already idle.
+    fetchForBounds()
+
+    return () => {
+      google.maps.event.removeListener(idleListener)
+      abortRef.current?.abort()
+      dataLayerRef.current?.setMap(null)
+      dataLayerRef.current = null
+    }
+  }, [map, config, styleForValue])
+
+  return null
 }
 
 // âââ Risk Circle Overlay âââââââââââââââââââââââââââââââââââââââââââââââââââââ
