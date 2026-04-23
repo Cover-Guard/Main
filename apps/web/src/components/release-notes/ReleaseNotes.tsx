@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Sparkles, Wrench, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
+import { Sparkles, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,9 +35,23 @@ interface Props {
   initialFilter?: Category | 'all'
 }
 
+// Inline component so the "enhanced" category shows a branded image
+// (see /public/enhancements.svg) instead of a generic wrench icon.
+function EnhancementImage({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/enhancements.svg"
+      alt=""
+      aria-hidden="true"
+      className={className}
+    />
+  )
+}
+
 const CATEGORY_ICON: Record<Category, React.ComponentType<{ className?: string }>> = {
   added: Sparkles,
-  enhanced: Wrench,
+  enhanced: EnhancementImage,
   fixed: CheckCircle2,
   other: AlertCircle,
 }
