@@ -1,6 +1,7 @@
 'use client';
 
-import { JSX, useState } from 'react';
+import { JSX, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Activity,
   BarChart3,
@@ -63,6 +64,14 @@ export function EnhancedDashboard() {
   // the rest of the page reflows to the remaining 75% so the user can keep
   // working in the dashboard while chatting with the agent.
   const [agentOpen, setAgentOpen] = useState(false);
+  // Portal target — only valid after mount (SSR-safe). Without this we render
+  // the drawer in the React tree, where SidebarLayout ancestors can create a
+  // containing block (transform/filter/contain) that prevents the fixed-position
+  // aside from filling the actual viewport height.
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setPortalTarget(document.body);
+  }, []);
 
   const movePanel = (fromIdx: number, toIdx: number) => {
     setLayout((prev) => {
@@ -240,33 +249,40 @@ export function EnhancedDashboard() {
     </div>
 
     {/* Right-side AI Agent drawer.
-        Fixed-position so it spans the full viewport top-to-bottom; the
-        outer page reflows to pr-[25vw] above so the dashboard sits in the
-        remaining 75% and stays usable while the agent is open. */}
-    <aside
-      aria-label="AI Agent"
-      aria-hidden={!agentOpen}
-      className={`fixed top-0 right-0 h-screen w-1/4 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col transform transition-transform duration-300 ease-out ${
-        agentOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
-      }`}
-    >
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Bot size={14} className="text-indigo-600 flex-shrink-0" />
-          <h2 className="text-xs font-semibold text-gray-900 truncate">Your Agent</h2>
-        </div>
-        <button
-          onClick={() => setAgentOpen(false)}
-          aria-label="Close AI Agent panel"
-          className="p-1 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        Rendered into document.body via a portal so no SidebarLayout ancestor
+        (overflow-hidden, potential transform/filter/contain) can shrink the
+        fixed-position drawer's containing block. Uses inset-y-0 (top:0;
+        bottom:0) so it always stretches the full viewport height regardless
+        of viewport-unit quirks. The outer page reflows to pr-[25vw] above so
+        the dashboard sits in the remaining 75% and stays usable. */}
+    {portalTarget &&
+      createPortal(
+        <aside
+          aria-label="AI Agent"
+          aria-hidden={!agentOpen}
+          className={`fixed inset-y-0 right-0 w-1/4 bg-white border-l border-gray-200 shadow-xl z-[100] flex flex-col transform transition-transform duration-300 ease-out ${
+            agentOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+          }`}
         >
-          <X size={14} />
-        </button>
-      </div>
-      <div className="flex-1 min-h-0 overflow-hidden p-2">
-        <HomeBuyerAgentPanel />
-      </div>
-    </aside>
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Bot size={14} className="text-indigo-600 flex-shrink-0" />
+              <h2 className="text-xs font-semibold text-gray-900 truncate">Your Agent</h2>
+            </div>
+            <button
+              onClick={() => setAgentOpen(false)}
+              aria-label="Close AI Agent panel"
+              className="p-1 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden p-2">
+            <HomeBuyerAgentPanel />
+          </div>
+        </aside>,
+        portalTarget,
+      )}
     </>
   );
 }
