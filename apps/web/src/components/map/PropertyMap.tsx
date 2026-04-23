@@ -8,6 +8,7 @@ import {
   useMap,
   useApiIsLoaded,
 } from '@vis.gl/react-google-maps'
+import type { FeatureCollection } from 'geojson'
 import type { Property, PropertyRiskProfile, RiskLevel } from '@coverguard/shared'
 import {
   MapPin,
@@ -60,7 +61,7 @@ const RISK_LAYER_CONFIG: Record<
     icon: Droplets,
     shows: 'FEMA-designated flood hazard zones and 100-year floodplains.',
     source: 'FEMA National Flood Hazard Layer',
-    coverage: 'Not all areas are FEMA-mapped — unmapped parcels show no overlay.',
+    coverage: 'Not all areas are FEMA-mapped â€” unmapped parcels show no overlay.',
   },
   fire: {
     label: 'Wildfire',
@@ -74,9 +75,9 @@ const RISK_LAYER_CONFIG: Record<
     label: 'Hurricane Surge',
     color: '#a855f7',
     icon: Wind,
-    shows: 'NOAA Coastal Flood Hazard Composite — SLOSH storm surge + FEMA flood zones + sea-level rise.',
+    shows: 'NOAA Coastal Flood Hazard Composite â€” SLOSH storm surge + FEMA flood zones + sea-level rise.',
     source: 'NOAA Coastal Flood Exposure Mapper (per-category SLOSH services retired; composite is the active replacement)',
-    coverage: 'Coastal regions only — inland areas show no overlay. Composite does not distinguish Saffir-Simpson categories.',
+    coverage: 'Coastal regions only â€” inland areas show no overlay. Composite does not distinguish Saffir-Simpson categories.',
   },
   earthquake: {
     label: 'Earthquake',
@@ -98,7 +99,7 @@ const RISK_LAYER_CONFIG: Record<
     label: 'Extreme Heat',
     color: '#f59e0b',
     icon: Sun,
-    shows: 'FEMA NRI Heat Wave risk rating by census tract. Score also reflects ≥100°F days today and projected to 2050.',
+    shows: 'FEMA NRI Heat Wave risk rating by census tract. Score also reflects â‰¥100Â°F days today and projected to 2050.',
     source: 'FEMA National Risk Index (HWAV_RISKR) + NOAA NCEI state climatology + IPCC AR6 projections',
     coverage: 'Nationwide census-tract coverage via FEMA NRI.',
   },
@@ -106,12 +107,12 @@ const RISK_LAYER_CONFIG: Record<
     label: 'Drought',
     color: '#b45309',
     icon: CloudOff,
-    shows: 'Current US Drought Monitor severity (D0–D4) polygons.',
+    shows: 'Current US Drought Monitor severity (D0â€“D4) polygons.',
     source: 'US Drought Monitor (Esri Living Atlas) + IPCC AR6 precipitation projections',
     coverage: 'Updated weekly. Overlay renders active drought polygons; circle reflects subsidence + projected drying.',
   },
 }
-// âââ ArcGIS Tile Service URLs ââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ ArcGIS Tile Service URLs Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
 // These public ArcGIS MapServer services render real GIS data as map tiles.
 // Primary services are augmented with Esri Living Atlas layers for richer coverage.
 const ARCGIS_TILE_SERVICES: Partial<
@@ -120,15 +121,15 @@ const ARCGIS_TILE_SERVICES: Partial<
   flood: [
     {
       // The previous URL (hazards.fema.gov/gis/nfhl/.../FIRMette/NFHLREST_FIRMette)
-      // returned HTTP 404 on every tile — that path does not exist. The
+      // returned HTTP 404 on every tile â€” that path does not exist. The
       // authoritative public FEMA NFHL MapServer lives at /arcgis/rest/...,
       // and on that service "Flood Hazard Zones" (S_Fld_Haz_Ar) is layer 28
-      // (layer 20 on this service is "Water Lines" — a different dataset).
+      // (layer 20 on this service is "Water Lines" â€” a different dataset).
       url: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer',
       layers: 'show:28', // 28 = Flood Hazard Zones (S_Fld_Haz_Ar)
       label: 'FEMA NFHL',
     },
-    // NOTE: FeatureServer does NOT support the `export` (tile) operation —
+    // NOTE: FeatureServer does NOT support the `export` (tile) operation â€”
     // only MapServer does. The previous Esri Living Atlas FeatureServer URL
     // returned 400 Bad Request on every tile. FEMA NFHL above provides the
     // authoritative coverage, so we drop the Esri fallback entirely rather
@@ -150,11 +151,11 @@ const ARCGIS_TILE_SERVICES: Partial<
   // SLOSH Cat-3 service (now returns 404 service-not-found). As an
   // approximate proxy we use NOAA's Coastal Flood Hazard Composite, which
   // combines SLOSH storm surge, FEMA flood zones, and sea-level-rise into a
-  // per-state coastal flood exposure raster. Layers 0–34 are per-state
+  // per-state coastal flood exposure raster. Layers 0â€“34 are per-state
   // rasters (AL, AS, CA, CT, DC, DE, FL, GA, GU, HI, IL, IN, LA, MA, MD, ME,
   // MI, MN, MP, MS, NC, NH, NJ, NY, OH, OR, PA, PR, RI, SC, TX, VA, VI, WA,
   // WI); we request all of them since the service renders only the ones
-  // covering the current bbox. This is NOT hurricane-surge-specific — swap
+  // covering the current bbox. This is NOT hurricane-surge-specific â€” swap
   // for a real SLOSH MOM source when one is hosted.
   wind: [
     {
@@ -172,12 +173,12 @@ const ARCGIS_TILE_SERVICES: Partial<
     },
   ],
   // Drought, Heat, and Crime are rendered by `ArcGISFeatureOverlay` below (GeoJSON
-  // via `google.maps.Data`) — see `ARCGIS_FEATURE_SERVICES`. Those sources are
+  // via `google.maps.Data`) â€” see `ARCGIS_FEATURE_SERVICES`. Those sources are
   // FeatureServer-only and do not support MapServer's `/export` tile operation,
   // so we render polygons client-side instead of as raster tiles.
 }
 
-// ─── ArcGIS FeatureServer overlays ──────────────────────────────────────────
+// â”€â”€â”€ ArcGIS FeatureServer overlays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // For layers whose only public source is a FeatureServer (no MapServer
 // `/export` support), we fetch GeoJSON for the current viewport and render
 // polygons via `google.maps.Data`. One entry per risk layer.
@@ -189,9 +190,9 @@ interface FeatureServiceConfig {
   styleField: string // attribute whose value selects the style
   styleMap: Record<string, { fill: string; stroke: string; fillOpacity?: number }>
   fallbackStyle: { fill: string; stroke: string; fillOpacity?: number }
-  /** Don't fetch at zoom levels below this — prevents pulling 80k+ features. */
+  /** Don't fetch at zoom levels below this â€” prevents pulling 80k+ features. */
   minZoom: number
-  /** Max features per request (ArcGIS default is 1000–2000). */
+  /** Max features per request (ArcGIS default is 1000â€“2000). */
   resultRecordCount: number
 }
 
@@ -226,7 +227,7 @@ const ARCGIS_FEATURE_SERVICES: Partial<Record<RiskLayer, FeatureServiceConfig>> 
       'Very Low':             { fill: '#fde68a', stroke: '#a16207', fillOpacity: 0.18 },
     },
     fallbackStyle: { fill: '#f59e0b', stroke: '#b45309', fillOpacity: 0.2 },
-    // NRI tracts are very granular — only fetch at city/neighborhood zoom.
+    // NRI tracts are very granular â€” only fetch at city/neighborhood zoom.
     minZoom: 9,
     resultRecordCount: 2000,
   },
@@ -236,7 +237,7 @@ const ARCGIS_FEATURE_SERVICES: Partial<Record<RiskLayer, FeatureServiceConfig>> 
     outFields: 'RPL_THEMES,COUNTY,STATE',
     where: 'RPL_THEMES >= 0',
     styleField: 'RPL_THEMES',
-    // RPL_THEMES is a 0–1 percentile; ArcGISFeatureOverlay bins it numerically
+    // RPL_THEMES is a 0â€“1 percentile; ArcGISFeatureOverlay bins it numerically
     // (styleMap keys are discrete strings and can't express a range).
     styleMap: {},
     fallbackStyle: { fill: '#6b7280', stroke: '#1f2937', fillOpacity: 0.25 },
@@ -244,7 +245,7 @@ const ARCGIS_FEATURE_SERVICES: Partial<Record<RiskLayer, FeatureServiceConfig>> 
     resultRecordCount: 2000,
   },
 }
-// ─── Mock risk data for demo when no real risk profile is provided ──────────
+// â”€â”€â”€ Mock risk data for demo when no real risk profile is provided â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MOCK_RISK_PROFILE: Record<RiskLayer, { score: number; level: RiskLevel }> = {
   flood:      { score: 62, level: 'MODERATE' },
   fire:       { score: 78, level: 'HIGH' },
@@ -318,7 +319,7 @@ export function PropertyMap({
     if (!center && !selectedProperty && properties.length === 0 && typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setBrowserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => { /* Permission denied or unavailable — use fallback */ },
+        () => { /* Permission denied or unavailable â€” use fallback */ },
         { timeout: 5000, maximumAge: 300000 },
       )
     }
@@ -349,7 +350,7 @@ export function PropertyMap({
   const getRiskScore = useCallback(
     (layer: RiskLayer): number | null => {
       if (effectiveRiskProfile) {
-        // heat / drought are optional — fall back to mock when missing
+        // heat / drought are optional â€” fall back to mock when missing
         const factor = effectiveRiskProfile[layer]
         if (factor) return factor.score
         if (useMock) return MOCK_RISK_PROFILE[layer].score
@@ -401,8 +402,8 @@ export function PropertyMap({
   }, [])
 
   // Prefer a real property when we have one, but fall back to the current
-  // map center (or the clicked pin) so layers with no tile service — or
-  // layers whose tile service has no coverage at the viewed location — still
+  // map center (or the clicked pin) so layers with no tile service â€” or
+  // layers whose tile service has no coverage at the viewed location â€” still
   // render a visible score circle instead of silently doing nothing.
   const riskCenter =
     selectedProperty ??
@@ -415,7 +416,7 @@ export function PropertyMap({
       <div
         className={`flex items-center justify-center rounded-xl bg-gray-100 text-sm text-gray-500 ${className}`}
       >
-        Map unavailable â set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        Map unavailable Ã¢Â€Â” set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       </div>
     )
   }
@@ -443,7 +444,7 @@ export function PropertyMap({
                 ) return
                 setClickedPin({ lat, lng })
                 onMapClick?.({ lat, lng })
-                // Reverse geocode to get address — keep prior pin even on failure
+                // Reverse geocode to get address â€” keep prior pin even on failure
                 if (typeof google !== 'undefined' && google.maps?.Geocoder) {
                   new google.maps.Geocoder().geocode(
                     { location: { lat, lng } },
@@ -463,7 +464,7 @@ export function PropertyMap({
               }}
             >
               <MapController center={mapCenter} zoom={zoom} />
-              {/* ââ GIS tile overlays (real geographic data) ââââââââââââ */}
+              {/* Ã¢Â”Â€Ã¢Â”Â€ GIS tile overlays (real geographic data) Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ */}
               {Array.from(activeLayers).flatMap((layer) => {
                 const services = ARCGIS_TILE_SERVICES[layer]
                 if (!services) return []
@@ -486,7 +487,7 @@ export function PropertyMap({
                 return <ArcGISFeatureOverlay key={`feat-${layer}`} config={cfg} />
               })}
 
-              {/* ââ Risk score circle overlays ââââââââââââââââââââââââââ */}
+              {/* Ã¢Â”Â€Ã¢Â”Â€ Risk score circle overlays Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ */}
               {riskCenter &&
                 Array.from(activeLayers).map((layer) => {
                   const score = getRiskScore(layer)
@@ -502,7 +503,7 @@ export function PropertyMap({
                   )
                 })}
 
-              {/* ââ Property markers ââââââââââââââââââââââââââââââââââââ */}
+              {/* Ã¢Â”Â€Ã¢Â”Â€ Property markers Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ */}
               {properties.map((p) => (
                 <AdvancedMarker
                   key={p.id}
@@ -567,7 +568,7 @@ export function PropertyMap({
                 </InfoWindow>
               )}
 
-              {/* Clicked pin — user clicked on map to explore a location */}
+              {/* Clicked pin â€” user clicked on map to explore a location */}
               {clickedPin && (
                 <>
                   <AdvancedMarker position={{ lat: clickedPin.lat, lng: clickedPin.lng }}>
@@ -602,7 +603,7 @@ export function PropertyMap({
           </MapLoadingGuard>
       </MapErrorBoundary>
 
-            {/* ── Risk layer control panel ─────────────────────────── */}
+            {/* â”€â”€ Risk layer control panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="absolute bottom-4 left-4 z-10 max-h-[calc(100%-2rem)] overflow-y-auto">
         <div className="rounded-xl border border-gray-200 bg-white/95 backdrop-blur-sm p-3 shadow-lg w-64">
           <div className="mb-2.5 flex items-center justify-between">
@@ -707,26 +708,26 @@ export function PropertyMap({
           {activeLayers.size > 0 && (
             <p className="mt-2.5 border-t border-gray-100 pt-2 text-[10px] text-gray-400 leading-relaxed">
               {useMock
-                ? 'Demo data — search a property for real risk analysis.'
+                ? 'Demo data â€” search a property for real risk analysis.'
                 : 'Tap the i button on any layer to see what it shows and where the data comes from.'}
             </p>
           )}
         </div>
       </div>
 
-      {/* ââ Overall risk badge (top-right) ââââââââââââââââââââââââ */}
+      {/* Ã¢Â”Â€Ã¢Â”Â€ Overall risk badge (top-right) Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ */}
       {riskProfile && (
         <div className="absolute top-4 right-4 z-10">
           <div
             className={`rounded-lg px-3 py-1.5 text-xs font-bold shadow-md ${riskLevelBadgeColor(riskProfile.overallRiskLevel)}`}
           >
-            Overall: {riskProfile.overallRiskScore}/100 â{' '}
+            Overall: {riskProfile.overallRiskScore}/100 Ã¢Â€Â”{' '}
             {riskProfile.overallRiskLevel.replace('_', ' ')}
           </div>
         </div>
       )}
 
-      {/* ââ Layer activation toast âââââââââââââââââââââââââââââââââ */}
+      {/* Ã¢Â”Â€Ã¢Â”Â€ Layer activation toast Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ */}
       {layerToast && (
         <div
           className="absolute top-4 left-1/2 -translate-x-1/2 z-20 max-w-[calc(100%-2rem)]"
@@ -768,7 +769,7 @@ export function PropertyMap({
         </div>
       )}
 
-      {/* Shared Property Risk Report modal — opened from map info window */}
+      {/* Shared Property Risk Report modal â€” opened from map info window */}
       {reportProperty && (
         <PropertyRiskReportModal
           property={reportProperty}
@@ -780,7 +781,7 @@ export function PropertyMap({
   )
 }
 
-// âââ ArcGIS Tile Overlay âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ ArcGIS Tile Overlay Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
 // Renders an ArcGIS MapServer as a transparent image tile layer on Google Maps.
 // This brings real GIS data (flood zones, fire hazard zones, surge zones) onto
 // the map directly from public government servers.
@@ -849,7 +850,7 @@ function ArcGISTileOverlay({
       map.overlayMapTypes.push(tileLayer)
       overlayRef.current = tileLayer
     } catch {
-      // Google Maps API not fully available yet â skip
+      // Google Maps API not fully available yet Ã¢Â€Â” skip
     }
 
     return () => {
@@ -874,7 +875,7 @@ function findOverlayIndex(
   return -1
 }
 
-// ─── ArcGIS Feature (GeoJSON) Overlay ───────────────────────────────────────
+// â”€â”€â”€ ArcGIS Feature (GeoJSON) Overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // For FeatureServer sources that do not support raster `/export` tiles
 // (US Drought Monitor, FEMA NRI Census Tracts, CDC SVI), we fetch GeoJSON for
 // the current viewport and render polygons via `google.maps.Data`. Fetches
@@ -891,7 +892,7 @@ function ArcGISFeatureOverlay({ config }: { config: FeatureServiceConfig }) {
   const styleForValue = useCallback(
     (raw: unknown): google.maps.Data.StyleOptions => {
       if (typeof raw === 'number') {
-        // Percentile binning for 0–1 numeric fields.
+        // Percentile binning for 0â€“1 numeric fields.
         const v = raw
         const bin =
           v >= 0.75 ? { fill: '#991b1b', stroke: '#450a0a', fillOpacity: 0.42 } :
@@ -970,7 +971,7 @@ function ArcGISFeatureOverlay({ config }: { config: FeatureServiceConfig }) {
       try {
         const res = await fetch(`${config.url}/query?${params.toString()}`, { signal: ac.signal })
         if (!res.ok) return
-        const geo = (await res.json()) as GeoJSON.FeatureCollection
+        const geo = (await res.json()) as FeatureCollection
         // Replace features atomically: clear then add.
         data.forEach((f) => data.remove(f))
         if (Array.isArray(geo.features) && geo.features.length > 0) {
@@ -1000,7 +1001,7 @@ function ArcGISFeatureOverlay({ config }: { config: FeatureServiceConfig }) {
   return null
 }
 
-// âââ Risk Circle Overlay âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ Risk Circle Overlay Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
 // Draws a colored circle overlay scaled by the risk score.
 function RiskCircleOverlay({
   center,
@@ -1052,7 +1053,7 @@ function RiskCircleOverlay({
   return null
 }
 
-// âââ Error Boundary ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ Error Boundary Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
 class MapErrorBoundary extends Component<
   { children: ReactNode; className?: string },
   { hasError: boolean }
@@ -1081,7 +1082,7 @@ class MapErrorBoundary extends Component<
   }
 }
 
-// âââ Loading Guard ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ Loading Guard Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
 function MapLoadingGuard({ children }: { children: ReactNode }) {
   const isLoaded = useApiIsLoaded()
   if (!isLoaded) {
@@ -1089,7 +1090,7 @@ function MapLoadingGuard({ children }: { children: ReactNode }) {
       <div className="flex h-full w-full items-center justify-center rounded-xl bg-gray-100">
         <div className="flex flex-col items-center gap-2 text-sm text-gray-400">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-brand-600" />
-          Loading mapâ¦
+          Loading mapÃ¢Â€Â¦
         </div>
       </div>
     )
