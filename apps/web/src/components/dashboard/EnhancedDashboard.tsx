@@ -4,7 +4,6 @@ import { JSX, useState } from 'react';
 import {
   Activity,
   BarChart3,
-  Bot,
   Brain,
   Briefcase,
   Building2,
@@ -18,7 +17,6 @@ import {
 
 import { DealsKpiPanel } from '@/components/dashboard/DealsKpiPanel';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { useAgentDrawer } from '@/components/layout/AgentDrawerContext';
 import { ActiveCarriersPanel } from './enhanced/ActiveCarriersPanel';
 import { ClientManagementPanel } from './enhanced/ClientManagementPanel';
 import { ForecastPanel } from './enhanced/ForecastPanel';
@@ -58,10 +56,6 @@ export function EnhancedDashboard() {
   const [layout, setLayout] = useState<PanelConfig[]>(DEFAULT_LAYOUT);
   const [showCustomize, setShowCustomize] = useState(false);
   const [dragItem, setDragItem] = useState<number | null>(null);
-  // Right-side AI Agent drawer is owned by SidebarLayout (so it can be a real
-  // flex sibling and inherit full viewport height — Supabase-style). We just
-  // read/toggle its open state here for the header button.
-  const { agentOpen, toggleAgent } = useAgentDrawer();
 
   const movePanel = (fromIdx: number, toIdx: number) => {
     setLayout((prev) => {
@@ -107,19 +101,6 @@ export function EnhancedDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <button
-              onClick={toggleAgent}
-              aria-pressed={agentOpen}
-              aria-label={agentOpen ? 'Close AI Agent panel' : 'Open AI Agent panel'}
-              className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors shadow-sm ${
-                agentOpen
-                  ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
-                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              <Bot size={13} />
-              Your Agent
-            </button>
             <button
               onClick={() => setShowCustomize(!showCustomize)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
