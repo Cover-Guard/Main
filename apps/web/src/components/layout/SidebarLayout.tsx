@@ -179,7 +179,7 @@ function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
                 into the same chat experience. */}
             <button
               onClick={() => setAgentOpen(!agentOpen)}
-              title="Your Agent"
+              title="Your Agent (Ctrl/Cmd + /)"
               aria-pressed={agentOpen}
               className={cn(
                 'w-full flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-medium transition-colors',

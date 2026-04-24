@@ -6,24 +6,31 @@ import { useAgentDrawer } from './AgentDrawerContext'
 /**
  * Floating "AI" launcher in the bottom-right corner of every page.
  *
- * Previously this component owned its own 420px popover with chat history,
- * suggested questions, and the chatWithAdvisor pipeline. That chat now lives
- * in `AgentChatPanel`, rendered inside the right-side AI Agent drawer that
- * SidebarLayout owns. This component is intentionally reduced to *just* the
- * floating launcher — clicking it opens (or closes) that drawer, so the
- * bottom-right button and the sidebar "Your Agent" button are the same
- * experience.
+ * The chat itself lives in `AgentChatPanel`, rendered inside the right-side
+ * AI Agent drawer that SidebarLayout owns. Clicking this button toggles that
+ * drawer, so the bottom-right launcher and the sidebar "Your Agent" button
+ * are the same experience.
+ *
+ * When the drawer is already open, this button hides itself — the sidebar
+ * button (and the drawer's own header X) are sufficient close affordances,
+ * and a permanent floating bubble overlapping the open drawer is just
+ * duplicate UI.
  */
 export function AIAdvisor() {
   const { agentOpen, toggleAgent } = useAgentDrawer()
+
+  // Don't render the launcher while the drawer is open. The drawer has its
+  // own close affordance and hiding the bubble keeps the bottom-right corner
+  // of the dashboard usable (no overlap with content under the drawer).
+  if (agentOpen) return null
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
       <button
         onClick={toggleAgent}
         className="h-16 w-16 rounded-full bg-[#0d1929] hover:bg-[#162438] shadow-2xl flex items-center justify-center transition-all hover:scale-105 border-2 border-teal-500/30"
-        title="AI Agent"
-        aria-label={agentOpen ? 'Close AI Agent panel' : 'Open AI Agent panel'}
+        title="AI Agent (Ctrl/Cmd + /)"
+        aria-label="Open AI Agent panel"
         aria-expanded={agentOpen}
         aria-haspopup="dialog"
       >
