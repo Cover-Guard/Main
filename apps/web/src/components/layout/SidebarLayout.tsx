@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 import { AIAdvisor } from './AIAdvisor'
 import { AgentDrawerProvider, useAgentDrawer } from './AgentDrawerContext'
-import { HomeBuyerAgentPanel } from '@/components/dashboard/enhanced/HomeBuyerAgentPanel'
+import { AgentChatPanel } from './AgentChatPanel'
 import { MobileDrawer } from '@/components/mobile/MobileDrawer'
 import { getMe } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
@@ -172,6 +172,26 @@ function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
                 </Link>
               )
             })}
+
+            {/* "Your Agent" toggle — visible on every page that uses
+                SidebarLayout. Same drawer as the bottom-right floating
+                AIAdvisor button, so users have two redundant entry points
+                into the same chat experience. */}
+            <button
+              onClick={() => setAgentOpen(!agentOpen)}
+              title="Your Agent"
+              aria-pressed={agentOpen}
+              className={cn(
+                'w-full flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-medium transition-colors',
+                collapsed ? 'justify-center' : '',
+                agentOpen
+                  ? 'bg-teal-500 text-white'
+                  : 'text-white/80 hover:bg-white/5 hover:text-white',
+              )}
+            >
+              <Bot className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="truncate">Your Agent</span>}
+            </button>
           </nav>
 
           {/* User profile footer with settings */}
@@ -304,8 +324,8 @@ function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
                 <X size={14} />
               </button>
             </div>
-            <div className="flex-1 min-h-0 overflow-hidden p-2">
-              <HomeBuyerAgentPanel />
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <AgentChatPanel />
             </div>
           </aside>
         )}
