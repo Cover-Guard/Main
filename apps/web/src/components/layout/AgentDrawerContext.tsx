@@ -1,6 +1,13 @@
 'use client';
 
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 
 type AgentDrawerContextValue = {
   agentOpen: boolean;
@@ -10,24 +17,46 @@ type AgentDrawerContextValue = {
 
 const AgentDrawerContext = createContext<AgentDrawerContextValue | null>(null);
 
+// Global keyboard shortcut for power users. Cmd+/ on Mac, Ctrl+/ elsewhere.
+// Picked because it's unused by Next/React/Chrome and mirrors what Linear,
+// Slack, and Notion use for "open quick search". We swallow the event when
+// it fires inside an editable target only if the user explicitly hits the
+// shortcut chord (modifier required), so it never collides with normal typing.
+function isShortcut(e: KeyboardEvent): boolean {
+  const mod = e.metaKey || e.ctrlKey;
+  return mod && e.key === '/';
+}
+
 /**
  * Provides open/close state for the right-side AI Agent drawer.
  *
  * The drawer itself is rendered inside `SidebarLayout` as a real flex sibling
- * of the main content (so it inherits the full viewport height from the
- * `flex h-screen` container — same pattern as Supabase's Assistant panel).
- * Pages like `EnhancedDashboard` consume this context to toggle the drawer
- * from their own UI (e.g. a header button).
+ * of the main content (Supabase-style), so it inherits the full viewport
+ * height. Pages and global UI (sidebar nav button, floating launcher) consume
+ * this context to toggle it.
+ *
+ * The provider also wires a global keyboard shortcut (Cmd/Ctrl + /) so the
+ * drawer can be summoned or dismissed from anywhere in the app without
+ * reaching for the mouse.
  */
 export function AgentDrawerProvider({ children }: { children: ReactNode }) {
   const [agentOpen, setAgentOpen] = useState(false);
+
+  const toggleAgent = useCallback(() => setAgentOpen((o) => !o), []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!isShortcut(e)) return;
+      e.preventDefault();
+      setAgentOpen((o) => !o);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <AgentDrawerContext.Provider
-      value={{
-        agentOpen,
-        setAgentOpen,
-        toggleAgent: () => setAgentOpen((o) => !o),
-      }}
+      value={{ agentOpen, setAgentOpen, toggleAgent }}
     >
       {children}
     </AgentDrawerContext.Provider>
