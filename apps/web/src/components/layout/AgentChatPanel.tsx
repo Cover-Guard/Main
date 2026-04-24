@@ -124,13 +124,18 @@ export function AgentChatPanel() {
   const insightSeenRef = useRef<Set<string>>(new Set())
 
   // Surface a fresh contextual insight when the user enters a new top-level
-  // route. We only fire once per route-key per session to avoid noise.
+  // route. We only fire once per route-key per session to avoid noise. The
+  // cascading render is intentional here — it's the whole point of the
+  // proactive behavior — so we silence the project's
+  // `react-hooks/set-state-in-effect` lint, same pattern SidebarLayout uses
+  // for its hydration-safe localStorage read.
   useEffect(() => {
     const key = routeKey(pathname)
     if (insightSeenRef.current.has(key)) return
     const tip = pageInsight(pathname)
     if (!tip) return
     insightSeenRef.current.add(key)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages((prev) => [...prev, { role: 'advisor', text: `💡 ${tip}` }])
   }, [pathname])
 
