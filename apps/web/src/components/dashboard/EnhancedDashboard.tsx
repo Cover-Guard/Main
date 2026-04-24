@@ -14,15 +14,14 @@ import {
   Settings,
   Shield,
   TrendingUp,
-  X,
 } from 'lucide-react';
 
 import { DealsKpiPanel } from '@/components/dashboard/DealsKpiPanel';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { useAgentDrawer } from '@/components/layout/AgentDrawerContext';
 import { ActiveCarriersPanel } from './enhanced/ActiveCarriersPanel';
 import { ClientManagementPanel } from './enhanced/ClientManagementPanel';
 import { ForecastPanel } from './enhanced/ForecastPanel';
-import { HomeBuyerAgentPanel } from './enhanced/HomeBuyerAgentPanel';
 import { InsightsPanel } from './enhanced/InsightsPanel';
 import { KPIPanel } from './enhanced/KPIPanel';
 import { PortfolioMixPanel } from './enhanced/PortfolioMixPanel';
@@ -59,10 +58,10 @@ export function EnhancedDashboard() {
   const [layout, setLayout] = useState<PanelConfig[]>(DEFAULT_LAYOUT);
   const [showCustomize, setShowCustomize] = useState(false);
   const [dragItem, setDragItem] = useState<number | null>(null);
-  // Right-side AI Agent drawer. When open, takes 25% of viewport width and
-  // the rest of the page reflows to the remaining 75% so the user can keep
-  // working in the dashboard while chatting with the agent.
-  const [agentOpen, setAgentOpen] = useState(false);
+  // Right-side AI Agent drawer is owned by SidebarLayout (so it can be a real
+  // flex sibling and inherit full viewport height — Supabase-style). We just
+  // read/toggle its open state here for the header button.
+  const { agentOpen, toggleAgent } = useAgentDrawer();
 
   const movePanel = (fromIdx: number, toIdx: number) => {
     setLayout((prev) => {
@@ -92,12 +91,7 @@ export function EnhancedDashboard() {
   };
 
   return (
-    <>
-    <div
-      className={`min-h-screen bg-gray-50 transition-[padding] duration-300 ease-out ${
-        agentOpen ? 'pr-[25vw]' : ''
-      }`}
-    >
+    <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -114,7 +108,7 @@ export function EnhancedDashboard() {
           <div className="flex items-center gap-2">
             <NotificationBell />
             <button
-              onClick={() => setAgentOpen((v) => !v)}
+              onClick={toggleAgent}
               aria-pressed={agentOpen}
               aria-label={agentOpen ? 'Close AI Agent panel' : 'Open AI Agent panel'}
               className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium transition-colors shadow-sm ${
@@ -238,35 +232,5 @@ export function EnhancedDashboard() {
         </p>
       </footer>
     </div>
-
-    {/* Right-side AI Agent drawer.
-        Fixed-position so it spans the full viewport top-to-bottom; the
-        outer page reflows to pr-[25vw] above so the dashboard sits in the
-        remaining 75% and stays usable while the agent is open. */}
-    <aside
-      aria-label="AI Agent"
-      aria-hidden={!agentOpen}
-      className={`fixed top-0 right-0 h-screen w-1/4 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col transform transition-transform duration-300 ease-out ${
-        agentOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
-      }`}
-    >
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Bot size={14} className="text-indigo-600 flex-shrink-0" />
-          <h2 className="text-xs font-semibold text-gray-900 truncate">Your Agent</h2>
-        </div>
-        <button
-          onClick={() => setAgentOpen(false)}
-          aria-label="Close AI Agent panel"
-          className="p-1 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-        >
-          <X size={14} />
-        </button>
-      </div>
-      <div className="flex-1 min-h-0 overflow-hidden p-2">
-        <HomeBuyerAgentPanel />
-      </div>
-    </aside>
-    </>
   );
 }

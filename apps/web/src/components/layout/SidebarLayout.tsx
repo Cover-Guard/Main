@@ -15,10 +15,13 @@ import {
   Menu,
   LogOut,
   HelpCircle,
+  Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CoverGuardShield } from '@/components/icons/CoverGuardShield'
 import { AIAdvisor } from './AIAdvisor'
+import { AgentDrawerProvider, useAgentDrawer } from './AgentDrawerContext'
+import { HomeBuyerAgentPanel } from '@/components/dashboard/enhanced/HomeBuyerAgentPanel'
 import { MobileDrawer } from '@/components/mobile/MobileDrawer'
 import { getMe } from '@/lib/api'
 import { createClient } from '@/lib/supabase/client'
@@ -33,6 +36,20 @@ const navItems = [
 ]
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
+  // Wrap the actual layout in the AgentDrawerProvider so any descendant page
+  // (e.g. EnhancedDashboard) can toggle the right-side AI Agent drawer that
+  // we render below as a real flex sibling — same pattern as Supabase's
+  // Assistant panel, which fills full viewport height because it's part of
+  // the layout's main flex row rather than a fixed-position overlay.
+  return (
+    <AgentDrawerProvider>
+      <SidebarLayoutInner>{children}</SidebarLayoutInner>
+    </AgentDrawerProvider>
+  )
+}
+
+function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
+  const { agentOpen, setAgentOpen } = useAgentDrawer()
   const [collapsed, setCollapsed] = useState(false)
   // Banner defaults to visible on both server and first client render so
   // hydration stays consistent (see React error #418). We then read the
@@ -90,12 +107,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* ── Mobile Drawer (md and below) ─────────────────────────────── */}
+      {/* ── Mobile Drawer (md and below) ───────────────────────── */}
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       <div className="flex h-screen overflow-hidden">
 
-        {/* ── Desktop Sidebar (hidden on mobile) ───────────────────────── */}
+        {/* ── Desktop Sidebar (hidden on mobile) ─────────────────── */}
         <aside
           className={cn(
             'hidden md:flex flex-col flex-shrink-0 bg-[#0d1929] text-white transition-all duration-200 z-10',
@@ -210,7 +227,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           )}
         </aside>
 
-        {/* ── Main content ─────────────────────────────────────────────── */}
+        {/* ── Main content ──────────────────────────────────── */}
         <div className="flex flex-col flex-1 overflow-hidden min-w-0">
 
           {/* Mobile top bar (md and below) */}
@@ -262,6 +279,36 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             </div>
           </main>
         </div>
+
+        {/* ── Right-side AI Agent drawer (desktop only) ─────────────
+            Real flex sibling of the sidebar + main content. Because the
+            outer container is `flex h-screen`, this aside automatically
+            inherits the full viewport height — no fixed positioning,
+            no portals, no h-screen on the child needed. Same approach
+            Supabase uses for its Assistant panel. */}
+        {agentOpen && (
+          <aside
+            aria-label="AI Agent"
+            className="hidden md:flex w-[420px] xl:w-[25vw] flex-col flex-shrink-0 bg-white border-l border-gray-200 shadow-xl"
+          >
+            <div className="flex h-12 items-center justify-between px-3 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Bot size={14} className="text-indigo-600 flex-shrink-0" />
+                <h2 className="text-sm font-semibold text-gray-900 truncate">Your Agent</h2>
+              </div>
+              <button
+                onClick={() => setAgentOpen(false)}
+                aria-label="Close AI Agent panel"
+                className="p-1 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden p-2">
+              <HomeBuyerAgentPanel />
+            </div>
+          </aside>
+        )}
 
         {/* AI Advisor (desktop only) */}
         <div className="hidden md:block">
