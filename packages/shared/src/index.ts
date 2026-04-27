@@ -16,6 +16,7 @@ export * from './utils/bindPath'
 export * from './utils/carrierExit'
 export * from './utils/mitigation'
 export * from './utils/mitigationCatalog'
+export * from './utils/plainLanguage'
 
 // Constants
 export * from './constants'
