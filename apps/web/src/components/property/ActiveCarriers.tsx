@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { CarriersResult, Carrier } from '@coverguard/shared'
 import { formatCoverageType } from '@coverguard/shared'
-import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp, Send } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp, Send, Clock, Info } from 'lucide-react'
 import { QuoteRequestModal } from './QuoteRequestModal'
 
 const STATUS_CONFIG = {
@@ -18,6 +18,74 @@ const MARKET_CONFIG = {
   MODERATE: { label: 'Moderate Market',                       color: 'text-yellow-700', bg: 'bg-yellow-50' },
   HARD:     { label: 'Hard Market — limited availability',    color: 'text-orange-700', bg: 'bg-orange-50' },
   CRISIS:   { label: 'Market Crisis — very limited options',  color: 'text-red-700',    bg: 'bg-red-50'    },
+}
+
+// ─── Carrier-appetite freshness UI helpers ────────────────────────────────────
+
+const SOURCE_LABEL: Record<NonNullable<Carrier['appetiteSource']>, string> = {
+  CARRIER_API:   'Direct carrier API',
+  AGGREGATOR:    'Aggregator feed',
+  PUBLIC_FILING: 'State DOI public filing',
+  INFERRED:      'Inferred from market conditions',
+}
+
+const SOURCE_SHORT: Record<NonNullable<Carrier['appetiteSource']>, string> = {
+  CARRIER_API:   'Carrier API',
+  AGGREGATOR:    'Aggregator',
+  PUBLIC_FILING: 'Public filing',
+  INFERRED:      'Inferred',
+}
+
+const CONFIDENCE_CONFIG: Record<NonNullable<Carrier['appetiteConfidence']>, { label: string; dot: string; ring: string }> = {
+  HIGH:   { label: 'High confidence',   dot: 'bg-emerald-500', ring: 'ring-emerald-200' },
+  MEDIUM: { label: 'Medium confidence', dot: 'bg-amber-500',   ring: 'ring-amber-200'   },
+  LOW:    { label: 'Low confidence',    dot: 'bg-gray-400',    ring: 'ring-gray-200'    },
+}
+
+/** Compact relative-time formatter ("2h ago", "3d ago"). */
+function formatRelativeTime(iso: string, now: Date = new Date()): string {
+  const diffMs = now.getTime() - new Date(iso).getTime()
+  const minutes = Math.max(0, Math.floor(diffMs / 60_000))
+  if (minutes < 1)        return 'just now'
+  if (minutes < 60)       return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24)         return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30)          return `${days}d ago`
+  const months = Math.floor(days / 30)
+  if (months < 12)        return `${months}mo ago`
+  return `${Math.floor(months / 12)}y ago`
+}
+
+/**
+ * Per-row freshness indicator. Renders:
+ *   • a confidence dot (color = HIGH/MEDIUM/LOW)
+ *   • the relative time since the appetite signal was last refreshed
+ *   • a hover tooltip with the source and confidence label
+ */
+function FreshnessIndicator({ carrier }: { carrier: Carrier }) {
+  const conf = CONFIDENCE_CONFIG[carrier.appetiteConfidence]
+  const sourceShort = SOURCE_SHORT[carrier.appetiteSource]
+  const sourceLong  = SOURCE_LABEL[carrier.appetiteSource]
+  const relative    = formatRelativeTime(carrier.appetiteUpdatedAt)
+
+  const tooltip =
+    `${conf.label}\nSource: ${sourceLong}\nUpdated: ${relative}`
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-gray-600 ring-1 ${conf.ring}`}
+      title={tooltip}
+      aria-label={tooltip}
+      suppressHydrationWarning
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${conf.dot}`} aria-hidden />
+      <Clock className="h-2.5 w-2.5" aria-hidden />
+      <span>{relative}</span>
+      <span className="hidden text-gray-400 sm:inline">·</span>
+      <span className="hidden sm:inline">{sourceShort}</span>
+    </span>
+  )
 }
 
 interface ActiveCarriersProps {
@@ -60,8 +128,18 @@ export function ActiveCarriers({ data, propertyId, propertyAddress }: ActiveCarr
         ))}
       </div>
 
-      <div className="border-t border-gray-100 bg-gray-50 px-5 py-3 text-xs text-gray-400" suppressHydrationWarning>
-        Carrier data updated {new Date(data.lastUpdated).toISOString().split('T')[0]}. Always verify availability directly with the carrier.
+      <div className="flex items-start gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 text-xs text-gray-500" suppressHydrationWarning>
+        <Info className="mt-0.5 h-3 w-3 shrink-0 text-gray-400" aria-hidden />
+        <span>
+          Each carrier shows its own freshness and source. Hover any
+          {' '}
+          <span className="inline-flex items-baseline gap-1 align-baseline">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="font-medium text-gray-600">freshness pill</span>
+          </span>
+          {' '}
+          for source and confidence. Always verify availability directly with the carrier before binding.
+        </span>
       </div>
 
       {/* Quote request modal */}
@@ -106,7 +184,7 @@ function CarrierRow({
               {carrier.amBestRating}
             </span>
           </div>
-          <div className="mt-0.5 flex items-center gap-2">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className={`inline-flex items-center gap-1 text-xs font-medium ${statusConfig.color}`}>
               <StatusIcon className="h-3 w-3" />
               {statusConfig.label}
@@ -117,6 +195,7 @@ function CarrierRow({
                 {Math.round((carrier.avgPremiumModifier - 1) * 100)}% vs avg
               </span>
             )}
+            <FreshnessIndicator carrier={carrier} />
           </div>
         </div>
 
@@ -164,4 +243,3 @@ function CarrierRow({
     </div>
   )
 }
-
