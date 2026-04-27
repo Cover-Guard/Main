@@ -11,14 +11,14 @@
  * mock derived from state + risk scores, matching real market behavior.
  */
 
-import type { CarriersResult, Carrier, MarketCondition } from '@coverguard/shared'
+import type { CarriersResult, Carrier, MarketCondition, CarrierAppetiteSource, CarrierAppetiteConfidence } from '@coverguard/shared'
 import { CARRIERS_CACHE_TTL_SECONDS } from '@coverguard/shared'
 import { prisma } from '../utils/prisma'
 import { carriersCache, carriersDeduplicator } from '../utils/cache'
 
 // ─── Known carriers by state market presence ───────────────────────────────────
 
-const CARRIER_POOL: Omit<Carrier, 'writingStatus'>[] = [
+const CARRIER_POOL: Omit<Carrier, 'writingStatus' | 'appetiteSource' | 'appetiteConfidence' | 'appetiteUpdatedAt'>[] = [
   {
     id: 'state-farm',
     name: 'State Farm',
@@ -252,7 +252,7 @@ function getMarketCondition(state: string, overallRiskScore: number): MarketCond
 // ─── Carrier writing status logic ──────────────────────────────────────────────
 
 function determineWritingStatus(
-  carrier: Omit<Carrier, 'writingStatus'>,
+  carrier: Omit<Carrier, 'writingStatus' | 'appetiteSource' | 'appetiteConfidence' | 'appetiteUpdatedAt'>,
   state: string,
   overallRiskScore: number,
   marketCondition: MarketCondition,
@@ -330,6 +330,87 @@ function determineWritingStatus(
   return 'ACTIVELY_WRITING'
 }
 
+
+// ─── Carrier-appetite signal: source + confidence + freshness ──────────────────
+
+/**
+ * Per-carrier appetite signal metadata. The runtime value attached to each
+ * Carrier returned from this service.
+ *
+ * In production these come from a tiered source pipeline:
+ *   1. Direct carrier API where contracted (HIGH confidence)
+ *   2. MGA / aggregator feed (MEDIUM)
+ *   3. State DOI public filings (MEDIUM, but often stale)
+ *   4. Inferred from market conditions when no fresh upstream (LOW)
+ *
+ * For now CARRIER_POOL is mock data, so this function deterministically
+ * assigns a plausible source per carrier id (a few "premium" carriers
+ * simulate an API contract; FAIR plans use public filings; the rest are
+ * inferred). Confidence then follows from source + simulated age.
+ *
+ * Spec: docs/enhancements/p0/01-carrier-appetite-freshness.md
+ */
+interface AppetiteSignal {
+  source: CarrierAppetiteSource
+  confidence: CarrierAppetiteConfidence
+  updatedAt: string
+}
+
+// Carrier ids we treat as "contracted" — i.e. a direct carrier-API feed exists.
+// Replace with real partnership status as feeds are signed.
+const CARRIER_API_PARTNERS: ReadonlySet<string> = new Set([
+  'state-farm',
+  'travelers',
+  'chubb',
+  'neptune-flood',
+  'palomar',
+])
+
+// Carrier ids whose appetite is sourced from state DOI / public filings.
+// Residual-market plans publish their writing posture in regulatory filings.
+const PUBLIC_FILING_SOURCES: ReadonlySet<string> = new Set([
+  'citizens-fl',
+  'ca-fair-plan',
+  'tx-fair-plan',
+  'la-citizens',
+  'twia',
+  'cea',
+  'lexington', // surplus-lines filings are publicly available
+])
+
+// Hours-ago bucket per source class. Real implementation reads the actual
+// last-fetch timestamp per carrier; here we simulate plausible cadences so
+// the UI has variation to render.
+const SIMULATED_AGE_HOURS: Record<CarrierAppetiteSource, number> = {
+  CARRIER_API: 2,    // direct feeds poll ~hourly
+  AGGREGATOR: 18,    // batched
+  PUBLIC_FILING: 96, // weekly cadence
+  INFERRED: 168,     // last upstream refresh was a week ago
+}
+
+export function deriveAppetiteSignal(
+  carrierId: string,
+  now: Date = new Date(),
+): AppetiteSignal {
+  const source: CarrierAppetiteSource = CARRIER_API_PARTNERS.has(carrierId)
+    ? 'CARRIER_API'
+    : PUBLIC_FILING_SOURCES.has(carrierId)
+      ? 'PUBLIC_FILING'
+      : 'INFERRED'
+
+  const ageHours = SIMULATED_AGE_HOURS[source]
+  const updatedAt = new Date(now.getTime() - ageHours * 60 * 60 * 1000).toISOString()
+
+  // Confidence is the worst-case across (source authority, signal age).
+  const confidence: CarrierAppetiteConfidence = (() => {
+    if (source === 'CARRIER_API' && ageHours < 24) return 'HIGH'
+    if (source === 'INFERRED' || ageHours > 168) return 'LOW'
+    return 'MEDIUM'
+  })()
+
+  return { source, confidence, updatedAt }
+}
+
 // ─── Main service function ────────────────────────────────────────────────────
 
 export async function getCarriersForProperty(propertyId: string, forceRefresh = false): Promise<CarriersResult> {
@@ -368,10 +449,17 @@ export async function getCarriersForProperty(propertyId: string, forceRefresh = 
         // Filter to carriers licensed in state
         return c.statesLicensed.includes('ALL') || c.statesLicensed.includes(state)
       })
-      .map((c) => ({
-        ...c,
-        writingStatus: determineWritingStatus(c, state, overallRiskScore, marketCondition, fireScore, windScore, wildlandUI),
-      }))
+      .map((c) => {
+        const writingStatus = determineWritingStatus(c, state, overallRiskScore, marketCondition, fireScore, windScore, wildlandUI)
+        const signal = deriveAppetiteSignal(c.id)
+        return {
+          ...c,
+          writingStatus,
+          appetiteSource: signal.source,
+          appetiteConfidence: signal.confidence,
+          appetiteUpdatedAt: signal.updatedAt,
+        }
+      })
       // Sort: actively writing first, then limited, then surplus, then not writing
       .sort((a, b) => {
         const order = { ACTIVELY_WRITING: 0, LIMITED: 1, SURPLUS_LINES: 2, NOT_WRITING: 3 }

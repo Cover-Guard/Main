@@ -12,6 +12,9 @@ function carrier(status: Carrier['writingStatus'], id = 'c'): Carrier {
     statesLicensed: ['CA'],
     specialties: [],
     notes: null,
+    appetiteSource: 'INFERRED',
+    appetiteConfidence: 'LOW',
+    appetiteUpdatedAt: '2026-04-22T00:00:00.000Z',
   }
 }
 
