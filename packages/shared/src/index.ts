@@ -8,6 +8,7 @@ export * from './types/subscription'
 export * from './types/ticker'
 export * from './types/deal'
 export * from './types/chat'
+export * from './types/bulkUpload'
 
 // Utils
 export * from './utils/formatters'
@@ -16,6 +17,8 @@ export * from './utils/bindPath'
 export * from './utils/carrierExit'
 export * from './utils/mitigation'
 export * from './utils/mitigationCatalog'
+export * from './utils/plainLanguage'
+export * from './utils/csvParser'
 
 // Constants
 export * from './constants'
