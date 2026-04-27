@@ -10,6 +10,7 @@ export * from './types/deal'
 export * from './types/chat'
 export * from './types/bulkUpload'
 export * from './types/quoteStatus'
+export * from './types/pricing'
 
 // Utils
 export * from './utils/formatters'
@@ -21,6 +22,7 @@ export * from './utils/mitigationCatalog'
 export * from './utils/plainLanguage'
 export * from './utils/csvParser'
 export * from './utils/quoteStatusMachine'
+export * from './utils/pricingMath'
 
 // Constants
 export * from './constants'
