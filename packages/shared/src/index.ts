@@ -13,6 +13,7 @@ export * from './types/quoteStatus'
 export * from './types/pricing'
 export * from './types/amsIntegration'
 export * from './types/offlineCache'
+export * from './types/watchlist'
 
 // Utils
 export * from './utils/formatters'
@@ -27,6 +28,7 @@ export * from './utils/quoteStatusMachine'
 export * from './utils/pricingMath'
 export * from './utils/amsAdapter'
 export * from './utils/offlineCache'
+export * from './utils/watchlist'
 
 // Constants
 export * from './constants'
