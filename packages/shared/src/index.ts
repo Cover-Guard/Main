@@ -16,6 +16,7 @@ export * from './types/offlineCache'
 export * from './types/watchlist'
 export * from './types/perilNarrative'
 export * from './types/llmAdapter'
+export * from './types/comparison'
 
 // Utils
 export * from './utils/formatters'
@@ -36,6 +37,8 @@ export * from './utils/narrativePrompt'
 export * from './utils/StubLlmAdapter'
 export * from './utils/narrativeEvalRunner'
 export * from './utils/buildReportNarratives'
+export * from './utils/narrativeReview'
+export * from './utils/comparison'
 
 // Constants
 export * from './constants'
