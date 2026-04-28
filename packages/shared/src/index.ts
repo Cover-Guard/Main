@@ -35,6 +35,7 @@ export * from './utils/perilNarrative'
 export * from './utils/narrativePrompt'
 export * from './utils/StubLlmAdapter'
 export * from './utils/narrativeEvalRunner'
+export * from './utils/narrativeReview'
 
 // Constants
 export * from './constants'
