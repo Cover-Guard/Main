@@ -15,6 +15,7 @@ export * from './types/amsIntegration'
 export * from './types/offlineCache'
 export * from './types/watchlist'
 export * from './types/perilNarrative'
+export * from './types/llmAdapter'
 
 // Utils
 export * from './utils/formatters'
@@ -31,6 +32,8 @@ export * from './utils/amsAdapter'
 export * from './utils/offlineCache'
 export * from './utils/watchlist'
 export * from './utils/perilNarrative'
+export * from './utils/narrativePrompt'
+export * from './utils/StubLlmAdapter'
 
 // Constants
 export * from './constants'
