@@ -18,6 +18,7 @@ export * from './types/perilNarrative'
 export * from './types/llmAdapter'
 export * from './types/comparison'
 export * from './types/trustPortal'
+export * from './types/carrierIntegration'
 
 // Utils
 export * from './utils/formatters'
@@ -41,6 +42,7 @@ export * from './utils/buildReportNarratives'
 export * from './utils/narrativeReview'
 export * from './utils/comparison'
 export * from './utils/trustPortal'
+export * from './utils/carrierIntegration'
 
 // Constants
 export * from './constants'
