@@ -36,6 +36,7 @@ export * from './utils/perilNarrative'
 export * from './utils/narrativePrompt'
 export * from './utils/StubLlmAdapter'
 export * from './utils/narrativeEvalRunner'
+export * from './utils/buildReportNarratives'
 export * from './utils/narrativeReview'
 export * from './utils/comparison'
 

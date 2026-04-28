@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { RiskSummary } from './RiskSummary'
 import { RiskBreakdown } from './RiskBreakdown'
+import { ReportRiskNarratives } from './ReportRiskNarratives'
 import { StateRiskContext } from './StateRiskContext'
 import { InsurabilityPanel } from './InsurabilityPanel'
 import { InsuranceCostEstimate } from './InsuranceCostEstimate'
@@ -270,6 +271,7 @@ export function PropertyRiskReportModal({
                         </div>
                       )}
                       {state.data.risk && <RiskBreakdown profile={state.data.risk} />}
+                      {state.data.risk && <ReportRiskNarratives profile={state.data.risk} />}
                       {state.data.risk && <StateRiskContext profile={state.data.risk} />}
                     </div>
                   )}
