@@ -14,6 +14,7 @@ export * from './types/pricing'
 export * from './types/amsIntegration'
 export * from './types/offlineCache'
 export * from './types/watchlist'
+export * from './types/perilNarrative'
 
 // Utils
 export * from './utils/formatters'
@@ -29,6 +30,7 @@ export * from './utils/pricingMath'
 export * from './utils/amsAdapter'
 export * from './utils/offlineCache'
 export * from './utils/watchlist'
+export * from './utils/perilNarrative'
 
 // Constants
 export * from './constants'
