@@ -12,6 +12,7 @@ export * from './types/bulkUpload'
 export * from './types/quoteStatus'
 export * from './types/pricing'
 export * from './types/amsIntegration'
+export * from './types/offlineCache'
 
 // Utils
 export * from './utils/formatters'
@@ -25,6 +26,7 @@ export * from './utils/csvParser'
 export * from './utils/quoteStatusMachine'
 export * from './utils/pricingMath'
 export * from './utils/amsAdapter'
+export * from './utils/offlineCache'
 
 // Constants
 export * from './constants'
