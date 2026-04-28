@@ -1,0 +1,74 @@
+[
+  {
+    "id": "flood-low-no-zone",
+    "peril": "flood",
+    "fixture": { "score": 10, "notes": { "femaZone": "X", "inSFHA": false } },
+    "expected": "Flood risk is low at this address. Standard policies usually cover it."
+  },
+  {
+    "id": "flood-moderate-shaded-x",
+    "peril": "flood",
+    "fixture": { "score": 35, "notes": { "femaZone": "X-shaded", "inSFHA": false } },
+    "expected": "Some flood exposure here - review the FEMA zone before binding."
+  },
+  {
+    "id": "flood-high-ae",
+    "peril": "flood",
+    "fixture": { "score": 65, "notes": { "femaZone": "AE", "inSFHA": true } },
+    "expected": "Elevated flood risk. The lender will likely require flood insurance."
+  },
+  {
+    "id": "flood-extreme-ve",
+    "peril": "flood",
+    "fixture": { "score": 92, "notes": { "femaZone": "VE", "inSFHA": true } },
+    "expected": "High flood hazard zone. Flood insurance is almost certainly required and pricing reflects it."
+  },
+  {
+    "id": "fire-low",
+    "peril": "fire",
+    "fixture": { "score": 12, "notes": { "wui": false, "fhsz": "Non-VHFHSZ" } },
+    "expected": "Wildfire exposure is low. Standard markets remain available."
+  },
+  {
+    "id": "fire-high-wui",
+    "peril": "fire",
+    "fixture": { "score": 70, "notes": { "wui": true, "fhsz": "Moderate" } },
+    "expected": "Elevated wildfire risk - admitted markets may decline. Consider non-admitted alternates."
+  },
+  {
+    "id": "fire-extreme-vhfhsz",
+    "peril": "fire",
+    "fixture": { "score": 88, "notes": { "wui": true, "fhsz": "Very High" } },
+    "expected": "High wildfire severity zone. Expect E&S placements and significant premiums."
+  },
+  {
+    "id": "wind-moderate",
+    "peril": "wind",
+    "fixture": { "score": 40, "notes": { "designWindSpeedMph": 120, "hurricaneRisk": false } },
+    "expected": "Moderate wind exposure - typical of the region."
+  },
+  {
+    "id": "wind-extreme-coastal",
+    "peril": "wind",
+    "fixture": { "score": 85, "notes": { "designWindSpeedMph": 150, "hurricaneRisk": true } },
+    "expected": "Severe wind exposure. Coastal carriers and deductible buy-downs are central to the conversation."
+  },
+  {
+    "id": "earthquake-high",
+    "peril": "earthquake",
+    "fixture": { "score": 60, "notes": { "nearestFaultMi": 4, "soil": "Soft" } },
+    "expected": "Elevated seismic risk. Earthquake coverage is a meaningful conversation here."
+  },
+  {
+    "id": "crime-extreme",
+    "peril": "crime",
+    "fixture": { "score": 80, "notes": { "violentIndex": 410, "propertyIndex": 520 } },
+    "expected": "Crime indices are substantially elevated. Plan for higher liability + theft pricing."
+  },
+  {
+    "id": "heat-high",
+    "peril": "heat",
+    "fixture": { "score": 65, "notes": { "extremeHeatDays": 38, "uhi": 4.2 } },
+    "expected": "Elevated extreme-heat exposure. Service-line / equipment-breakdown matters."
+  }
+]
