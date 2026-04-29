@@ -1364,8 +1364,13 @@ export function ToolkitContent() {
 
   const searchRef = useRef<HTMLInputElement>(null)
 
-  // Hydrate persisted state on mount.
+  // Hydrate persisted state on mount. We intentionally setState synchronously
+  // here so SSR renders the empty/default UI and the first client render
+  // upgrades to the persisted state — same hydration pattern as the prior
+  // ToolkitFeaturedRail and dashboard's DemoDataToggle. The cascading render
+  // on mount is the intended behavior here.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setHidden(readSet(HIDDEN_KEY))
     setPinned(readSet(PINNED_KEY))
     setRecents(readArray(RECENTS_KEY))
@@ -1373,6 +1378,7 @@ export function ToolkitContent() {
       const done = window.localStorage.getItem(ONBOARDING_KEY) === '1'
       if (!done) setShowOnboarding(true)
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
   // Keyboard shortcuts: ⌘K / Ctrl+K focuses search; Esc closes drawer/onboarding.
