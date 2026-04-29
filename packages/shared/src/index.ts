@@ -24,6 +24,7 @@ export * from './types/lenderIntegration'
 export * from './types/brokerageEmbed'
 export * from './types/portfolio'
 export * from './types/disclosure'
+export * from './types/agentDirectory'
 
 // Utils
 export * from './utils/formatters'
@@ -53,6 +54,7 @@ export * from './utils/auditTrail'
 export * from './utils/brokerageEmbed'
 export * from './utils/portfolio'
 export * from './utils/disclosure'
+export * from './utils/agentDirectory'
 
 // Constants
 export * from './constants'
