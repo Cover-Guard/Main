@@ -1507,14 +1507,14 @@ export function ToolkitContent() {
                 id="workflow-heading"
                 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500"
               >
-                Workflow · the agent's day
+                Workflow · the agent&apos;s day
               </h2>
               <span className="text-[11px] text-gray-400">
                 {workflowTools.length} step{workflowTools.length === 1 ? '' : 's'}
               </span>
             </div>
             <p className="mb-3 text-xs text-gray-500">
-              Numbered steps follow how a deal actually moves. Each tool's result hands off
+              Numbered steps follow how a deal actually moves. Each tool&apos;s result hands off
               to the next with inputs prefilled.
             </p>
 
@@ -1811,8 +1811,8 @@ function EmptyResults({ query, compact = false }: { query: string; compact?: boo
       )}
     >
       <p className="text-gray-500">
-        No tools match <span className="font-semibold text-gray-700">"{query}"</span>. Try a state,
-        a coverage type, or a tool category like "estimator" or "template".
+        No tools match <span className="font-semibold text-gray-700">&quot;{query}&quot;</span>. Try a state,
+        a coverage type, or a tool category like &quot;estimator&quot; or &quot;template&quot;.
       </p>
     </div>
   )
@@ -1892,7 +1892,7 @@ function ToolDrawer({ tool, prefillFromId, onClose, onOpenNext, demoMode }: Tool
             {tool.nextSteps && tool.nextSteps.length > 0 ? (
               <footer className="border-t border-gray-200 bg-gray-50 px-5 py-3">
                 <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                  Next steps · prefilled with this tool's output
+                  Next steps · prefilled with this tool&apos;s output
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {tool.nextSteps.map((id) => {
@@ -2064,7 +2064,7 @@ function OnboardingOverlay({ onDismiss }: { onDismiss: (persist: boolean) => voi
             Your Toolkit, in workflow order
           </DialogTitle>
           <DialogDescription className="mt-2 text-sm text-gray-600">
-            The Toolkit is sequenced like the day of an insurance-aware agent. Here's how
+            The Toolkit is sequenced like the day of an insurance-aware agent. Here&apos;s how
             to use it:
           </DialogDescription>
           <ol className="mt-4 space-y-2 text-sm text-gray-700">
@@ -2073,7 +2073,7 @@ function OnboardingOverlay({ onDismiss }: { onDismiss: (persist: boolean) => voi
               to right — Hard Market → Carriers → Cost → Disclosure → Email.
             </li>
             <li>
-              <strong className="text-gray-900">2. Each tool's result feeds the next.</strong>{' '}
+              <strong className="text-gray-900">2. Each tool&apos;s result feeds the next.</strong>{' '}
               When you finish, the bottom of the drawer offers the next step with your
               inputs already filled in.
             </li>
@@ -2092,14 +2092,14 @@ function OnboardingOverlay({ onDismiss }: { onDismiss: (persist: boolean) => voi
               onClick={() => onDismiss(true)}
               className="rounded-md px-3 py-2 text-sm text-gray-500 hover:text-gray-900"
             >
-              Don't show again
+              Don&apos;t show again
             </button>
             <button
               type="button"
               onClick={() => onDismiss(false)}
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
             >
-              Got it — let's go
+              Got it — let&apos;s go
             </button>
           </div>
         </div>
