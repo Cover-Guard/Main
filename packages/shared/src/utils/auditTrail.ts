@@ -125,6 +125,11 @@ export function auditEventLabel(eventType: AuditEventType): string {
     case 'CONNECTION_CREATED':     return 'LOS connection created'
     case 'CONNECTION_REVOKED':     return 'LOS connection revoked'
     case 'DATA_SOURCE_REFRESHED':  return 'Data source refreshed'
+    case 'LEAD_OFFERED':           return 'Lead offered to producer'
+    case 'LEAD_ACCEPTED':          return 'Producer accepted lead'
+    case 'LEAD_DECLINED':          return 'Producer declined lead'
+    case 'LEAD_EXPIRED':           return 'Lead expired without acceptance'
+    case 'LEAD_REFUNDED':          return 'Producer refunded lead'
   }
 }
 
@@ -250,6 +255,11 @@ export function summarizeAuditTrail(entries: AuditTrailEntry[]): AuditTrailSumma
     CONNECTION_CREATED: 0,
     CONNECTION_REVOKED: 0,
     DATA_SOURCE_REFRESHED: 0,
+    LEAD_OFFERED: 0,
+    LEAD_ACCEPTED: 0,
+    LEAD_DECLINED: 0,
+    LEAD_EXPIRED: 0,
+    LEAD_REFUNDED: 0,
   }
   let earliest: string | null = null
   let latest: string | null = null
