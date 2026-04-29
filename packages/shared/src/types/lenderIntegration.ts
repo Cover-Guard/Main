@@ -76,6 +76,11 @@ export type AuditEventType =
   | 'CONNECTION_CREATED'
   | 'CONNECTION_REVOKED'
   | 'DATA_SOURCE_REFRESHED'
+  | 'LEAD_OFFERED'
+  | 'LEAD_ACCEPTED'
+  | 'LEAD_DECLINED'
+  | 'LEAD_EXPIRED'
+  | 'LEAD_REFUNDED'
 
 /**
  * The cryptographic envelope around each entry. We chain the digests

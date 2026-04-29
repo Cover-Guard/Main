@@ -55,6 +55,7 @@ export * from './utils/brokerageEmbed'
 export * from './utils/portfolio'
 export * from './utils/disclosure'
 export * from './utils/agentDirectory'
+export * from './utils/agentDirectoryFlow'
 
 // Constants
 export * from './constants'
