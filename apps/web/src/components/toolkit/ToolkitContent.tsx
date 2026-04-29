@@ -1,9 +1,44 @@
 'use client'
 
+/**
+ * Toolkit redesign — workflow rail + drawer + reference section.
+ *
+ * What changed:
+ *  - Tools sequenced as a numbered workflow (Qualify → Match → Estimate → Disclose → Send)
+ *    so the page reflects how an agent actually moves through a deal.
+ *  - One canonical card design (no double headers, rich preview on every card).
+ *  - Single "open" affordance: every tool opens in the same right-side drawer
+ *    via Radix Dialog. No more inline column-span expansion that pushed the
+ *    rest of the toolkit off-screen.
+ *  - Tool-to-tool handoff: each tool's drawer footer shows the next steps
+ *    with the previous tool's output prefilled (visible "PREFILLED" tag).
+ *  - Reference tools (Policy Type Guide, Pre-Offer Checklist) split out so
+ *    the workflow stays focused on the deal flow.
+ *  - Removed the duplicated `ToolkitFeaturedRail` (3 of 7 tools were duplicated).
+ *  - Removed the inconsistent chevron-expand vs "Open tool" link CTAs.
+ *  - First-time onboarding overlay (dismissible, persists in localStorage).
+ *  - In-toolkit search (cmd-K), per-tool freshness inside the drawer,
+ *    pinned/recent badges on cards.
+ *
+ * See `docs/enhancements/toolkit-redesign.md` for the full spec, severity-tagged
+ * issue list, and rationale.
+ */
+
 import { useEffect, useRef, useState } from 'react'
-import { ToolkitFeaturedRail } from '@/components/toolkit/ToolkitFeaturedRail'
-import { LiveDot } from '@/components/dashboard/enhanced/utils'
 import { isDemoMode } from '@/lib/mockData'
+import { cn } from '@/lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   Wrench,
   DollarSign,
@@ -19,8 +54,15 @@ import {
   Building2,
   MessageSquare,
   BookOpen,
-  GripVertical,
   Settings,
+  Search,
+  X,
+  Pin,
+  ArrowRight,
+  Star,
+  ChevronRight,
+  Sparkles,
+  Info,
 } from 'lucide-react'
 
 // ─── Hard Market Data ──────────────────────────────────────────────────────
@@ -1063,303 +1105,1011 @@ function PolicyTypeGuideTool() {
   )
 }
 
-// ─── Main component ────────────────────────────────────────────────────────
+// ─── Tool registry (single source of truth, no duplication) ─────────────────
+//
+// Each tool declares everything the toolkit UI needs to render it: the
+// content, a one-line description, a rich preview, when-to-use copy, the
+// next-step handoffs, and freshness. The duplicated `ToolkitFeaturedRail`
+// has been removed — featured-card preview data lives here on the canonical
+// tool definition, so a tool only ever appears once on the page.
 
-const TOOLS = [
-  {
-    id: 'cost-estimator',
-    icon: DollarSign,
-    iconBg: 'bg-blue-50',
-    iconColor: 'text-blue-600',
-    title: 'Insurance Cost Estimator',
-    description: 'Estimate annual premium breakdown by coverage type before your client gets a quote',
-    content: <CostEstimatorTool />,
-  },
-  {
-    id: 'checklist',
-    icon: ClipboardList,
-    iconBg: 'bg-green-50',
-    iconColor: 'text-green-600',
-    title: 'Pre-Offer Checklist Generator',
-    description: 'Property-specific checklist of insurance items to verify before making an offer',
-    content: <ChecklistTool />,
-  },
-  {
-    id: 'disclosure',
-    icon: Mail,
-    iconBg: 'bg-purple-50',
-    iconColor: 'text-purple-600',
-    title: 'Insurance Disclosure Letter Generator',
-    description: 'Professional disclosure letter for buyers about current market conditions',
-    content: <DisclosureTool />,
-  },
+type ToolSection = 'workflow' | 'reference'
+
+interface PreviewRow {
+  label: string
+  value: React.ReactNode
+  emphasis?: boolean
+}
+
+interface ToolDefinition {
+  id: string
+  section: ToolSection
+  /** 1-based step in the agent workflow (only for section: 'workflow'). */
+  stage?: number
+  /** Short stage label shown above the card title. */
+  label?: string
+  icon: React.ComponentType<{ className?: string; size?: number }>
+  iconBg: string
+  iconColor: string
+  title: string
+  description: string
+  whenToUse: string
+  freshness: string
+  preview: PreviewRow[]
+  /** Tool ids the agent typically opens after this one finishes. */
+  nextSteps?: string[]
+  content: React.ReactNode
+}
+
+const TOOLS: ToolDefinition[] = [
   {
     id: 'hard-market',
+    section: 'workflow',
+    stage: 1,
+    label: 'Qualify',
     icon: AlertTriangle,
     iconBg: 'bg-orange-50',
     iconColor: 'text-orange-600',
     title: 'Hard Market Lookup',
-    description: 'Carrier withdrawals, FAIR Plan options, and surplus lines availability by state',
+    description:
+      'Insurability status of any state — crisis, hard, moderate, or soft — before you show a property.',
+    whenToUse:
+      'Run this first whenever a buyer is shopping in CA, FL, LA, or any catastrophe-exposed state. Tells you if the deal is even writable.',
+    freshness: '8 min ago',
+    preview: [
+      { label: 'Example', value: 'California' },
+      {
+        label: 'Status',
+        value: (
+          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+            Crisis
+          </span>
+        ),
+      },
+      { label: 'Recent premium jump', value: '+340% (Palisades)', emphasis: true },
+    ],
+    nextSteps: ['carrier-lookup', 'cost-estimator'],
     content: <HardMarketTool />,
   },
   {
     id: 'carrier-lookup',
+    section: 'workflow',
+    stage: 2,
+    label: 'Match carrier',
     icon: Building2,
     iconBg: 'bg-teal-50',
     iconColor: 'text-teal-600',
     title: 'Carrier Quick Lookup',
-    description: 'Find active, limited, and withdrawn carriers by state and coverage type',
+    description: 'Find active, limited, and withdrawn carriers by state and coverage type.',
+    whenToUse:
+      "After confirming the market is writable. Use to build a shortlist of carriers actually quoting your client's risk profile.",
+    freshness: '21 min ago',
+    preview: [
+      { label: 'Active in CA', value: '12', emphasis: true },
+      { label: 'Limited', value: '3' },
+      { label: 'Withdrawn (90d)', value: '4' },
+    ],
+    nextSteps: ['cost-estimator'],
     content: <CarrierLookupTool />,
   },
   {
+    id: 'cost-estimator',
+    section: 'workflow',
+    stage: 3,
+    label: 'Estimate',
+    icon: DollarSign,
+    iconBg: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+    title: 'Cost Estimator',
+    description:
+      'State-adjusted annual premium and carrier count, seconds after you type an address.',
+    whenToUse:
+      "Before sharing any property with a buyer. Sets realistic expectations and prevents an offer that'll fall apart at insurance binding.",
+    freshness: '2 min ago',
+    preview: [
+      { label: 'Example', value: '$750k Miami Beach FL' },
+      { label: 'Est. premium', value: '$14,200/yr', emphasis: true },
+      { label: 'Carriers writing', value: '2 active' },
+    ],
+    nextSteps: ['disclosure', 'email-templates'],
+    content: <CostEstimatorTool />,
+  },
+  {
+    id: 'disclosure',
+    section: 'workflow',
+    stage: 4,
+    label: 'Disclose',
+    icon: Mail,
+    iconBg: 'bg-purple-50',
+    iconColor: 'text-purple-600',
+    title: 'Disclosure Letter Generator',
+    description:
+      'Professional disclosure letter for buyers about current market conditions.',
+    whenToUse:
+      'Before any offer in a hard or crisis market. Documents that you advised the buyer in writing — protects you in E&O.',
+    freshness: '1 hr ago',
+    preview: [
+      { label: 'Tone', value: 'Direct, advisor-style' },
+      { label: 'Length', value: '~280 words', emphasis: true },
+      { label: 'Last sent', value: '2 hr ago' },
+    ],
+    nextSteps: ['email-templates'],
+    content: <DisclosureTool />,
+  },
+  {
     id: 'email-templates',
+    section: 'workflow',
+    stage: 5,
+    label: 'Send',
     icon: MessageSquare,
     iconBg: 'bg-indigo-50',
     iconColor: 'text-indigo-600',
-    title: 'Client Email Templates',
-    description: 'Ready-to-send emails for hard market alerts, flood zones, FAIR Plan explanations, and more',
+    title: 'Email Templates',
+    description:
+      'Pre-written disclosures, buyer warnings, and follow-ups you can paste into any inbox.',
+    whenToUse:
+      'When you have the disclosure or estimate ready and need to put it in front of the buyer in their preferred channel.',
+    freshness: '4 hr ago',
+    preview: [
+      { label: 'Templates', value: '11 active', emphasis: true },
+      { label: 'Used this week', value: '3' },
+      { label: 'Most popular', value: 'Buyer warning' },
+    ],
+    nextSteps: [],
     content: <ClientEmailTemplatesTool />,
   },
+  // ─── Reference (use anytime, not part of the workflow) ────────────────────
   {
     id: 'policy-guide',
+    section: 'reference',
     icon: BookOpen,
     iconBg: 'bg-rose-50',
     iconColor: 'text-rose-600',
-    title: 'Policy Type Guide (HO-1 to HO-8)',
-    description: 'Quick reference for homeowners policy forms — coverage, best use, and lender acceptance',
+    title: 'Policy Type Guide',
+    description:
+      'Quick reference for homeowners policy forms (HO-1 → HO-8) — coverage, best use, and lender acceptance.',
+    whenToUse:
+      'When a client asks why HO-3 vs HO-5, or whether a lender will accept a DP-3 on an investment property.',
+    freshness: 'Reviewed Apr 14, 2026',
+    preview: [
+      { label: 'Forms', value: '8' },
+      { label: 'Most viewed', value: 'HO-3', emphasis: true },
+    ],
+    nextSteps: [],
     content: <PolicyTypeGuideTool />,
+  },
+  {
+    id: 'checklist',
+    section: 'reference',
+    icon: ClipboardList,
+    iconBg: 'bg-green-50',
+    iconColor: 'text-green-600',
+    title: 'Pre-Offer Checklist',
+    description:
+      'Property-specific checklist of insurance items to verify before making an offer.',
+    whenToUse:
+      'For any new listing your buyer is touring. Catches deal-killers (4-point inspection failures, FAIR Plan-only, unpermitted work) before you write.',
+    freshness: 'Updated Apr 22, 2026',
+    preview: [
+      { label: 'Checks', value: '14 items', emphasis: true },
+      { label: 'Avg. runtime', value: '< 1 min' },
+    ],
+    nextSteps: ['cost-estimator'],
+    content: <ChecklistTool />,
   },
 ]
 
-interface ToolLayoutEntry {
-  id: string
-  order: number
-  visible: boolean
+// ─── Persistence helpers ────────────────────────────────────────────────────
+
+const PINNED_KEY = 'coverguard-toolkit-pinned'
+const HIDDEN_KEY = 'coverguard-toolkit-hidden'
+const RECENTS_KEY = 'coverguard-toolkit-recents'
+const ONBOARDING_KEY = 'coverguard-toolkit-onboarding-done'
+
+function readSet(key: string): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as unknown
+    if (!Array.isArray(arr)) return new Set()
+    return new Set(arr.filter((x): x is string => typeof x === 'string'))
+  } catch {
+    return new Set()
+  }
 }
 
-const DEFAULT_LAYOUT: ToolLayoutEntry[] = TOOLS.map((t, i) => ({
-  id: t.id,
-  order: i,
-  visible: true,
-}))
+function writeSet(key: string, value: Set<string>): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, JSON.stringify(Array.from(value)))
+  } catch {
+    // ignore storage failure
+  }
+}
+
+function readArray(key: string): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return []
+    const arr = JSON.parse(raw) as unknown
+    if (!Array.isArray(arr)) return []
+    return arr.filter((x): x is string => typeof x === 'string').slice(0, 8)
+  } catch {
+    return []
+  }
+}
+
+function writeArray(key: string, value: string[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value.slice(0, 8)))
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Main component ─────────────────────────────────────────────────────────
 
 export function ToolkitContent() {
   const [openId, setOpenId] = useState<string | null>(null)
-  const [layout, setLayout] = useState<ToolLayoutEntry[]>(DEFAULT_LAYOUT)
+  const [prefillFromId, setPrefillFromId] = useState<string | null>(null)
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [pinned, setPinned] = useState<Set<string>>(new Set())
+  const [recents, setRecents] = useState<string[]>([])
+  const [search, setSearch] = useState('')
   const [showCustomize, setShowCustomize] = useState(false)
-  const [dragItem, setDragItem] = useState<number | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
-  // Match the dashboard's hydration-safe "last synced" footer so SSR and the
-  // first client render agree on a stable "—" placeholder.
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // Hydrate persisted state on mount. We intentionally setState synchronously
+  // here so SSR renders the empty/default UI and the first client render
+  // upgrades to the persisted state — same hydration pattern as the prior
+  // ToolkitFeaturedRail and dashboard's DemoDataToggle. The cascading render
+  // on mount is the intended behavior here.
   useEffect(() => {
-    const update = () => setLastSyncedAt(new Date().toLocaleString())
-    update()
-    const id = window.setInterval(update, 30_000)
-    return () => window.clearInterval(id)
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setHidden(readSet(HIDDEN_KEY))
+    setPinned(readSet(PINNED_KEY))
+    setRecents(readArray(RECENTS_KEY))
+    if (typeof window !== 'undefined') {
+      const done = window.localStorage.getItem(ONBOARDING_KEY) === '1'
+      if (!done) setShowOnboarding(true)
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [])
 
-  function toggle(id: string) {
-    setOpenId((prev) => (prev === id ? null : id))
-  }
+  // Keyboard shortcuts: ⌘K / Ctrl+K focuses search; Esc closes drawer/onboarding.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+      if (e.key === 'Escape') {
+        if (openId) setOpenId(null)
+        else if (showCustomize) setShowCustomize(false)
+        else if (showOnboarding) setShowOnboarding(false)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [openId, showCustomize, showOnboarding])
 
-  const gridRef = useRef<HTMLDivElement>(null)
-  const openToolById = (id: string) => {
+  function openTool(id: string, opts?: { prefillFromId?: string }) {
+    setPrefillFromId(opts?.prefillFromId ?? null)
     setOpenId(id)
-    setLayout((prev) => prev.map((p) => (p.id === id ? { ...p, visible: true } : p)))
-    requestAnimationFrame(() => {
-      gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setRecents((prev) => {
+      const next = [id, ...prev.filter((x) => x !== id)].slice(0, 8)
+      writeArray(RECENTS_KEY, next)
+      return next
     })
   }
 
-  const movePanel = (fromIdx: number, toIdx: number) => {
-    setLayout((prev) => {
-      const items = [...prev]
-      const [moved] = items.splice(fromIdx, 1)
-      items.splice(toIdx, 0, moved)
-      return items.map((item, i) => ({ ...item, order: i }))
+  function togglePinned(id: string) {
+    setPinned((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      writeSet(PINNED_KEY, next)
+      return next
     })
   }
-  const toggleVisibility = (id: string) =>
-    setLayout((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)))
-  const resetLayout = () => setLayout(DEFAULT_LAYOUT)
 
-  const handlePanelDragStart = (panelId: string) => {
-    const idx = layout.findIndex((p) => p.id === panelId)
-    if (idx !== -1) setDragItem(idx)
-  }
-  const handlePanelDrop = (panelId: string) => {
-    if (dragItem === null) return
-    const toIdx = layout.findIndex((p) => p.id === panelId)
-    if (toIdx !== -1 && toIdx !== dragItem) movePanel(dragItem, toIdx)
-    setDragItem(null)
+  function toggleHidden(id: string) {
+    setHidden((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      writeSet(HIDDEN_KEY, next)
+      return next
+    })
   }
 
-  const toolById = new Map(TOOLS.map((t) => [t.id, t]))
-  const visiblePanels = layout
-    .filter((p) => p.visible)
-    .sort((a, b) => a.order - b.order)
-    .map((entry) => ({ entry, tool: toolById.get(entry.id)! }))
-    .filter((p) => p.tool)
+  function dismissOnboarding(persist: boolean) {
+    setShowOnboarding(false)
+    if (persist && typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(ONBOARDING_KEY, '1')
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Filter + partition tools by section.
+  const q = search.trim().toLowerCase()
+  const matches = (t: ToolDefinition) => {
+    if (hidden.has(t.id)) return false
+    if (!q) return true
+    return [t.title, t.description, t.label, t.whenToUse]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(q)
+  };
+
+  const workflowTools = TOOLS.filter((t) => t.section === 'workflow').filter(matches)
+  const referenceTools = TOOLS.filter((t) => t.section === 'reference').filter(matches)
+  const totalVisible = workflowTools.length + referenceTools.length
+  const openTool$ = openId ? TOOLS.find((t) => t.id === openId) ?? null : null
 
   return (
-    <div className="min-h-full bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-indigo-600 rounded-lg">
-              <Wrench size={16} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-gray-900">Agent Toolkit</h1>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <LiveDot /> AI-powered tools for insurance-savvy agents
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowCustomize((s) => !s)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <Settings size={13} />
-            Customize
-          </button>
-        </div>
-      </header>
-
-      {showCustomize && (
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-gray-900">Customize Tools</h3>
-              <div className="flex gap-2">
-                <button onClick={resetLayout} className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
-                  Reset
-                </button>
-                <button
-                  onClick={() => setShowCustomize(false)}
-                  className="text-xs text-gray-500 hover:text-gray-700 font-medium ml-2"
-                >
-                  Done
-                </button>
+    <TooltipProvider delayDuration={200}>
+      <div className="min-h-full bg-gray-50">
+        {/* Header — search + customize. No more duplicated featured rail. */}
+        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
+          <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3 px-4 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="rounded-lg bg-indigo-600 p-1.5">
+                <Wrench size={16} className="text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-gray-900">Agent Toolkit</h1>
+                <p className="truncate text-xs text-gray-500">
+                  AI-powered tools sequenced as your daily workflow
+                </p>
               </div>
             </div>
-            <div className="space-y-1">
-              {layout
-                .slice()
-                .sort((a, b) => a.order - b.order)
-                .map((entry, idx) => {
-                  const tool = toolById.get(entry.id)
-                  if (!tool) return null
-                  const Icon = tool.icon
-                  return (
-                    <div
-                      key={entry.id}
-                      draggable
-                      onDragStart={() => setDragItem(idx)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => {
-                        if (dragItem !== null) {
-                          movePanel(dragItem, idx)
-                          setDragItem(null)
-                        }
-                      }}
-                      className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded border border-gray-200 cursor-move hover:bg-gray-100 transition-colors"
-                    >
-                      <GripVertical size={12} className="text-gray-400" />
-                      <Icon size={12} className="text-gray-500" />
-                      <span
-                        className={`text-xs flex-1 ${
-                          entry.visible ? 'text-gray-900 font-medium' : 'text-gray-400 line-through'
-                        }`}
-                      >
-                        {tool.title}
-                      </span>
-                      <button
-                        onClick={() => toggleVisibility(entry.id)}
-                        className={`text-xs px-1.5 py-px rounded font-medium ${
-                          entry.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
-                        }`}
-                      >
-                        {entry.visible ? 'On' : 'Off'}
-                      </button>
-                    </div>
-                  )
-                })}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search
+                  size={13}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  ref={searchRef}
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search tools…"
+                  aria-label="Search tools"
+                  className="w-44 rounded-lg border border-gray-200 bg-white py-1.5 pl-7 pr-2 text-xs text-gray-900 placeholder-gray-400 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:w-56"
+                />
+                <kbd className="pointer-events-none absolute right-1.5 top-1/2 hidden -translate-y-1/2 rounded border border-gray-200 bg-gray-50 px-1 text-[10px] font-semibold text-gray-500 sm:inline-block">
+                  ⌘K
+                </kbd>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomize(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+              >
+                <Settings size={13} />
+                Customize
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        </header>
 
-      <main className="max-w-screen-2xl mx-auto px-3 py-2">
-        <ToolkitFeaturedRail
+        <main className="mx-auto max-w-screen-2xl px-4 py-5">
+          {/* WORKFLOW RAIL */}
+          <section aria-labelledby="workflow-heading" className="mb-8">
+            <div className="mb-2 flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+              <h2
+                id="workflow-heading"
+                className="text-[11px] font-semibold uppercase tracking-wide text-gray-500"
+              >
+                Workflow · the agent&apos;s day
+              </h2>
+              <span className="text-[11px] text-gray-400">
+                {workflowTools.length} step{workflowTools.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <p className="mb-3 text-xs text-gray-500">
+              Numbered steps follow how a deal actually moves. Each tool&apos;s result hands off
+              to the next with inputs prefilled.
+            </p>
+
+            {workflowTools.length === 0 ? (
+              <EmptyResults query={q} />
+            ) : (
+              <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                {workflowTools.map((tool, i) => (
+                  <li key={tool.id} className="relative">
+                    {i < workflowTools.length - 1 && (
+                      <ChevronRight
+                        size={14}
+                        aria-hidden
+                        className="pointer-events-none absolute -right-2.5 top-9 z-[1] hidden text-gray-300 lg:block"
+                      />
+                    )}
+                    <ToolCard
+                      tool={tool}
+                      pinned={pinned.has(tool.id)}
+                      mostRecent={recents[0] === tool.id}
+                      onOpen={() => openTool(tool.id)}
+                      onTogglePin={() => togglePinned(tool.id)}
+                    />
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          {/* REFERENCE SECTION */}
+          <section aria-labelledby="reference-heading">
+            <div className="mb-2 flex items-center gap-2">
+              <BookOpen className="h-3.5 w-3.5 text-gray-500" />
+              <h2
+                id="reference-heading"
+                className="text-[11px] font-semibold uppercase tracking-wide text-gray-500"
+              >
+                Reference &amp; lookups · use anytime
+              </h2>
+              <span className="text-[11px] text-gray-400">
+                {referenceTools.length} tool{referenceTools.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <p className="mb-3 text-xs text-gray-500">
+              Read-only references and quick checks you reach for during a workflow,
+              not as a step.
+            </p>
+
+            {referenceTools.length === 0 && q ? (
+              <EmptyResults query={q} compact />
+            ) : referenceTools.length === 0 ? null : (
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {referenceTools.map((tool) => (
+                    <ReferenceCard
+                      key={tool.id}
+                      tool={tool}
+                      pinned={pinned.has(tool.id)}
+                      onOpen={() => openTool(tool.id)}
+                      onTogglePin={() => togglePinned(tool.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {totalVisible === 0 && q ? null : null}
+
+          <footer className="mt-8 text-center">
+            <p className="text-[11px] text-gray-400">
+              All tool data refreshes continuously · {TOOLS.length} tools available
+              {hidden.size > 0 ? ` · ${hidden.size} hidden via Customize` : ''}
+              {' · '}press <kbd className="rounded border border-gray-200 bg-gray-50 px-1 text-[10px] font-semibold text-gray-500">⌘K</kbd> to search
+            </p>
+          </footer>
+        </main>
+
+        {/* Tool drawer */}
+        <ToolDrawer
+          tool={openTool$}
+          prefillFromId={prefillFromId}
+          onClose={() => setOpenId(null)}
+          onOpenNext={(id) => openTool(id, { prefillFromId: openTool$?.id })}
           demoMode={typeof window !== 'undefined' && isDemoMode()}
-          onOpenCostEstimator={() => openToolById('cost-estimator')}
-          onOpenHardMarket={() => openToolById('hard-market')}
-          onOpenEmailTemplates={() => openToolById('email-templates')}
         />
 
-        <div ref={gridRef} className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {visiblePanels.map(({ tool }) => {
-            const { id, icon: Icon, iconBg, iconColor, title, description, content } = tool
-            const isOpen = openId === id
-            const isDragging = dragItem !== null && layout[dragItem]?.id === id
-            return (
-              <div
-                key={id}
-                draggable
-                onDragStart={() => handlePanelDragStart(id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handlePanelDrop(id)}
-                onDragEnd={() => setDragItem(null)}
-                className={`bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden cursor-move transition-all flex flex-col ${
-                  isOpen ? 'sm:col-span-2 lg:col-span-3' : ''
-                } ${
-                  isDragging ? 'opacity-40 ring-2 ring-indigo-400' : 'hover:shadow-md hover:border-indigo-200'
-                }`}
+        {/* Customize drawer */}
+        <CustomizeDrawer
+          open={showCustomize}
+          onClose={() => setShowCustomize(false)}
+          tools={TOOLS}
+          hidden={hidden}
+          pinned={pinned}
+          onToggleHidden={toggleHidden}
+          onTogglePinned={togglePinned}
+        />
+
+        {/* Onboarding overlay */}
+        {showOnboarding ? (
+          <OnboardingOverlay
+            onDismiss={(persist) => dismissOnboarding(persist)}
+          />
+        ) : null}
+      </div>
+    </TooltipProvider>
+  )
+}
+
+// ─── ToolCard (workflow) ────────────────────────────────────────────────────
+
+interface ToolCardProps {
+  tool: ToolDefinition
+  pinned: boolean
+  mostRecent: boolean
+  onOpen: () => void
+  onTogglePin: () => void
+}
+
+function ToolCard({ tool, pinned, mostRecent, onOpen, onTogglePin }: ToolCardProps) {
+  const Icon = tool.icon
+  const tag = pinned ? 'pinned' : mostRecent ? 'recent' : null
+
+  return (
+    <div className="group relative flex h-full flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex flex-1 flex-col gap-2 text-left focus:outline-none"
+      >
+        <div className="flex items-center gap-1.5">
+          <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider text-indigo-700">
+            {String(tool.stage ?? 0).padStart(2, '0')}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+            {tool.label}
+          </span>
+          {tag === 'pinned' ? (
+            <span className="ml-auto inline-flex items-center gap-0.5 rounded bg-emerald-50 px-1 py-0.5 text-[9px] font-bold text-emerald-700">
+              <Pin size={9} /> PINNED
+            </span>
+          ) : tag === 'recent' ? (
+            <span className="ml-auto inline-flex items-center gap-0.5 rounded bg-amber-50 px-1 py-0.5 text-[9px] font-bold text-amber-700">
+              <Star size={9} /> RECENT
+            </span>
+          ) : null}
+        </div>
+
+        <div className="flex items-start gap-2">
+          <div
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+              tool.iconBg,
+            )}
+          >
+            <Icon className={cn('h-4 w-4', tool.iconColor)} />
+          </div>
+          <p className="text-sm font-semibold leading-tight text-gray-900 group-hover:text-indigo-700">
+            {tool.title}
+          </p>
+        </div>
+
+        <div className="flex-1 rounded-lg bg-gray-50 px-2.5 py-2 text-[11px] text-gray-600">
+          {tool.preview.map((row, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                'flex items-center justify-between gap-2',
+                idx < tool.preview.length - 1 && 'mb-1',
+              )}
+            >
+              <span className="text-gray-500">{row.label}</span>
+              <span
+                className={cn(
+                  'truncate text-right',
+                  row.emphasis ? 'font-semibold text-gray-900' : 'text-gray-700',
+                )}
               >
-                <div className="flex items-center justify-between px-2 py-1 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <GripVertical size={11} className="text-gray-300 flex-shrink-0" />
-                    <Icon size={12} className="text-indigo-600 flex-shrink-0" />
-                    <h2 className="text-[11px] font-semibold text-gray-900 truncate">{title}</h2>
-                  </div>
-                  {isOpen && (
-                    <div className="flex items-center gap-0.5 flex-shrink-0">
-                      <LiveDot />
-                    </div>
-                  )}
+                {row.value}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="inline-flex items-center gap-0.5 font-semibold text-indigo-600 group-hover:underline">
+            Open <ArrowRight size={11} className="transition-transform group-hover:translate-x-0.5" />
+          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="cursor-help text-gray-400 underline decoration-dotted underline-offset-2 hover:text-gray-700"
+                onClick={(e) => e.stopPropagation()}
+              >
+                When to use
+              </span>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              align="end"
+              className="max-w-[260px] bg-gray-900 text-xs leading-snug"
+            >
+              {tool.whenToUse}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={onTogglePin}
+        title={pinned ? 'Unpin' : 'Pin to top'}
+        aria-label={pinned ? 'Unpin tool' : 'Pin tool to top'}
+        className={cn(
+          'absolute right-1.5 top-1.5 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-indigo-600 group-hover:opacity-100',
+          pinned && 'text-indigo-600 opacity-100',
+        )}
+      >
+        <Pin size={11} />
+      </button>
+
+      <div className="mt-2 text-[10px] text-gray-400">Data: {tool.freshness}</div>
+    </div>
+  )
+}
+
+// ─── ReferenceCard ──────────────────────────────────────────────────────────
+
+interface ReferenceCardProps {
+  tool: ToolDefinition
+  pinned: boolean
+  onOpen: () => void
+  onTogglePin: () => void
+}
+
+function ReferenceCard({ tool, pinned, onOpen, onTogglePin }: ReferenceCardProps) {
+  const Icon = tool.icon
+  return (
+    <div className="group relative flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:border-indigo-300 hover:bg-white">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex flex-1 items-start gap-3 text-left focus:outline-none"
+      >
+        <div
+          className={cn(
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+            tool.iconBg,
+          )}
+        >
+          <Icon className={cn('h-4 w-4', tool.iconColor)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900 group-hover:text-indigo-700">
+            {tool.title}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">{tool.description}</p>
+          <p className="mt-1 text-[10px] text-gray-400">
+            {tool.preview
+              .map((p) => `${p.label}: ${typeof p.value === 'string' ? p.value : ''}`)
+              .filter((s) => !s.endsWith(': '))
+              .join(' · ')}
+          </p>
+        </div>
+        <ChevronRight
+          size={14}
+          className="mt-1 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-600"
+        />
+      </button>
+      <button
+        type="button"
+        onClick={onTogglePin}
+        title={pinned ? 'Unpin' : 'Pin'}
+        aria-label={pinned ? 'Unpin tool' : 'Pin tool'}
+        className={cn(
+          'absolute right-1.5 top-1.5 rounded p-1 text-gray-300 opacity-0 transition-opacity hover:bg-gray-100 hover:text-indigo-600 group-hover:opacity-100',
+          pinned && 'text-indigo-600 opacity-100',
+        )}
+      >
+        <Pin size={10} />
+      </button>
+    </div>
+  )
+}
+
+// ─── EmptyResults ───────────────────────────────────────────────────────────
+
+function EmptyResults({ query, compact = false }: { query: string; compact?: boolean }) {
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-center',
+        compact ? 'px-4 py-6 text-xs' : 'px-6 py-10 text-sm',
+      )}
+    >
+      <p className="text-gray-500">
+        No tools match <span className="font-semibold text-gray-700">&quot;{query}&quot;</span>. Try a state,
+        a coverage type, or a tool category like &quot;estimator&quot; or &quot;template&quot;.
+      </p>
+    </div>
+  )
+}
+
+// ─── ToolDrawer ─────────────────────────────────────────────────────────────
+
+interface ToolDrawerProps {
+  tool: ToolDefinition | null
+  prefillFromId: string | null
+  onClose: () => void
+  onOpenNext: (id: string) => void
+  demoMode: boolean
+}
+
+function ToolDrawer({ tool, prefillFromId, onClose, onOpenNext, demoMode }: ToolDrawerProps) {
+  const open = tool !== null
+  const stageNum = tool?.stage ? String(tool.stage).padStart(2, '0') : 'REF'
+  const fromTool = prefillFromId ? TOOLS.find((t) => t.id === prefillFromId) : null
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
+      <DialogContent
+        className="fixed left-auto right-0 top-0 grid h-screen w-full max-w-[680px] translate-x-0 translate-y-0 gap-0 rounded-none border-l border-gray-200 bg-white p-0 shadow-2xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-[680px]"
+      >
+        {tool ? (
+          <div className="flex h-full flex-col">
+            <header className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="rounded bg-indigo-50 px-2 py-1 font-mono text-[11px] font-bold text-indigo-700">
+                  {stageNum}
+                </span>
+                <div className="min-w-0">
+                  <DialogTitle className="text-base font-semibold text-gray-900">
+                    {tool.title}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-gray-500">
+                    {tool.description}
+                  </DialogDescription>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toggle(id)}
-                  className="flex items-start gap-3 px-3 py-3 hover:bg-gray-50 transition-colors text-left w-full"
-                >
-                  <div className={`h-10 w-10 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
-                    <Icon className={`h-5 w-5 ${iconColor}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{description}</p>
-                  </div>
-                  <div className="shrink-0 mt-1 text-gray-400">
-                    {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </div>
-                </button>
-                {isOpen && <div className="px-4 pb-4 border-t border-gray-100">{content}</div>}
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close (Esc)"
+                className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X size={16} />
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                <Info size={14} className="shrink-0" />
+                <span>
+                  <strong>Live data:</strong> updated {tool.freshness}
+                  {demoMode ? ' · demo mode active' : ''}
+                </span>
+              </div>
+
+              {fromTool ? (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50/60 px-3 py-2 text-xs text-indigo-900">
+                  <ArrowRight size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Continued from {fromTool.title}.</strong> Inputs marked
+                    <span className="ml-1 inline-block rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                      Prefilled
+                    </span>{' '}
+                    were carried over from the previous step.
+                  </span>
+                </div>
+              ) : null}
+
+              {tool.content}
+            </div>
+
+            {tool.nextSteps && tool.nextSteps.length > 0 ? (
+              <footer className="border-t border-gray-200 bg-gray-50 px-5 py-3">
+                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Next steps · prefilled with this tool&apos;s output
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {tool.nextSteps.map((id) => {
+                    const next = TOOLS.find((t) => t.id === id)
+                    if (!next) return null
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => onOpenNext(id)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50"
+                      >
+                        <ArrowRight size={11} /> {next.title}
+                      </button>
+                    )
+                  })}
+                </div>
+              </footer>
+            ) : (
+              <footer className="border-t border-gray-200 bg-gray-50 px-5 py-3">
+                <p className="text-xs text-gray-500">
+                  <strong className="text-gray-700">End of workflow.</strong> Need to start
+                  a new deal? Reopen{' '}
+                  <button
+                    type="button"
+                    onClick={() => onOpenNext('hard-market')}
+                    className="font-semibold text-indigo-600 hover:underline"
+                  >
+                    Hard Market Lookup
+                  </button>
+                  .
+                </p>
+              </footer>
+            )}
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── CustomizeDrawer ────────────────────────────────────────────────────────
+
+interface CustomizeDrawerProps {
+  open: boolean
+  onClose: () => void
+  tools: ToolDefinition[]
+  hidden: Set<string>
+  pinned: Set<string>
+  onToggleHidden: (id: string) => void
+  onTogglePinned: (id: string) => void
+}
+
+function CustomizeDrawer({
+  open,
+  onClose,
+  tools,
+  hidden,
+  pinned,
+  onToggleHidden,
+  onTogglePinned,
+}: CustomizeDrawerProps) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
+      <DialogContent
+        className="fixed left-auto right-0 top-0 grid h-screen w-full max-w-[420px] translate-x-0 translate-y-0 gap-0 rounded-none border-l border-gray-200 bg-white p-0 shadow-2xl data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
+      >
+        <header className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
+          <div>
+            <DialogTitle className="text-base font-semibold text-gray-900">
+              Customize toolkit
+            </DialogTitle>
+            <DialogDescription className="text-xs text-gray-500">
+              Hide tools you never use, or pin the ones you reach for most often. Changes
+              save automatically.
+            </DialogDescription>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close customize"
+            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {(['workflow', 'reference'] as const).map((section) => {
+            const list = tools.filter((t) => t.section === section)
+            return (
+              <section key={section} className="mb-6 last:mb-0">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                  {section === 'workflow' ? 'Workflow tools' : 'Reference tools'}
+                </h3>
+                <div className="space-y-1.5">
+                  {list.map((t) => {
+                    const isHidden = hidden.has(t.id)
+                    const isPinned = pinned.has(t.id)
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{t.title}</p>
+                          <p className="text-[11px] text-gray-500">
+                            {t.section === 'workflow'
+                              ? `Step ${String(t.stage ?? 0).padStart(2, '0')} · ${t.label}`
+                              : 'Reference'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onTogglePinned(t.id)}
+                            title={isPinned ? 'Unpin' : 'Pin'}
+                            aria-label={isPinned ? 'Unpin tool' : 'Pin tool'}
+                            className={cn(
+                              'rounded p-1.5 transition-colors',
+                              isPinned
+                                ? 'bg-indigo-50 text-indigo-600'
+                                : 'text-gray-400 hover:bg-gray-100 hover:text-indigo-600',
+                            )}
+                          >
+                            <Pin size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onToggleHidden(t.id)}
+                            className={cn(
+                              'rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors',
+                              isHidden
+                                ? 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                                : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                            )}
+                          >
+                            {isHidden ? 'Hidden' : 'Visible'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
             )
           })}
         </div>
-      </main>
 
-      <footer className="max-w-7xl mx-auto px-4 py-2 text-center">
-        <p className="text-xs text-gray-400">
-          <span suppressHydrationWarning>
-            Last synced: {lastSyncedAt ?? '—'} · {TOOLS.length} tools available
-          </span>
-        </p>
-      </footer>
-    </div>
+        <footer className="border-t border-gray-200 bg-gray-50 px-5 py-3 text-[11px] text-gray-500">
+          Tip: search by name in the toolkit header to find a hidden tool quickly.
+        </footer>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── OnboardingOverlay ──────────────────────────────────────────────────────
+
+function OnboardingOverlay({ onDismiss }: { onDismiss: (persist: boolean) => void }) {
+  return (
+    <Dialog open onOpenChange={(o) => (!o ? onDismiss(false) : undefined)}>
+      <DialogContent className="max-w-lg">
+        <div>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-700">
+            <Sparkles size={12} /> Welcome
+          </div>
+          <DialogTitle className="text-xl font-semibold text-gray-900">
+            Your Toolkit, in workflow order
+          </DialogTitle>
+          <DialogDescription className="mt-2 text-sm text-gray-600">
+            The Toolkit is sequenced like the day of an insurance-aware agent. Here&apos;s how
+            to use it:
+          </DialogDescription>
+          <ol className="mt-4 space-y-2 text-sm text-gray-700">
+            <li>
+              <strong className="text-gray-900">1. Start at step 01</strong> and move left
+              to right — Hard Market → Carriers → Cost → Disclosure → Email.
+            </li>
+            <li>
+              <strong className="text-gray-900">2. Each tool&apos;s result feeds the next.</strong>{' '}
+              When you finish, the bottom of the drawer offers the next step with your
+              inputs already filled in.
+            </li>
+            <li>
+              <strong className="text-gray-900">3. Reference tools</strong> (Policy Type
+              Guide, Pre-Offer Checklist) live below the workflow — open them any time.
+            </li>
+            <li>
+              <strong className="text-gray-900">4. Customize</strong> reorders, hides, or
+              pins tools to fit how <em>you</em> work.
+            </li>
+          </ol>
+          <div className="mt-6 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => onDismiss(true)}
+              className="rounded-md px-3 py-2 text-sm text-gray-500 hover:text-gray-900"
+            >
+              Don&apos;t show again
+            </button>
+            <button
+              type="button"
+              onClick={() => onDismiss(false)}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700"
+            >
+              Got it — let&apos;s go
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

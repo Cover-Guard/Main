@@ -173,13 +173,13 @@ function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
               )
             })}
 
-            {/* "Your Agent" toggle — visible on every page that uses
+            {/* "AI Assistant" toggle — visible on every page that uses
                 SidebarLayout. Same drawer as the bottom-right floating
                 AIAdvisor button, so users have two redundant entry points
                 into the same chat experience. */}
             <button
               onClick={() => setAgentOpen(!agentOpen)}
-              title="Your Agent (Ctrl/Cmd + /)"
+              title="AI Assistant (Ctrl/Cmd + /)"
               aria-pressed={agentOpen}
               className={cn(
                 'w-full flex items-center gap-2.5 rounded-md px-2 py-2 text-sm font-medium transition-colors',
@@ -190,7 +190,7 @@ function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
               )}
             >
               <Bot className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="truncate">Your Agent</span>}
+              {!collapsed && <span className="truncate">AI Assistant</span>}
             </button>
           </nav>
 
@@ -314,7 +314,7 @@ function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
             <div className="flex h-12 items-center justify-between px-3 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
               <div className="flex items-center gap-1.5 min-w-0">
                 <Bot size={14} className="text-indigo-600 flex-shrink-0" />
-                <h2 className="text-sm font-semibold text-gray-900 truncate">Your Agent</h2>
+                <h2 className="text-sm font-semibold text-gray-900 truncate">AI Assistant</h2>
               </div>
               <button
                 onClick={() => setAgentOpen(false)}
