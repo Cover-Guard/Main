@@ -21,6 +21,7 @@ export * from './types/trustPortal'
 export * from './types/carrierIntegration'
 export * from './types/legacyAms'
 export * from './types/lenderIntegration'
+export * from './types/brokerageEmbed'
 
 // Utils
 export * from './utils/formatters'
@@ -47,6 +48,7 @@ export * from './utils/trustPortal'
 export * from './utils/carrierIntegration'
 export * from './utils/legacyAmsAdapter'
 export * from './utils/auditTrail'
+export * from './utils/brokerageEmbed'
 
 // Constants
 export * from './constants'
