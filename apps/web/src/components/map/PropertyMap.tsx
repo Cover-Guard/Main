@@ -113,70 +113,19 @@ const RISK_LAYER_CONFIG: Record<
   },
 }
 // Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ ArcGIS Tile Service URLs Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
-// These public ArcGIS MapServer services render real GIS data as map tiles.
-// Primary services are augmented with Esri Living Atlas layers for richer coverage.
+// Raster tile overlays are intentionally disabled â€” every active risk layer
+// now renders as GeoJSON polygons via `ArcGISFeatureOverlay` (see
+// `ARCGIS_FEATURE_SERVICES` below). The const is kept (empty) so the JSX
+// that iterates it remains a harmless no-op.
+//
+// Original tile sources (kept here as documentation only):
+//   flood:      FEMA NFHL MapServer/28 (Flood Hazard Zones)
+//   fire:       USFS WUI 2020 MapServer/0 + USDA Wildfire Risk to Communities
+//   wind:       NOAA Coastal Flood Hazard Composite MapServer (per-state rasters)
+//   earthquake: USGS 2014 NSHM MapServer/0 (2% in 50yr, 0.2s SA)
 const ARCGIS_TILE_SERVICES: Partial<
   Record<RiskLayer, Array<{ url: string; layers: string; label: string }>>
-> = {
-  flood: [
-    {
-      // The previous URL (hazards.fema.gov/gis/nfhl/.../FIRMette/NFHLREST_FIRMette)
-      // returned HTTP 404 on every tile â€” that path does not exist. The
-      // authoritative public FEMA NFHL MapServer lives at /arcgis/rest/...,
-      // and on that service "Flood Hazard Zones" (S_Fld_Haz_Ar) is layer 28
-      // (layer 20 on this service is "Water Lines" â€” a different dataset).
-      url: 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer',
-      layers: 'show:28', // 28 = Flood Hazard Zones (S_Fld_Haz_Ar)
-      label: 'FEMA NFHL',
-    },
-    // NOTE: FeatureServer does NOT support the `export` (tile) operation â€”
-    // only MapServer does. The previous Esri Living Atlas FeatureServer URL
-    // returned 400 Bad Request on every tile. FEMA NFHL above provides the
-    // authoritative coverage, so we drop the Esri fallback entirely rather
-    // than pointing at a non-existent MapServer.
-  ],
-  fire: [
-    {
-      url: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_WUI_2020_01/MapServer',
-      layers: 'show:0', // Layer 0 = WUI 2020
-      label: 'USFS WUI',
-    },
-    {
-      url: 'https://apps.fs.usda.gov/arcx/rest/services/RDW_Wildfire/RMRS_WRC_WildfireRisk/MapServer',
-      layers: 'show:0', // USDA Wildfire Risk to Communities (Esri-hosted)
-      label: 'USDA Wildfire Risk',
-    },
-  ],
-  // INTERIM: NOAA retired the `FloodExposureMapper/CFEM_NHC_Surge_Cat3/MapServer`
-  // SLOSH Cat-3 service (now returns 404 service-not-found). As an
-  // approximate proxy we use NOAA's Coastal Flood Hazard Composite, which
-  // combines SLOSH storm surge, FEMA flood zones, and sea-level-rise into a
-  // per-state coastal flood exposure raster. Layers 0â€“34 are per-state
-  // rasters (AL, AS, CA, CT, DC, DE, FL, GA, GU, HI, IL, IN, LA, MA, MD, ME,
-  // MI, MN, MP, MS, NC, NH, NJ, NY, OH, OR, PA, PR, RI, SC, TX, VA, VI, WA,
-  // WI); we request all of them since the service renders only the ones
-  // covering the current bbox. This is NOT hurricane-surge-specific â€” swap
-  // for a real SLOSH MOM source when one is hosted.
-  wind: [
-    {
-      url: 'https://coast.noaa.gov/arcgis/rest/services/FloodExposureMapper/CFEM_CoastalFloodHazardComposite/MapServer',
-      layers:
-        'show:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34',
-      label: 'NOAA Coastal Flood Hazard Composite',
-    },
-  ],
-  earthquake: [
-    {
-      url: 'https://earthquake.usgs.gov/arcgis/rest/services/haz/US5hz250_2014/MapServer',
-      layers: 'show:0', // 2014 NSHM - 2% in 50yr, 0.2s spectral acceleration
-      label: 'USGS Seismic Hazard',
-    },
-  ],
-  // Drought, Heat, and Crime are rendered by `ArcGISFeatureOverlay` below (GeoJSON
-  // via `google.maps.Data`) â€” see `ARCGIS_FEATURE_SERVICES`. Those sources are
-  // FeatureServer-only and do not support MapServer's `/export` tile operation,
-  // so we render polygons client-side instead of as raster tiles.
-}
+> = {}
 
 // â”€â”€â”€ ArcGIS FeatureServer overlays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // For layers whose only public source is a FeatureServer (no MapServer
@@ -196,7 +145,98 @@ interface FeatureServiceConfig {
   resultRecordCount: number
 }
 
+// FEMA NRI Census Tracts FeatureServer â€” a single national dataset that
+// publishes per-tract risk ratings for every major hazard via `<HAZ>_RISKR`
+// fields. We hit this same endpoint with different fields/styles for flood,
+// fire, wind, and earthquake so all layers render as polygons.
+const NRI_CENSUS_TRACTS_URL =
+  'https://services.arcgis.com/XG15cJAlne2vxtgt/arcgis/rest/services/NRI_CensusTracts_v117/FeatureServer/0'
+
+// Reusable rating-â†’-style maps keyed off the standard NRI 5-bucket scale.
+// Each hazard tints its own palette but the bucket structure is identical.
+const buildRiskStyleMap = (palette: {
+  veryHigh: { fill: string; stroke: string }
+  high: { fill: string; stroke: string }
+  moderate: { fill: string; stroke: string }
+  low: { fill: string; stroke: string }
+  veryLow: { fill: string; stroke: string }
+}): Record<string, { fill: string; stroke: string; fillOpacity?: number }> => ({
+  'Very High':           { ...palette.veryHigh, fillOpacity: 0.42 },
+  'Relatively High':     { ...palette.high,     fillOpacity: 0.34 },
+  'Relatively Moderate': { ...palette.moderate, fillOpacity: 0.28 },
+  'Relatively Low':      { ...palette.low,      fillOpacity: 0.22 },
+  'Very Low':            { ...palette.veryLow,  fillOpacity: 0.18 },
+})
+
 const ARCGIS_FEATURE_SERVICES: Partial<Record<RiskLayer, FeatureServiceConfig>> = {
+  flood: {
+    url: NRI_CENSUS_TRACTS_URL,
+    label: 'FEMA NRI Riverine Flood',
+    outFields: 'RFLD_RISKR,STCOFIPS',
+    where: "RFLD_RISKR IS NOT NULL AND RFLD_RISKR <> 'No Rating' AND RFLD_RISKR <> 'Not Applicable'",
+    styleField: 'RFLD_RISKR',
+    styleMap: buildRiskStyleMap({
+      veryHigh: { fill: '#1e3a8a', stroke: '#172554' },
+      high:     { fill: '#1d4ed8', stroke: '#1e3a8a' },
+      moderate: { fill: '#3b82f6', stroke: '#1e40af' },
+      low:      { fill: '#60a5fa', stroke: '#2563eb' },
+      veryLow:  { fill: '#bfdbfe', stroke: '#1d4ed8' },
+    }),
+    fallbackStyle: { fill: '#3b82f6', stroke: '#1e40af', fillOpacity: 0.22 },
+    minZoom: 9,
+    resultRecordCount: 2000,
+  },
+  fire: {
+    url: NRI_CENSUS_TRACTS_URL,
+    label: 'FEMA NRI Wildfire',
+    outFields: 'WFIR_RISKR,STCOFIPS',
+    where: "WFIR_RISKR IS NOT NULL AND WFIR_RISKR <> 'No Rating' AND WFIR_RISKR <> 'Not Applicable'",
+    styleField: 'WFIR_RISKR',
+    styleMap: buildRiskStyleMap({
+      veryHigh: { fill: '#7f1d1d', stroke: '#450a0a' },
+      high:     { fill: '#dc2626', stroke: '#7f1d1d' },
+      moderate: { fill: '#f97316', stroke: '#9a3412' },
+      low:      { fill: '#fb923c', stroke: '#c2410c' },
+      veryLow:  { fill: '#fed7aa', stroke: '#9a3412' },
+    }),
+    fallbackStyle: { fill: '#ef4444', stroke: '#7f1d1d', fillOpacity: 0.22 },
+    minZoom: 9,
+    resultRecordCount: 2000,
+  },
+  wind: {
+    url: NRI_CENSUS_TRACTS_URL,
+    label: 'FEMA NRI Hurricane',
+    outFields: 'HRCN_RISKR,STCOFIPS',
+    where: "HRCN_RISKR IS NOT NULL AND HRCN_RISKR <> 'No Rating' AND HRCN_RISKR <> 'Not Applicable'",
+    styleField: 'HRCN_RISKR',
+    styleMap: buildRiskStyleMap({
+      veryHigh: { fill: '#581c87', stroke: '#3b0764' },
+      high:     { fill: '#7e22ce', stroke: '#581c87' },
+      moderate: { fill: '#a855f7', stroke: '#6b21a8' },
+      low:      { fill: '#c084fc', stroke: '#7e22ce' },
+      veryLow:  { fill: '#e9d5ff', stroke: '#7e22ce' },
+    }),
+    fallbackStyle: { fill: '#a855f7', stroke: '#6b21a8', fillOpacity: 0.22 },
+    minZoom: 9,
+    resultRecordCount: 2000,
+  },
+  earthquake: {
+    url: NRI_CENSUS_TRACTS_URL,
+    label: 'FEMA NRI Earthquake',
+    outFields: 'ERQK_RISKR,STCOFIPS',
+    where: "ERQK_RISKR IS NOT NULL AND ERQK_RISKR <> 'No Rating' AND ERQK_RISKR <> 'Not Applicable'",
+    styleField: 'ERQK_RISKR',
+    styleMap: buildRiskStyleMap({
+      veryHigh: { fill: '#7c2d12', stroke: '#431407' },
+      high:     { fill: '#c2410c', stroke: '#7c2d12' },
+      moderate: { fill: '#f97316', stroke: '#9a3412' },
+      low:      { fill: '#fb923c', stroke: '#c2410c' },
+      veryLow:  { fill: '#fed7aa', stroke: '#9a3412' },
+    }),
+    fallbackStyle: { fill: '#f97316', stroke: '#9a3412', fillOpacity: 0.22 },
+    minZoom: 9,
+    resultRecordCount: 2000,
+  },
   drought: {
     url: 'https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/US_Drought_Intensity_v1/FeatureServer/0',
     label: 'US Drought Monitor',
@@ -401,16 +441,6 @@ export function PropertyMap({
     toastTimerRef.current = setTimeout(() => setLayerToast(null), 2500)
   }, [])
 
-  // Prefer a real property when we have one, but fall back to the current
-  // map center (or the clicked pin) so layers with no tile service â€” or
-  // layers whose tile service has no coverage at the viewed location â€” still
-  // render a visible score circle instead of silently doing nothing.
-  const riskCenter =
-    selectedProperty ??
-    properties[0] ??
-    (clickedPin ? { lat: clickedPin.lat, lng: clickedPin.lng } : null) ??
-    mapCenter
-
   if (!GOOGLE_MAPS_KEY) {
     return (
       <div
@@ -487,21 +517,9 @@ export function PropertyMap({
                 return <ArcGISFeatureOverlay key={`feat-${layer}`} config={cfg} />
               })}
 
-              {/* Ã¢Â”Â€Ã¢Â”Â€ Risk score circle overlays Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ */}
-              {riskCenter &&
-                Array.from(activeLayers).map((layer) => {
-                  const score = getRiskScore(layer)
-                  if (score === null || score === 0) return null
-                  return (
-                    <RiskCircleOverlay
-                      key={`circle-${layer}`}
-                      center={{ lat: riskCenter.lat, lng: riskCenter.lng }}
-                      radius={500 + score * 30}
-                      color={RISK_LAYER_CONFIG[layer].color}
-                      score={score}
-                    />
-                  )
-                })}
+              {/* Default risk-score circle overlays were removed â€” every
+                  active layer now draws its own polygon footprint via
+                  ArcGISFeatureOverlay above. */}
 
               {/* Ã¢Â”Â€Ã¢Â”Â€ Property markers Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ */}
               {properties.map((p) => (
@@ -1001,57 +1019,10 @@ function ArcGISFeatureOverlay({ config }: { config: FeatureServiceConfig }) {
   return null
 }
 
-// Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ Risk Circle Overlay Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
-// Draws a colored circle overlay scaled by the risk score.
-function RiskCircleOverlay({
-  center,
-  radius,
-  color,
-  score,
-}: {
-  center: { lat: number; lng: number }
-  radius: number
-  color: string
-  score: number
-}) {
-  const map = useMap()
-  const circleRef = useRef<google.maps.Circle | null>(null)
-
-  // Opacity scales with score: low risk = visible, high risk = bold
-  const fillOpacity = 0.15 + (score / 100) * 0.25
-  const strokeOpacity = 0.4 + (score / 100) * 0.45
-
-  useEffect(() => {
-    if (!map) return
-
-    if (circleRef.current) {
-      circleRef.current.setMap(null)
-    }
-
-    try {
-      circleRef.current = new google.maps.Circle({
-        map,
-        center,
-        radius,
-        fillColor: color,
-        fillOpacity,
-        strokeColor: color,
-        strokeWeight: 2,
-        strokeOpacity,
-        clickable: false,
-      })
-    } catch {
-      circleRef.current = null
-    }
-
-    return () => {
-      circleRef.current?.setMap(null)
-      circleRef.current = null
-    }
-  }, [map, center, radius, color, fillOpacity, strokeOpacity])
-
-  return null
-}
+// Note: the previous `RiskCircleOverlay` component was removed â€” risk
+// information is now communicated entirely through the polygon overlays
+// drawn by `ArcGISFeatureOverlay`. The score values are still surfaced in
+// the legend / sidebar UI via `getRiskScore`.
 
 // Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€ Error Boundary Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€Ã¢Â”Â€
 class MapErrorBoundary extends Component<
@@ -1097,4 +1068,3 @@ function MapLoadingGuard({ children }: { children: ReactNode }) {
   }
   return <>{children}</>
 }
-
