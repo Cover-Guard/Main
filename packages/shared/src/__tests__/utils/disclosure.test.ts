@@ -351,7 +351,7 @@ describe('maskedSignaturePreview', () => {
   it('truncates long user agents', () => {
     const longUa = 'A'.repeat(200)
     const preview = maskedSignaturePreview(signature({ userAgent: longUa }))
-    expect(preview.uaMasked.endsWith('â¦')).toBe(true)
+    expect(preview.uaMasked.endsWith('…')).toBe(true)
     expect(preview.uaMasked.length).toBe(33)
   })
 
