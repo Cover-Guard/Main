@@ -41,6 +41,7 @@ model User {
   subscriptions   Subscription[]
   deals           Deal[]
   usageCounters   UsageCounter[]
+  activityEvents  UserActivityEvent[]
 
   @@index([role])
   @@map("users")
@@ -482,4 +483,65 @@ enum DealFalloutReason {
   COMPETING_OFFER
   PROPERTY_CONDITION
   OTHER
+}
+
+
+// ─── User Activity Events ────────────────────────────────────────────────────
+// Append-only product-analytics activity log for "everything user X did".
+//
+// Distinct from packages/shared/src/utils/auditTrail.ts, which is the *
+// regulatory* loan-file audit trail (hash-chained, signed, retention-bound).
+// Both coexist on purpose:
+//
+//   - auditTrail entries: only loan-file actions (regulated reports, LOS
+//     connection lifecycle). Tamper-evident chain. Compliance artifact.
+//   - UserActivityEvent: every meaningful user action across the product
+//     (property views, searches, profile updates, etc.). No chain integrity.
+//
+// Handlers writing a regulated audit_trail entry SHOULD also write a matching
+// UserActivityEvent with entityType = 'audit_trail' and entityId = the audit
+// entry id, so the activity feed can deep-link to the regulated entry.
+
+model UserActivityEvent {
+  id         String            @id @default(uuid()) @db.Uuid
+  userId     String
+  eventType  ActivityEventType
+  entityType String? // 'property' | 'report' | 'quote_request' | 'audit_trail' | ...
+  entityId   String?
+  metadata   Json              @default("{}")
+  ipAddress  String?           @db.Inet
+  userAgent  String?
+  occurredAt DateTime          @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([eventType, occurredAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@map("user_activity_events")
+}
+
+enum ActivityEventType {
+  LOGIN
+  LOGOUT
+  SIGNUP
+  PROFILE_UPDATED
+  CONSENT_ACCEPTED
+  PROPERTY_VIEWED
+  PROPERTY_SAVED
+  PROPERTY_UNSAVED
+  SEARCH_PERFORMED
+  REPORT_GENERATED
+  REPORT_DOWNLOADED
+  QUOTE_REQUESTED
+  QUOTE_STATUS_CHANGED
+  CHECKLIST_CREATED
+  CHECKLIST_UPDATED
+  AGENT_CHAT_SENT
+  DIRECT_MESSAGE_SENT
+  NOTIFICATION_READ
+  SUBSCRIPTION_CHANGED
+  ADMIN_ACTION
+
+  @@map("activity_event_type")
 }
