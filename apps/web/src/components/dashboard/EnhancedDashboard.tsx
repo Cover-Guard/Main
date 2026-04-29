@@ -10,7 +10,6 @@ import {
   GripVertical,
   Home,
   Layers,
-  Send,
   Settings,
   Shield,
   TrendingUp,
@@ -21,7 +20,6 @@ import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { ActiveCarriersPanel } from './enhanced/ActiveCarriersPanel';
 import { ClientManagementPanel } from './enhanced/ClientManagementPanel';
 import { ForecastPanel } from './enhanced/ForecastPanel';
-import { HomeBuyerAgentPanel } from './enhanced/HomeBuyerAgentPanel';
 import { InsightsPanel } from './enhanced/InsightsPanel';
 import { KPIPanel } from './enhanced/KPIPanel';
 import { PortfolioMixPanel } from './enhanced/PortfolioMixPanel';
@@ -37,10 +35,9 @@ const DEFAULT_LAYOUT: PanelConfig[] = [
   { id: 'clients', title: 'Client Management', icon: Building2, order: 3, visible: true, span: 'full' },
   { id: 'properties', title: 'Saved Properties', icon: Home, order: 4, visible: true, span: 'full' },
   { id: 'carriers', title: 'Active Carriers for Your Properties', icon: Shield, order: 5, visible: true, span: 'full' },
-  { id: 'agentchat', title: 'Your Agent', icon: Send, order: 6, visible: true, span: 'third' },
-  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 7, visible: true, span: 'third' },
-  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 8, visible: true, span: 'third' },
-  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 9, visible: true, span: 'third' },
+  { id: 'forecast', title: 'Premium Forecast', icon: TrendingUp, order: 6, visible: true, span: 'third' },
+  { id: 'risktrend', title: 'Risk Trend', icon: Activity, order: 7, visible: true, span: 'third' },
+  { id: 'portfolio', title: 'Portfolio Mix', icon: Layers, order: 8, visible: true, span: 'third' },
 ];
 
 const PANEL_COMPONENTS: Record<string, () => JSX.Element | null> = {
@@ -50,7 +47,6 @@ const PANEL_COMPONENTS: Record<string, () => JSX.Element | null> = {
   clients: ClientManagementPanel,
   properties: SavedPropertiesPanel,
   carriers: ActiveCarriersPanel,
-  agentchat: HomeBuyerAgentPanel,
   forecast: ForecastPanel,
   risktrend: RiskTrendPanel,
   portfolio: PortfolioMixPanel,

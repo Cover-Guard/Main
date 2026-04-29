@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Enhancement">
+    <defs>
+          <linearGradient id="cg-bg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ede9fe"/>
+                  <stop offset="100%" stop-color="#faf5ff"/>
+          </linearGradient>
+          <linearGradient id="cg-star" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#a78bfa"/>
+                  <stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+          <linearGradient id="cg-accent" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#c4b5fd"/>
+                  <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+    </defs>
+
+    <rect width="160" height="160" rx="20" fill="url(#cg-bg)"/>
+
+    <path d="M30 115 L60 80 L85 98 L130 50" fill="none" stroke="url(#cg-accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <polygon points="130,50 116,52 128,64" fill="#7c3aed"/>
+
+    <g transform="translate(80,82)">
+          <path d="M0 -30 L7 -9 L28 -3 L7 3 L0 24 L-7 3 L-28 -3 L-7 -9 Z" fill="url(#cg-star)"/>
+          <circle cx="0" cy="-3" r="3.5" fill="#ffffff" opacity="0.9"/>
+    </g>
+
+    <g fill="#a78bfa">
+          <path d="M35 45 L38 53 L46 56 L38 59 L35 67 L32 59 L24 56 L32 53 Z"/>
+          <path d="M128 115 L130 120 L135 122 L130 124 L128 129 L126 124 L121 122 L126 120 Z"/>
+    </g>
+    <circle cx="120" cy="35" r="2.5" fill="#c4b5fd"/>
+    <circle cx="40" cy="125" r="2.5" fill="#c4b5fd"/>
+</svg>

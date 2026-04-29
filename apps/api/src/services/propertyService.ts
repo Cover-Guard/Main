@@ -421,11 +421,27 @@ export async function ensurePropertyId(id: string): Promise<string | null> {
   if (existing) return existing
 
   const parsed = parseAddressSlug(id)
-  if (!parsed) return null
+  if (!parsed) {
+    // Not a canonical id, parcelId, externalId, or parseable address slug.
+    // Nothing we can do — log at debug level since this is a legitimate
+    // "property not found" path rather than an error.
+    logger.debug('ensurePropertyId: identifier unrecognized (not an id, parcelId, externalId, or slug)', { id })
+    return null
+  }
 
   const query = `${parsed.address}, ${parsed.city}, ${parsed.state} ${parsed.zip}`
   const geocoded = await geocodeByAddress(query)
-  if (!geocoded || !geocoded.address || !geocoded.state) return null
+  if (!geocoded || !geocoded.address || !geocoded.state) {
+    // Geocoding failed. Most common cause: missing/invalid
+    // GOOGLE_MAPS_API_KEY, followed by genuine invalid addresses.
+    // Log at warn so it's visible when a deployment is misconfigured.
+    logger.warn('ensurePropertyId: geocoding returned no usable result', {
+      id,
+      parsedAddress: query,
+      hasGeocoded: !!geocoded,
+    })
+    return null
+  }
 
   // Before inserting, check once more by lat/lng proximity in case a row
   // with a slightly different address normalization already exists — avoids
@@ -457,6 +473,11 @@ export async function ensurePropertyId(id: string): Promise<string | null> {
         propertyType: 'SINGLE_FAMILY',
       },
       select: { id: true },
+    })
+    logger.info('ensurePropertyId: created property on-demand from slug', {
+      slug: id,
+      propertyId: newId,
+      address: `${geocoded.address}, ${geocoded.city}, ${geocoded.state} ${geocoded.zip}`,
     })
     return newId
   } catch (err) {

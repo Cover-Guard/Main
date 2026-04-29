@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import type { Property } from '@coverguard/shared'
+import type { Property, ReportViewMode } from '@coverguard/shared'
 import { formatAddress, formatCurrency } from '@coverguard/shared'
 import { getPropertyReport, type PropertyReportBundle } from '@/lib/api'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { RiskSummary } from './RiskSummary'
 import { RiskBreakdown } from './RiskBreakdown'
+import { ReportRiskNarratives } from './ReportRiskNarratives'
 import { StateRiskContext } from './StateRiskContext'
 import { InsurabilityPanel } from './InsurabilityPanel'
 import { InsuranceCostEstimate } from './InsuranceCostEstimate'
@@ -20,8 +21,9 @@ import { ActiveCarriers } from './ActiveCarriers'
 import { PropertyImages } from './PropertyImages'
 import { RiskCostCard } from './RiskCostCard'
 import { ReportActions } from './ReportActions'
+import { BuyerViewIntro } from './BuyerViewIntro'
 import { CompareDrawer } from './CompareDrawer'
-import { Loader2, AlertTriangle, Shield, TrendingUp } from 'lucide-react'
+import { Loader2, AlertTriangle, Shield, TrendingUp, User, Briefcase } from 'lucide-react'
 
 interface PropertyRiskReportModalProps {
   property: Property
@@ -75,6 +77,7 @@ export function PropertyRiskReportModal({
   const [compareState, compareDispatch] = useReducer(reportReducer, { status: 'idle' })
   const [showCompare, setShowCompare] = useState(false)
   const [activeTab, setActiveTab] = useState<'risks' | 'carriers'>('risks')
+  const [viewMode, setViewMode] = useState<ReportViewMode>('agent')
   const contentRef = useRef<HTMLDivElement>(null)
 
   const fetchReport = useCallback(() => {
@@ -155,21 +158,57 @@ export function PropertyRiskReportModal({
             )}
           </div>
           {state.status === 'success' && (
-            <div className="px-6 flex gap-1" role="tablist" aria-label="Report sections">
-              <button
-                role="tab"
-                aria-selected={activeTab === 'risks'}
-                onClick={() => setActiveTab('risks')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'risks' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
-                Risk Analysis
-              </button>
-              <button
-                role="tab"
-                aria-selected={activeTab === 'carriers'}
-                onClick={() => setActiveTab('carriers')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'carriers' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
-                Carriers & Coverage
-              </button>
+            <div className="px-6 flex items-center justify-between gap-4">
+              <div className="flex gap-1" role="tablist" aria-label="Report sections">
+                <button
+                  role="tab"
+                  aria-selected={activeTab === 'risks'}
+                  onClick={() => setActiveTab('risks')}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'risks' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
+                  Risk Analysis
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={activeTab === 'carriers'}
+                  onClick={() => setActiveTab('carriers')}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'carriers' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`}>
+                  Carriers & Coverage
+                </button>
+              </div>
+              <div
+                role="group"
+                aria-label="Report audience"
+                className="mb-1 inline-flex rounded-full border border-gray-200 bg-gray-50 p-0.5 text-xs"
+              >
+                <button
+                  type="button"
+                  aria-pressed={viewMode === 'agent'}
+                  onClick={() => setViewMode('agent')}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-medium transition-colors ${
+                    viewMode === 'agent'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="Show full technical detail for agents"
+                >
+                  <Briefcase className="h-3 w-3" aria-hidden />
+                  Agent view
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={viewMode === 'buyer'}
+                  onClick={() => setViewMode('buyer')}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-medium transition-colors ${
+                    viewMode === 'buyer'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="Show plain-language report for buyers / clients"
+                >
+                  <User className="h-3 w-3" aria-hidden />
+                  Buyer view
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -204,6 +243,7 @@ export function PropertyRiskReportModal({
                   )}
                   {activeTab === 'risks' && (
                     <div className="space-y-6">
+                      {viewMode === 'buyer' && <BuyerViewIntro />}
                       {state.data.risk && <RiskSummary profile={state.data.risk} />}
                       {state.data.insurability && <InsurabilityPanel status={state.data.insurability} />}
                       {state.data.risk && state.data.insurance && (
@@ -231,6 +271,7 @@ export function PropertyRiskReportModal({
                         </div>
                       )}
                       {state.data.risk && <RiskBreakdown profile={state.data.risk} />}
+                      {state.data.risk && <ReportRiskNarratives profile={state.data.risk} />}
                       {state.data.risk && <StateRiskContext profile={state.data.risk} />}
                     </div>
                   )}

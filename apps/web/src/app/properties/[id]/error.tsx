@@ -2,6 +2,32 @@
 
 import Link from 'next/link'
 
+/**
+ * Map a thrown Error.message (which comes from the server's
+ * error.message field or the generic fetch-failure text) to a
+ * user-friendly explanation. Keep these strings in sync with the
+ * server's error codes in apps/api/src/routes/properties.ts.
+ */
+function getFriendlyMessage(message: string): string {
+  if (message === 'Property not found') {
+    return 'This property could not be found. It may have been removed or the address may be incorrect.'
+  }
+  // Returned when the slug parses but Google geocoding can't validate
+  // the address (missing/invalid GOOGLE_MAPS_API_KEY or truly bad input).
+  if (message.startsWith('Could not validate this address')) {
+    return 'We could not validate this address. Please check the spelling or try searching again.'
+  }
+  // Returned when ensurePropertyId throws — typically a transient
+  // backend failure (DB down, geocoder unreachable).
+  if (message.startsWith('Could not resolve property')) {
+    return 'We had trouble loading this property. Please try again in a moment.'
+  }
+  if (message.includes('Network error') || message.includes('timed out')) {
+    return 'Network error. Please check your connection and try again.'
+  }
+  return 'Something went wrong while loading this property. Please try again.'
+}
+
 export default function PropertyError({
   error,
   reset,
@@ -33,9 +59,7 @@ export default function PropertyError({
         </h1>
 
         <p className="text-gray-600 mb-8">
-          {error.message === 'Property not found'
-            ? 'This property could not be found. It may have been removed or the address may be incorrect.'
-            : 'Something went wrong while loading this property. Please try again.'}
+          {getFriendlyMessage(error.message)}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">

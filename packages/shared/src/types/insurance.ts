@@ -69,6 +69,26 @@ export interface Carrier {
   statesLicensed: string[]
   specialties: string[]
   notes: string | null
+  /**
+   * Provenance of this carrier's appetite signal — where the
+   * `writingStatus` value came from. Surfaced in the UI so users can
+   * judge how much to trust it.
+   *
+   * Spec: docs/enhancements/p0/01-carrier-appetite-freshness.md
+   */
+  appetiteSource: CarrierAppetiteSource
+  /**
+   * Confidence band derived from source, freshness, and how directly the
+   * carrier confirmed the appetite. HIGH only ships when we have an
+   * authoritative signal less than a day old.
+   */
+  appetiteConfidence: CarrierAppetiteConfidence
+  /**
+   * ISO timestamp of when this carrier's appetite signal was last refreshed.
+   * Per-carrier — the global `CarriersResult.lastUpdated` reflects the
+   * batch run; this field reflects the per-carrier source-of-truth.
+   */
+  appetiteUpdatedAt: string
 }
 
 export type CarrierWritingStatus = 'ACTIVELY_WRITING' | 'LIMITED' | 'NOT_WRITING' | 'SURPLUS_LINES'
@@ -81,6 +101,30 @@ export interface CarriersResult {
 }
 
 export type MarketCondition = 'SOFT' | 'MODERATE' | 'HARD' | 'CRISIS'
+
+/**
+ * Where a carrier's writing-status signal came from. Ordered roughly by
+ * authoritativeness — `CARRIER_API` is a contracted feed, `INFERRED` is a
+ * fallback when no fresh signal exists.
+ *
+ * Spec: docs/enhancements/p0/01-carrier-appetite-freshness.md
+ */
+export type CarrierAppetiteSource =
+  | 'CARRIER_API'   // direct contracted feed from the carrier
+  | 'AGGREGATOR'    // MGA / surplus-line aggregator
+  | 'PUBLIC_FILING' // state DOI rate / form filings
+  | 'INFERRED'      // derived from market conditions, no fresh upstream signal
+
+/**
+ * Confidence band CoverGuard surfaces alongside each appetite row. Computed
+ * from `(source, age, signalCompleteness)` — the worst dimension wins.
+ *
+ *  - HIGH:   contracted source, < 24h old, complete signal
+ *  - MEDIUM: aggregator/public, or a contracted source 24h–7d old
+ *  - LOW:    inferred, or any signal > 7d old
+ */
+export type CarrierAppetiteConfidence = 'HIGH' | 'MEDIUM' | 'LOW'
+
 
 /**
  * Carrier-availability snapshot for a ZIP at a point in time. The delta-detection
