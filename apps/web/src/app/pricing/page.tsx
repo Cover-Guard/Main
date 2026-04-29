@@ -496,12 +496,3 @@ export default function PricingPage() {
     </div>
   )
 }
-       </p>
-            </div>
-          </div>
-        </section>
-      </main>
-      <MarketingFooter />
-    </div>
-  )
-}

@@ -314,34 +314,3 @@ export function getStripePriceId(plan: PlanTier): string {
 
 export const INDIVIDUAL_FEATURES = PLANS.individual.features
 export const AGENT_FEATURES = PLANS.professional.features
-ptionPlanToTier(
-  backendPlan: 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' | null | undefined,
-): PlanTier {
-  if (!backendPlan) return 'free'
-  const map: Record<string, PlanTier> = {
-    INDIVIDUAL: 'individual',
-    PROFESSIONAL: 'professional',
-    TEAM: 'team',
-  }
-  return map[backendPlan] ?? 'free'
-}
-
-// ─── Stripe price ID helpers ────────────────────────────────────────────────
-
-export const STRIPE_PRICE_ENV_MAPPING: Record<PlanTier, string> = {
-  free: '',
-  individual: 'NEXT_PUBLIC_STRIPE_PRICE_INDIVIDUAL',
-  professional: 'NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL',
-  team: 'NEXT_PUBLIC_STRIPE_PRICE_TEAM',
-}
-
-export function getStripePriceId(plan: PlanTier): string {
-  const envKey = STRIPE_PRICE_ENV_MAPPING[plan]
-  if (!envKey) return ''
-  return process.env[envKey] || ''
-}
-
-// ─── Legacy exports (backward compat) ───────────────────────────────────────
-
-export const INDIVIDUAL_FEATURES = PLANS.individual.features
-export const AGENT_FEATURES = PLANS.professional.features

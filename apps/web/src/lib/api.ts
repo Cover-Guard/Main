@@ -411,17 +411,3 @@ export async function acknowledgeCarrierExitAlert(id: string): Promise<void> {
     method: 'POST',
   })
 }
-verity)
-  if (params?.limit) qs.set('limit', String(params.limit))
-  const suffix = qs.toString() ? `?${qs.toString()}` : ''
-  return apiFetch(`/api/alerts/carrier-exits${suffix}`)
-}
-
-export async function acknowledgeCarrierExitAlert(id: string): Promise<void> {
-  await apiFetch(`/api/alerts/carrier-exits/${encodeURIComponent(id)}/acknowledge`, {
-    method: 'POST',
-  })
-}
-  })
-}
-}

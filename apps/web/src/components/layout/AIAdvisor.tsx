@@ -44,16 +44,3 @@ export function AIAdvisor() {
     </div>
   )
 }
-ed={open}
-        aria-haspopup="dialog"
-      >
-        <div className="relative flex items-center justify-center">
-          <CoverGuardShield className="h-8 w-8" />
-          <span className="absolute -bottom-2 -right-2 text-[9px] font-bold text-white leading-none bg-teal-500 rounded-md px-1 py-0.5 shadow-sm">
-            AI
-          </span>
-        </div>
-      </button>
-    </div>
-  )
-}
