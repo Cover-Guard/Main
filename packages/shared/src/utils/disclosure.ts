@@ -337,7 +337,7 @@ export function maskedSignaturePreview(
       .split('.')
       .map((segment, i) => (i >= 2 ? 'xxx' : segment))
       .join('.'),
-    uaMasked: signature.userAgent.slice(0, 32) + (signature.userAgent.length > 32 ? 'â¦' : ''),
+    uaMasked: signature.userAgent.slice(0, 32) + (signature.userAgent.length > 32 ? '…' : ''),
     digestPrefix: signature.digestSha256.slice(0, 12),
   }
 }
