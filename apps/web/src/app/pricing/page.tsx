@@ -49,10 +49,11 @@ const plansBySegment: Record<SegmentKey, Plan[]> = {
       priceEnvKey: '',
       cta: 'Create Free Account',
       features: [
-        'Up to 3 property reports — free forever',
+        '1 property search — free forever',
+        '5 AI Agent interactions',
         'Risk profiles (flood, fire, wind, earthquake, crime)',
         'Carrier availability lookup',
-        'Save up to 3 properties',
+        'Save 1 property',
         'Email support',
       ],
     },
@@ -340,7 +341,7 @@ export default function PricingPage() {
                 Plans for every role in real estate
               </h1>
               <p className="mt-4 text-lg text-gray-600">
-                Whether you&apos;re a home buyer, agent, broker, lender, or insurance broker — CoverGuard has a plan built for you. Home buyers start free with up to 3 property reports.
+                Whether you&apos;re a home buyer, agent, broker, lender, or insurance broker — CoverGuard has a plan built for you. Home buyers start free with 1 property search and 5 AI Agent interactions.
               </p>
             </div>
 
@@ -465,7 +466,7 @@ export default function PricingPage() {
               <div className="mt-12 text-center rounded-2xl bg-brand-50 border border-brand-100 p-8 max-w-2xl mx-auto">
                 <h3 className="text-lg font-semibold text-gray-900">Not ready to commit?</h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  Every account starts with <span className="font-semibold text-brand-700">3 free property reports</span> — no credit card required. Try CoverGuard risk-free before choosing a plan.
+                  Every account starts with <span className="font-semibold text-brand-700">1 free property search</span> and <span className="font-semibold text-brand-700">5 AI Agent interactions</span> — no credit card required. Try CoverGuard risk-free before choosing a plan.
                 </p>
                 <Link
                   href="/register"

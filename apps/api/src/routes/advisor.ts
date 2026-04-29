@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import Anthropic from '@anthropic-ai/sdk'
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth'
-import { requireSubscription } from '../middleware/subscription'
+import { enforceFreeUsageLimit } from '../middleware/usageLimit'
 import { logger } from '../utils/logger'
 
 export const advisorRouter = Router()
@@ -37,7 +37,6 @@ const chatSchema = z.object({
   })).min(1).max(50),
 })
 
-// Reuse a single client instance (the SDK handles connection pooling internally)
 let anthropicClient: Anthropic | null = null
 
 function getAnthropicClient(): Anthropic | null {
@@ -49,7 +48,10 @@ function getAnthropicClient(): Anthropic | null {
   return anthropicClient
 }
 
-advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res, next) => {
+// AI Agent chat — Free users get 5 lifetime interactions, paid users unlimited.
+// The enforceFreeUsageLimit middleware atomically increments the counter and
+// rejects with 402 once the cap is reached. Paid subscribers bypass entirely.
+advisorRouter.post('/chat', requireAuth, enforceFreeUsageLimit('ai_interaction'), async (req, res, next) => {
   try {
     const client = getAnthropicClient()
     if (!client) {
@@ -70,8 +72,6 @@ advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res, n
     }
 
     const { messages } = parsed.data
-
-    // Limit conversation history to last 20 messages to control token usage
     const trimmedMessages = messages.slice(-20)
 
     const response = await client.messages.create({
@@ -87,13 +87,21 @@ advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res, n
     const authReq = req as AuthenticatedRequest
     logger.info(`AI Advisor chat — user=${authReq.userId} tokens_in=${response.usage.input_tokens} tokens_out=${response.usage.output_tokens}`)
 
-    res.json({ success: true, data: { text } })
+    const usageCount = (authReq as unknown as { usageCount?: number }).usageCount
+    res.json({
+      success: true,
+      data: {
+        text,
+        ...(typeof usageCount === 'number'
+          ? { usage: { count: usageCount, limit: 5, capability: 'ai_interaction' as const } }
+          : {}),
+      },
+    })
   } catch (err) {
     const authReq = req as AuthenticatedRequest
 
     if (err instanceof Anthropic.AuthenticationError) {
       logger.error(`AI Advisor auth error — user=${authReq.userId}`, { status: err.status, message: err.message })
-      // Reset client so a corrected key is picked up on next request
       anthropicClient = null
       res.status(503).json({
         success: false,
@@ -138,7 +146,6 @@ advisorRouter.post('/chat', requireAuth, requireSubscription, async (req, res, n
       return
     }
 
-    // Unexpected errors go to the central error handler
     next(err)
   }
 })

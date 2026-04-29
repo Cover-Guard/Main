@@ -95,8 +95,16 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (!res.ok || !json.success) {
-    const errorObj = json.error as { message?: string } | undefined
-    throw new Error(errorObj?.message ?? `Request failed (${res.status})`)
+    const errorObj = json.error as { message?: string; code?: string; details?: unknown } | undefined
+    const err = new Error(errorObj?.message ?? `Request failed (${res.status})`) as Error & {
+      code?: string
+      status?: number
+      details?: unknown
+    }
+    err.code = errorObj?.code
+    err.status = res.status
+    err.details = errorObj?.details
+    throw err
   }
   return (json as unknown as ApiResponse<T>).data
 }
@@ -323,7 +331,11 @@ export async function deleteDeal(id: string): Promise<void> {
 
 export async function chatWithAdvisor(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-): Promise<{ text: string }> {
+): Promise<{
+  text: string
+  /** Free-tier usage state — only present for free accounts. */
+  usage?: { count: number; limit: number; capability: 'ai_interaction' }
+}> {
   return apiFetch('/api/advisor/chat', {
     method: 'POST',
     body: JSON.stringify({ messages }),

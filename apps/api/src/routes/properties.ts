@@ -12,6 +12,7 @@ import { insuranceCache, carriersCache, insurabilityCache, publicDataCache } fro
 import { logger } from '../utils/logger'
 import { requireAuth } from '../middleware/auth'
 import { requireSubscription, requireFeature } from '../middleware/subscription'
+import { enforceFreeUsageLimit } from '../middleware/usageLimit'
 import { prisma } from '../utils/prisma'
 import type { Prisma } from '../generated/prisma/client'
 import type { AuthenticatedRequest } from '../middleware/auth'
@@ -161,7 +162,11 @@ propertiesRouter.get('/suggest', async (req, res, next) => {
   }
 })
 
-propertiesRouter.get('/search', async (req, res, next) => {
+// Property search — Free users get 1 lifetime search, paid users unlimited.
+// The enforceFreeUsageLimit middleware atomically increments the counter and
+// rejects with 402 once the cap is reached. Paid subscribers bypass entirely.
+// requireAuth is required so we have a user to count against.
+propertiesRouter.get('/search', requireAuth, enforceFreeUsageLimit('property_search'), async (req, res, next) => {
   try {
     const params = searchSchema.parse(req.query)
     if (!params.address && !params.zip && !params.parcelId && !params.city && !params.placeId) {
@@ -171,10 +176,18 @@ propertiesRouter.get('/search', async (req, res, next) => {
       })
       return
     }
-    const result = await searchProperties(params, extractUnverifiedUserIdForAnalytics(req))
-    // Search results: short CDN TTL (60 s) since properties can be added
-    setCacheHeaders(res, 60, 30)
-    res.json({ success: true, data: result })
+    const authReq = req as AuthenticatedRequest
+    const result = await searchProperties(params, authReq.userId)
+    // Authenticated, usage-gated endpoint — do not let CDNs cache responses.
+    setNoCacheHeaders(res)
+    const usageCount = (authReq as unknown as { usageCount?: number }).usageCount
+    res.json({
+      success: true,
+      data: result,
+      ...(typeof usageCount === 'number'
+        ? { usage: { count: usageCount, limit: 1, capability: 'property_search' } }
+        : {}),
+    })
   } catch (err) {
     if (err instanceof Error && err.message.includes('not configured')) {
       return res.status(503).json({ error: 'Property search service temporarily unavailable' })

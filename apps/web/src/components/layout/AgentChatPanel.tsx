@@ -288,9 +288,13 @@ export function AgentChatPanel() {
         const response = await chatWithAdvisor(history)
         setMessages((prev) => [...prev, { role: 'advisor', text: response.text }])
       } catch (err) {
+        const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined
         const msg = err instanceof Error ? err.message : ''
         let display: string
-        if (msg.includes('rate limit') || msg.includes('busy')) {
+        if (errorCode === 'FREE_LIMIT_REACHED') {
+          // Hard server-side cap on Free plan — surface the upgrade path.
+          display = "You've used all 5 of your free AI Agent interactions. [Upgrade to a paid plan](/pricing) for unlimited access."
+        } else if (msg.includes('rate limit') || msg.includes('busy')) {
           display = 'The AI Agent is temporarily busy. Please wait a moment and try again.'
         } else if (msg.includes('not configured') || msg.includes('authentication') || msg.includes('API key')) {
           display = 'The AI Agent service is not available right now. Please contact support if this persists.'
