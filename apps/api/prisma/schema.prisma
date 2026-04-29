@@ -40,9 +40,32 @@ model User {
   searchHistories SearchHistory[]
   subscriptions   Subscription[]
   deals           Deal[]
+  usageCounters   UsageCounter[]
 
   @@index([role])
   @@map("users")
+}
+
+// ─── Usage Counters (free-tier hard limits) ──────────────────────────────────
+// One row per (user, capability). Atomically incremented via the
+// `enforce_free_usage_limit` Postgres function (defined in
+// supabase/migrations/20260428000000_add_usage_counters.sql) so the API can
+// check-and-increment in a single round trip.
+//
+// Free-tier caps live in apps/web/src/lib/plans.ts — keep in sync with the
+// USAGE_LIMITS map in apps/api/src/middleware/usageLimit.ts.
+
+model UsageCounter {
+  userId     String
+  capability String   // 'property_search' | 'ai_interaction'
+  count      Int      @default(0)
+  updatedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, capability])
+  @@index([userId])
+  @@map("usage_counters")
 }
 
 enum UserRole {

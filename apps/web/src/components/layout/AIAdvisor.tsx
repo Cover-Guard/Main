@@ -62,9 +62,14 @@ export function AIAdvisor() {
       const response = await chatWithAdvisor(history)
       setMessages((prev) => [...prev, { role: 'advisor', text: response.text }])
     } catch (err) {
+      const errorCode = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined
       const errorMessage = err instanceof Error ? err.message : ''
       let displayMessage: string
-      if (errorMessage.includes('rate limit') || errorMessage.includes('busy')) {
+      if (errorCode === 'FREE_LIMIT_REACHED') {
+        // Hard server-side cap on Free plan — surface the upgrade path.
+        displayMessage =
+          "You've used all 5 of your free AI Agent interactions. [Upgrade to a paid plan](/pricing) for unlimited access."
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('busy')) {
         displayMessage = 'The AI Advisor is temporarily busy. Please wait a moment and try again.'
       } else if (errorMessage.includes('not configured') || errorMessage.includes('authentication') || errorMessage.includes('API key')) {
         displayMessage = 'The AI Advisor service is not available right now. Please contact support if this persists.'
@@ -195,6 +200,19 @@ export function AIAdvisor() {
         title="AI Advisor"
         aria-label="Open AI Advisor"
         aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        <div className="relative flex items-center justify-center">
+          <CoverGuardShield className="h-8 w-8" />
+          <span className="absolute -bottom-2 -right-2 text-[9px] font-bold text-white leading-none bg-teal-500 rounded-md px-1 py-0.5 shadow-sm">
+            AI
+          </span>
+        </div>
+      </button>
+    </div>
+  )
+}
+ed={open}
         aria-haspopup="dialog"
       >
         <div className="relative flex items-center justify-center">

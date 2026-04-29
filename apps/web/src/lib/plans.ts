@@ -5,10 +5,12 @@
  *
  * | Feature                   | Free | Individual | Professional | Team      |
  * |---------------------------|------|------------|--------------|-----------|
- * | Property reports          | 3    | 25         | 100          | Unlimited |
+ * | Property searches         | 1    | 25         | 100          | Unlimited |
+ * | Property reports          | 1    | 25         | 100          | Unlimited |
+ * | AI Agent interactions     | 5    | Unlimited  | Unlimited    | Unlimited |
  * | Risk profiles             | ✓    | ✓          | ✓            | ✓         |
  * | Carrier availability      | ✓    | ✓          | ✓            | ✓         |
- * | Save properties           | 3    | 25         | 100          | Unlimited |
+ * | Save properties           | 1    | 25         | 100          | Unlimited |
  * | Client management         | ✗    | 10 clients | Unlimited    | Unlimited |
  * | Insurance cost estimates  | ✗    | ✓          | ✓            | ✓         |
  * | Quote requests            | ✗    | ✗          | ✓            | ✓         |
@@ -19,6 +21,11 @@
  * | Team members              | 1    | 1          | 1            | 10        |
  * | API access                | ✗    | ✗          | ✗            | ✓         |
  * | Dedicated account manager | ✗    | ✗          | ✗            | ✓         |
+ *
+ * Free-tier hard limits (enforced server-side, lifetime):
+ *   - 1 property search
+ *   - 5 AI Agent interactions
+ * See apps/api/src/middleware/usageLimit.ts for enforcement.
  */
 
 export type PlanTier = 'free' | 'individual' | 'professional' | 'team'
@@ -31,6 +38,7 @@ export type UserType = 'individual' | 'agent'
 export type Feature =
   | 'search'                 // property search (all plans, but usage-limited)
   | 'save'                   // save properties (all plans, but count-limited)
+  | 'ai_agent'               // AI Agent / Advisor chat (all plans, but usage-limited on free)
   | 'risk_profiles'          // risk profiles (all plans)
   | 'carrier_availability'   // carrier lookup (all plans)
   | 'insurance_estimates'    // insurance cost estimates (individual+)
@@ -45,6 +53,10 @@ export type Feature =
   | 'dedicated_account_mgr'  // dedicated account manager (team only)
 
 export interface PlanLimits {
+  /** Lifetime property search limit on Free; monthly report limit on paid plans (Infinity = unlimited) */
+  searchLimit: number
+  /** Lifetime AI Agent / Advisor interaction limit on Free (Infinity = unlimited) */
+  aiInteractionLimit: number
   /** Monthly property report limit (Infinity = unlimited) */
   reportLimit: number
   /** Max saved properties */
@@ -70,14 +82,18 @@ export const PLANS: Record<PlanTier, Plan> = {
     name: 'Free',
     price: 0,
     limits: {
-      reportLimit: 3,
-      saveLimit: 3,
+      // Free tier — hard server-side limits, lifetime
+      searchLimit: 1,
+      aiInteractionLimit: 5,
+      reportLimit: 1,
+      saveLimit: 1,
       clientLimit: 0,
       teamMemberLimit: 1,
     },
     features: [
       'search',
       'save',
+      'ai_agent',
       'risk_profiles',
       'carrier_availability',
     ],
@@ -86,6 +102,8 @@ export const PLANS: Record<PlanTier, Plan> = {
     name: 'Individual',
     price: 29,
     limits: {
+      searchLimit: 25,
+      aiInteractionLimit: Infinity,
       reportLimit: 25,
       saveLimit: 25,
       clientLimit: 10,
@@ -94,6 +112,7 @@ export const PLANS: Record<PlanTier, Plan> = {
     features: [
       'search',
       'save',
+      'ai_agent',
       'risk_profiles',
       'carrier_availability',
       'insurance_estimates',
@@ -104,6 +123,8 @@ export const PLANS: Record<PlanTier, Plan> = {
     name: 'Professional',
     price: 79,
     limits: {
+      searchLimit: 100,
+      aiInteractionLimit: Infinity,
       reportLimit: 100,
       saveLimit: 100,
       clientLimit: Infinity,
@@ -112,6 +133,7 @@ export const PLANS: Record<PlanTier, Plan> = {
     features: [
       'search',
       'save',
+      'ai_agent',
       'risk_profiles',
       'carrier_availability',
       'insurance_estimates',
@@ -127,6 +149,8 @@ export const PLANS: Record<PlanTier, Plan> = {
     name: 'Team',
     price: 199,
     limits: {
+      searchLimit: Infinity,
+      aiInteractionLimit: Infinity,
       reportLimit: Infinity,
       saveLimit: Infinity,
       clientLimit: Infinity,
@@ -135,6 +159,7 @@ export const PLANS: Record<PlanTier, Plan> = {
     features: [
       'search',
       'save',
+      'ai_agent',
       'risk_profiles',
       'carrier_availability',
       'insurance_estimates',
@@ -156,6 +181,7 @@ export const PLANS: Record<PlanTier, Plan> = {
 const FEATURE_NAMES: Record<Feature, string> = {
   search: 'Property Search',
   save: 'Saved Properties',
+  ai_agent: 'AI Agent',
   risk_profiles: 'Risk Profiles',
   carrier_availability: 'Carrier Availability',
   insurance_estimates: 'Insurance Cost Estimates',
@@ -175,6 +201,7 @@ const FEATURE_NAMES: Record<Feature, string> = {
 const FEATURE_PLAN_REQUIREMENTS: Record<Feature, PlanTier> = {
   search: 'free',
   save: 'free',
+  ai_agent: 'free',
   risk_profiles: 'free',
   carrier_availability: 'free',
   insurance_estimates: 'individual',
@@ -194,6 +221,7 @@ const FEATURE_PLAN_REQUIREMENTS: Record<Feature, PlanTier> = {
 const FEATURE_DESCRIPTIONS: Record<Feature, string> = {
   search: 'Search any US property for risk and insurability data.',
   save: 'Save properties to your dashboard for easy access later.',
+  ai_agent: 'Ask the CoverGuard AI Agent about flood zones, carriers, and insurability.',
   risk_profiles: 'View flood, fire, wind, earthquake, and crime risk scores.',
   carrier_availability: 'See which insurance carriers are actively writing policies.',
   insurance_estimates: 'Get estimated annual insurance premiums for any property.',
@@ -256,6 +284,37 @@ export function getUpgradeTarget(feature: Feature): PlanTier {
 
 /** Maps a backend SubscriptionPlan (INDIVIDUAL/PROFESSIONAL/TEAM) to a PlanTier. */
 export function subscriptionPlanToTier(
+  backendPlan: 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' | null | undefined,
+): PlanTier {
+  if (!backendPlan) return 'free'
+  const map: Record<string, PlanTier> = {
+    INDIVIDUAL: 'individual',
+    PROFESSIONAL: 'professional',
+    TEAM: 'team',
+  }
+  return map[backendPlan] ?? 'free'
+}
+
+// ─── Stripe price ID helpers ────────────────────────────────────────────────
+
+export const STRIPE_PRICE_ENV_MAPPING: Record<PlanTier, string> = {
+  free: '',
+  individual: 'NEXT_PUBLIC_STRIPE_PRICE_INDIVIDUAL',
+  professional: 'NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL',
+  team: 'NEXT_PUBLIC_STRIPE_PRICE_TEAM',
+}
+
+export function getStripePriceId(plan: PlanTier): string {
+  const envKey = STRIPE_PRICE_ENV_MAPPING[plan]
+  if (!envKey) return ''
+  return process.env[envKey] || ''
+}
+
+// ─── Legacy exports (backward compat) ───────────────────────────────────────
+
+export const INDIVIDUAL_FEATURES = PLANS.individual.features
+export const AGENT_FEATURES = PLANS.professional.features
+ptionPlanToTier(
   backendPlan: 'INDIVIDUAL' | 'PROFESSIONAL' | 'TEAM' | null | undefined,
 ): PlanTier {
   if (!backendPlan) return 'free'
