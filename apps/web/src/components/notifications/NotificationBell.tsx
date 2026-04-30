@@ -81,12 +81,6 @@ export function NotificationBell() {
     setPushStatus(Notification.permission as 'default' | 'granted' | 'denied')
   }, [open])
 
-  // When the dropdown opens, default to whichever tab has content.
-  useEffect(() => {
-    if (!open) return
-    setTab(actionableCount > 0 ? 'actionable' : 'all')
-  }, [open, actionableCount])
-
   // Close dropdown when clicking outside.
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -110,7 +104,13 @@ export function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         aria-label={`Notifications${actionableCount > 0 ? ` (${actionableCount} requiring action)` : ''}`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          // When opening, default to whichever tab has content. Done in the
+          // click handler (not an effect) — the trigger is a user action, not
+          // external state. See react-hooks/set-state-in-effect.
+          if (!open) setTab(actionableCount > 0 ? 'actionable' : 'all')
+          setOpen((o) => !o)
+        }}
         className="relative flex items-center justify-center p-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
       >
         {actionableCount > 0 ? <BellRing size={14} /> : <Bell size={14} />}
