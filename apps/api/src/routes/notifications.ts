@@ -55,6 +55,30 @@ const unmuteQuerySchema = z.object({
   entityId: z.string().min(1).max(128),
 })
 
+// Per-channel prefs for one category. Lives inside `channels` JSONB.
+const channelPrefsSchema = z.object({
+  inApp: z.boolean(),
+  email: z.boolean(),
+  push: z.boolean(),
+})
+
+const channelMatrixSchema = z.object({
+  transactional: channelPrefsSchema,
+  collaborative: channelPrefsSchema,
+  insight:       channelPrefsSchema,
+  system:        channelPrefsSchema,
+  lifecycle:     channelPrefsSchema,
+})
+
+const updatePrefsSchema = z.object({
+  channels:        channelMatrixSchema.optional(),
+  digestEnabled:   z.boolean().optional(),
+  digestHourLocal: z.number().int().min(0).max(23).optional(),
+  quietHoursStart: z.number().int().min(0).max(23).nullable().optional(),
+  quietHoursEnd:   z.number().int().min(0).max(23).nullable().optional(),
+  timezone:        z.string().min(1).max(64).optional(),
+})
+
 // ─── Routes ───────────────────────────────────────────────────────────────
 
 /**
@@ -354,6 +378,144 @@ notificationsRouter.delete('/notifications/mute', requireAuth, async (req, res, 
     }
 
     res.json({ success: true, data: { muted: false, entityType, entityId } })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Default preferences returned when the user has no row in
+ * `notification_preferences`. Matches the DEFAULT in the migration so
+ * client and server agree on what "no row" means.
+ */
+const DEFAULT_PREFS = {
+  channels: {
+    transactional: { inApp: true,  email: false, push: false },
+    collaborative: { inApp: true,  email: true,  push: true },
+    insight:       { inApp: true,  email: true,  push: false },
+    system:        { inApp: true,  email: true,  push: true },
+    lifecycle:     { inApp: true,  email: true,  push: false },
+  },
+  digestEnabled: true,
+  digestHourLocal: 9,
+  quietHoursStart: null as number | null,
+  quietHoursEnd: null as number | null,
+  timezone: 'UTC',
+}
+
+/**
+ * Read the caller's notification preferences. If they've never saved, returns
+ * the defaults so the UI can render without a separate "first-load" branch.
+ */
+notificationsRouter.get('/notifications/preferences', requireAuth, async (req, res, next) => {
+  try {
+    const authReq = req as AuthenticatedRequest
+
+    const { data, error } = await supabaseAdmin
+      .from('notification_preferences')
+      .select('*')
+      .eq('userId', authReq.userId)
+      .maybeSingle()
+
+    if (error) {
+      logger.error('Failed to read notification preferences', { error: error.message })
+      res.status(500).json({
+        success: false,
+        error: { code: 'DB_ERROR', message: 'Failed to read preferences.' },
+      })
+      return
+    }
+
+    res.json({
+      success: true,
+      data: data ?? { userId: authReq.userId, ...DEFAULT_PREFS, createdAt: null, updatedAt: null },
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Update the caller's preferences. Partial updates supported — fields not in
+ * the body are left as-is. Upsert ensures first-time savers create the row.
+ */
+notificationsRouter.put('/notifications/preferences', requireAuth, async (req, res, next) => {
+  try {
+    const parsed = updatePrefsSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'BAD_REQUEST', message: parsed.error.errors[0]?.message ?? 'Invalid body' },
+      })
+      return
+    }
+
+    const authReq = req as AuthenticatedRequest
+    const patch = parsed.data
+
+    // Read current row (or defaults) so we can merge — JSONB upsert needs the
+    // whole `channels` object to avoid wiping unspecified categories.
+    const { data: existing } = await supabaseAdmin
+      .from('notification_preferences')
+      .select('*')
+      .eq('userId', authReq.userId)
+      .maybeSingle()
+
+    const next = {
+      userId: authReq.userId,
+      channels:        patch.channels        ?? existing?.channels        ?? DEFAULT_PREFS.channels,
+      digestEnabled:   patch.digestEnabled   ?? existing?.digestEnabled   ?? DEFAULT_PREFS.digestEnabled,
+      digestHourLocal: patch.digestHourLocal ?? existing?.digestHourLocal ?? DEFAULT_PREFS.digestHourLocal,
+      quietHoursStart: patch.quietHoursStart === undefined ? (existing?.quietHoursStart ?? DEFAULT_PREFS.quietHoursStart) : patch.quietHoursStart,
+      quietHoursEnd:   patch.quietHoursEnd   === undefined ? (existing?.quietHoursEnd   ?? DEFAULT_PREFS.quietHoursEnd)   : patch.quietHoursEnd,
+      timezone:        patch.timezone        ?? existing?.timezone        ?? DEFAULT_PREFS.timezone,
+    }
+
+    const { error } = await supabaseAdmin
+      .from('notification_preferences')
+      .upsert(next, { onConflict: 'userId' })
+
+    if (error) {
+      logger.error('Failed to upsert notification preferences', { error: error.message })
+      res.status(500).json({
+        success: false,
+        error: { code: 'DB_ERROR', message: 'Failed to save preferences.' },
+      })
+      return
+    }
+
+    res.json({ success: true, data: next })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * List the caller's active mutes. "Active" means not yet expired. Used by the
+ * preferences page to render the mute list with an unmute button.
+ */
+notificationsRouter.get('/notifications/mutes', requireAuth, async (req, res, next) => {
+  try {
+    const authReq = req as AuthenticatedRequest
+    const nowIso = new Date().toISOString()
+
+    const { data, error } = await supabaseAdmin
+      .from('notification_mutes')
+      .select('*')
+      .eq('userId', authReq.userId)
+      .or(`expiresAt.is.null,expiresAt.gt.${nowIso}`)
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      logger.error('Failed to list notification mutes', { error: error.message })
+      res.status(500).json({
+        success: false,
+        error: { code: 'DB_ERROR', message: 'Failed to list mutes.' },
+      })
+      return
+    }
+
+    res.json({ success: true, data: data ?? [] })
   } catch (err) {
     next(err)
   }
