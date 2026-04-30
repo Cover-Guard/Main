@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { ReleaseNotes } from '@/components/release-notes'
+import { NotificationInboxPreferences } from './NotificationInboxPreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -794,7 +795,14 @@ export function AccountSettings() {
 
           {/* ── Notifications Tab ─────────────────────────────────────── */}
           {activeTab === 'notifications' && (
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <>
+              {/* Inbox preferences (PR 6) — channel × category matrix, quiet
+                  hours, daily digest, mute list. Lives above the topic toggles
+                  because it controls how notifications are routed; the
+                  toggles below control which topics fire in the first place. */}
+              <NotificationInboxPreferences />
+
+            <div className="bg-white rounded-xl border border-gray-200 p-4 mt-4">
               <SectionHeader
                 title="Email Notifications"
                 subtitle="Choose which emails CoverGuard sends you"
@@ -847,6 +855,7 @@ export function AccountSettings() {
                 ))}
               </div>
             </div>
+            </>
           )}
 
           {/* ── Legal & Privacy Tab ───────────────────────────────────── */}
