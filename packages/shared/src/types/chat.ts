@@ -58,17 +58,98 @@ export interface DirectMessage {
   createdAt: string
 }
 
-export type NotificationType = 'DM' | 'AGENT_REPLY' | 'SYSTEM'
+// Notifications ────────────────────────────────────────────────────────────
+//
+// Mirrors the DB enums defined in
+// supabase/migrations/20260430120000_add_notification_taxonomy_and_prefs.sql
+// Anything added here MUST be added to that enum (or a follow-up migration)
+// or writes will fail at the DB.
+
+export type NotificationType =
+  | 'DM'
+  | 'AGENT_REPLY'
+  | 'SYSTEM'
+  | 'INSIGHT'
+  | 'BILLING'
+  | 'LIFECYCLE'
+
+export type NotificationSeverity = 'info' | 'actionable' | 'urgent' | 'blocking'
+
+export type NotificationCategory =
+  | 'transactional'
+  | 'collaborative'
+  | 'insight'
+  | 'system'
+  | 'lifecycle'
+
+/** Subset of severities that should drive the badge count + toast. */
+export const ACTIONABLE_SEVERITIES: ReadonlyArray<NotificationSeverity> = [
+  'actionable',
+  'urgent',
+  'blocking',
+]
 
 export interface AppNotification {
   id: string
   userId: string
   type: NotificationType
+  severity: NotificationSeverity
+  category: NotificationCategory
   title: string
   body: string | null
   linkUrl: string | null
   payload: Record<string, unknown>
+  entityType: string | null
+  entityId: string | null
   readAt: string | null
+  dismissedAt: string | null
+  createdAt: string
+}
+
+export interface NotificationChannelPrefs {
+  inApp: boolean
+  email: boolean
+  push: boolean
+}
+
+export type NotificationChannelMatrix = Record<NotificationCategory, NotificationChannelPrefs>
+
+export interface UserNotificationPreferences {
+  userId: string
+  channels: NotificationChannelMatrix
+  digestEnabled: boolean
+  digestHourLocal: number
+  quietHoursStart: number | null
+  quietHoursEnd: number | null
+  timezone: string
+  createdAt: string
+  updatedAt: string
+}
+
+export const DEFAULT_USER_NOTIFICATION_PREFERENCES: Omit<
+  UserNotificationPreferences,
+  'userId' | 'createdAt' | 'updatedAt'
+> = {
+  channels: {
+    transactional: { inApp: true, email: false, push: false },
+    collaborative: { inApp: true, email: true, push: true },
+    insight: { inApp: true, email: true, push: false },
+    system: { inApp: true, email: true, push: true },
+    lifecycle: { inApp: true, email: true, push: false },
+  },
+  digestEnabled: true,
+  digestHourLocal: 9,
+  quietHoursStart: null,
+  quietHoursEnd: null,
+  timezone: 'UTC',
+}
+
+export interface NotificationMute {
+  id: string
+  userId: string
+  entityType: string
+  entityId: string
+  expiresAt: string | null
   createdAt: string
 }
 
