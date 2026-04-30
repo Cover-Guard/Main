@@ -54,10 +54,15 @@ async function check(name: string, url: string, expectedStatus = 200): Promise<C
 async function run(): Promise<void> {
   console.log('\n=== CoverGuard Health Check ===\n')
 
+  // /api/properties/search now requires auth; an unauthenticated probe is
+  // expected to receive 401 (auth runs before zod schema validation).
   const checks: Array<[string, string, number?]> = [
-    ['API root',               `${API_BASE}/`,                       200],
-    ['API /api/properties/search (no params)', `${API_BASE}/api/properties/search`, 400],
-    ['Web root',               `${WEB_BASE}/`,                       200],
+    ['API root',                                 `${API_BASE}/`,                              200],
+    ['API /health',                              `${API_BASE}/health`,                        200],
+    ['API /robots.txt',                          `${API_BASE}/robots.txt`,                    200],
+    ['API /api/properties/search (no token)',    `${API_BASE}/api/properties/search`,         401],
+    ['API /api/properties/suggest?q=Mia',        `${API_BASE}/api/properties/suggest?q=Mia`,  200],
+    ['Web root',                                 `${WEB_BASE}/`,                              200],
   ]
 
   const results: CheckResult[] = await Promise.all(
