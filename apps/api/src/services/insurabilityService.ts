@@ -16,6 +16,7 @@ import { INSURABILITY_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@covergua
 import { prisma } from '../utils/prisma'
 import { insurabilityCache, insurabilityDeduplicator } from '../utils/cache'
 import { getCarriersForProperty } from './carriersService'
+import { getStateProfile } from '../data/stateRiskProfiles'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -113,16 +114,35 @@ export async function getInsurabilityStatus(propertyId: string, forceRefresh = f
       potentialIssues.push('High fire risk score — expect elevated homeowners premiums or exclusions.')
     }
 
+    // Resolve residual-market / state-backed programs once so wind & EQ
+    // recommendations name the program that actually exists in this state.
+    const stateProfile = getStateProfile(property.state ?? 'XX')
+    const residualPrograms = stateProfile.compliance.residualMarketPrograms
+    const fairPlan = residualPrograms.find((p) => p.type === 'FAIR_PLAN')
+    const windPool = residualPrograms.find(
+      (p) => p.type === 'BEACH_WIND_POOL' || p.type === 'STATE_BACKED'
+    )
+    const isCA = property.state === 'CA'
+
     // Wind / Hurricane
     if (hurricaneRisk && wind > 60) {
       potentialIssues.push('Hurricane exposure — wind/storm coverage may be excluded from standard homeowners policy.')
-      recommendedActions.push('Obtain a separate wind/hurricane policy or FAIR Plan coverage.')
+      const windFallback = windPool?.name ?? fairPlan?.name
+      recommendedActions.push(
+        windFallback
+          ? `Obtain a separate wind/hurricane policy${windFallback ? `; ${windFallback} is available in ${stateProfile.stateName} if voluntary carriers decline.` : '.'}`
+          : 'Obtain a separate wind/hurricane policy from a surplus-lines carrier if voluntary carriers decline.'
+      )
     }
 
     // Earthquake
     if (eq > 70) {
       potentialIssues.push('High seismic risk — earthquake damage is not covered by standard homeowners policies.')
-      recommendedActions.push('Obtain a separate earthquake policy or CEA coverage if in California.')
+      recommendedActions.push(
+        isCA
+          ? 'Obtain a separate earthquake policy through the California Earthquake Authority (CEA) or a private earthquake carrier.'
+          : 'Obtain a separate earthquake policy from a specialty earthquake carrier (e.g., Palomar, GeoVera).'
+      )
     }
 
     // Overall market
