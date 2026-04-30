@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Notification bell — Inbox v2 (PR 4).
+ * Notification bell — Inbox v2 (PR 4) + mute (PR 5).
  *
  * Surfaces:
  *   • Bell button: badge tracks `actionableCount` (PR 3 behaviour).
@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, Check, BellRing, Info } from 'lucide-react'
+import { Bell, Check, BellRing, Info, BellOff } from 'lucide-react'
 import {
   CATEGORY_DISPLAY_ORDER,
   CATEGORY_LABEL,
@@ -27,6 +27,8 @@ import {
 } from '@coverguard/shared'
 import { useNotifications, isActionable } from '@/lib/hooks/useNotifications'
 import { requestPushPermission } from '@/lib/push'
+import { muteEntity } from '@/lib/chat'
+import { toast } from 'sonner'
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -173,6 +175,23 @@ export function NotificationBell() {
                         if (n.linkUrl) window.location.href = n.linkUrl
                         setOpen(false)
                       }}
+                      onMute={async () => {
+                        if (!n.entityType || !n.entityId) return
+                        try {
+                          await muteEntity({
+                            entityType: n.entityType,
+                            entityId: n.entityId,
+                          })
+                          toast('Muted', {
+                            description:
+                              "You won't get new notifications for this thread.",
+                          })
+                        } catch {
+                          toast('Could not mute', {
+                            description: 'Try again in a moment.',
+                          })
+                        }
+                      }}
                     />
                   ))}
                 </section>
@@ -247,12 +266,16 @@ function EmptyState({ tab }: { tab: Tab }) {
 interface NotificationRowProps {
   n: AppNotification
   onClick: () => void
+  onMute: () => void
 }
 
-function NotificationRow({ n, onClick }: NotificationRowProps) {
+function NotificationRow({ n, onClick, onMute }: NotificationRowProps) {
   const unread = !n.readAt
   const dot = severityDotClass(n.severity)
   const reason = CATEGORY_REASON[n.category]
+  // Only items tied to a domain entity can be muted. The DM trigger always
+  // populates these for collaborative items; insights / lifecycle may not.
+  const canMute = !!n.entityType && !!n.entityId
 
   return (
     <div
@@ -272,6 +295,20 @@ function NotificationRow({ n, onClick }: NotificationRowProps) {
         {n.body && <p className="text-[11px] text-gray-600 line-clamp-2">{n.body}</p>}
         <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(n.createdAt)} ago</p>
       </button>
+      {canMute && (
+        <button
+          type="button"
+          title="Mute this thread"
+          aria-label="Mute this thread"
+          className="self-start mt-0.5 p-0.5 text-gray-400 hover:text-gray-600 shrink-0"
+          onClick={(e) => {
+            e.stopPropagation()
+            onMute()
+          }}
+        >
+          <BellOff size={12} />
+        </button>
+      )}
       {/* Why-am-I-seeing-this. Native title tooltip — works without a JS
           tooltip library and is screen-reader-friendly. */}
       <button
