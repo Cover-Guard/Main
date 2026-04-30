@@ -23,7 +23,6 @@ import type {
   CarrierExitAlert,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
-import { createClient } from './supabase/client'
 
 // ─── Server-safe base URL ───────────────────────────────────────────────────
 // Client-side: use relative paths (same-origin, proxied by Next.js rewrites).
@@ -45,13 +44,22 @@ const API_URL = getBaseUrl()
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   try {
-    const supabase = createClient()
+    // Pick the right Supabase client per environment.
+    //   - Server (SSR / server components): the server client reads Next.js
+    //     cookies via next/headers so it can resolve the user's session.
+    //   - Browser: the browser client reads from localStorage / in-memory.
+    // Using the browser client during SSR silently returns no session, which
+    // turned every authenticated server-rendered fetch into an anonymous 401.
+    const supabase = await (typeof window === 'undefined'
+      ? import('./supabase/server').then((m) => m.createClient())
+      : import('./supabase/client').then((m) => m.createClient()))
     const { data } = await supabase.auth.getSession()
     if (!data.session?.access_token) return {}
     return { Authorization: `Bearer ${data.session.access_token}` }
   } catch {
-    // Server-side render or missing session — return no auth headers.
-    // Endpoints that don't require auth (e.g. search) still work fine.
+    // No session available (unauthenticated user, missing env vars, etc.).
+    // Authenticated endpoints will then return 401, which is the correct
+    // behavior — callers should handle that explicitly.
     return {}
   }
 }
