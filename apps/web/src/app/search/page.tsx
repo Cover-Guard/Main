@@ -76,7 +76,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       }
       const result = await searchProperties(params)
       properties = result.properties
-    } catch {
+    } catch (err) {
+      // Log the underlying error so it shows up in Vercel function logs —
+      // otherwise the user-facing fallback ("Unable to search properties…")
+      // is the only signal that anything went wrong, and the real cause
+      // (401, schema validation, provider outage, etc.) is invisible.
+      console.error('[search/page] property search failed:', err)
       searchError = true
     }
   }
