@@ -377,3 +377,62 @@ export async function nudgeDispatchNotification(messageId: string): Promise<void
     // Non-fatal: the in-app notification is already persisted by the DB trigger.
   }
 }
+
+/**
+ * Mute notifications for a specific (entityType, entityId) tuple. Optimistic;
+ * the caller can fire-and-forget. The trigger short-circuits future inserts
+ * for muted threads, so already-existing notifications are unaffected.
+ *
+ * Throws on network failure so callers can surface a toast.
+ */
+export async function muteEntity(input: {
+  entityType: string
+  entityId: string
+  /** Optional ISO timestamp; omit for an indefinite mute. */
+  expiresAt?: string
+}): Promise<void> {
+  const sb = createClient()
+  const { data } = await sb.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch('/api/notifications/mute', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`Mute failed (${res.status}): ${txt.slice(0, 200)}`)
+  }
+}
+
+/**
+ * Remove a mute. Idempotent — deleting a non-existent mute is a no-op
+ * server-side. Throws on network failure for symmetry with `muteEntity`.
+ */
+export async function unmuteEntity(input: {
+  entityType: string
+  entityId: string
+}): Promise<void> {
+  const sb = createClient()
+  const { data } = await sb.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const params = new URLSearchParams({
+    entityType: input.entityType,
+    entityId: input.entityId,
+  })
+  const res = await fetch(`/api/notifications/mute?${params.toString()}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`Unmute failed (${res.status}): ${txt.slice(0, 200)}`)
+  }
+}
