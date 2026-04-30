@@ -215,30 +215,35 @@ function SidebarLayoutInner({ children }: { children: React.ReactNode }) {
                   </button>
                 </div>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-2 px-1 py-1">
-                    <div className="h-7 w-7 shrink-0 rounded-full bg-teal-500 flex items-center justify-center text-[10px] font-bold text-white">
+                    <div className="h-8 w-8 shrink-0 rounded-full bg-teal-500 flex items-center justify-center text-[11px] font-semibold text-[#04342C]">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-semibold text-white truncate">{displayName}</p>
-                      <p className="text-[9px] text-white/65 capitalize truncate">{user.role?.toLowerCase()}</p>
+                      <p className="text-xs font-medium text-white truncate tracking-tight">{displayName}</p>
+                      <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-teal-500/15 px-1.5 py-px text-[9px] capitalize text-teal-300">
+                        <span className="h-1 w-1 rounded-full bg-teal-400" />
+                        {user.role?.toLowerCase()}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="-mx-2 border-t border-white/[0.07]" />
+                  <div className="space-y-0.5">
                     <Link
                       href="/account"
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                      className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] font-medium text-white/75 hover:bg-white/5 hover:text-white transition-colors"
                     >
-                      <Settings className="h-3 w-3" />
-                      Settings
+                      <Settings className="h-3 w-3 shrink-0" />
+                      <span className="flex-1 truncate">Settings</span>
+                      <ChevronRight className="h-3 w-3 shrink-0 opacity-30 group-hover:opacity-60 transition-opacity" />
                     </Link>
                     <button
                       onClick={handleSignOut}
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                      className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] font-medium text-red-300/80 hover:bg-red-500/10 hover:text-red-200 transition-colors"
                     >
-                      <LogOut className="h-3 w-3" />
-                      Sign out
+                      <LogOut className="h-3 w-3 shrink-0" />
+                      <span className="flex-1 truncate text-left">Sign out</span>
                     </button>
                   </div>
                 </div>
