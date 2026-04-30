@@ -1,9 +1,12 @@
 'use client'
 
 /**
- * Notification bell — a small widget that renders the unread count and opens a
- * dropdown with recent notifications. Lives in the Dashboard header (and could
- * be dropped into the sidebar or any other shell later).
+ * Notification bell — a small widget that renders the actionable count and
+ * opens a dropdown with recent notifications. Lives in the Dashboard header.
+ *
+ * The badge counts ONLY notifications whose severity is in
+ * ACTIONABLE_SEVERITIES (PR 3). Total unread is still available on the hook
+ * as `unreadCount` and will surface in the All tab in PR 4.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -24,7 +27,7 @@ function timeAgo(iso: string): string {
 }
 
 export function NotificationBell() {
-  const { items, unreadCount, markRead, markAllRead } = useNotifications()
+  const { items, unreadCount, actionableCount, markRead, markAllRead } = useNotifications()
   const [open, setOpen] = useState(false)
   const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>(
     'default',
@@ -60,17 +63,17 @@ export function NotificationBell() {
   return (
     <div className="relative" ref={ref}>
       <button
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        aria-label={`Notifications${actionableCount > 0 ? ` (${actionableCount} requiring action)` : ''}`}
         onClick={() => setOpen((o) => !o)}
         className="relative flex items-center justify-center p-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
       >
-        {unreadCount > 0 ? <BellRing size={14} /> : <Bell size={14} />}
-        {unreadCount > 0 && (
+        {actionableCount > 0 ? <BellRing size={14} /> : <Bell size={14} />}
+        {actionableCount > 0 && (
           <span
             className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-[10px] font-semibold text-white flex items-center justify-center"
             aria-hidden
           >
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {actionableCount > 9 ? '9+' : actionableCount}
           </span>
         )}
       </button>

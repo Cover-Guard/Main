@@ -10,6 +10,14 @@
  *  3. Exposes a tiny API (markRead / markAllRead / refresh) to consumers.
  *  4. Opportunistically registers the browser for web-push on first load —
  *     idempotent, and silently no-ops if the user hasn't granted permission.
+ *
+ * PR 3 changes:
+ *  - Adds `actionableCount`. The bell's badge tracks this rather than total
+ *    unread, so informational items (e.g. agent replies, lifecycle nudges)
+ *    no longer cry wolf. Total unread is still available as `unreadCount`
+ *    for the All tab in PR 4.
+ *  - Toast hygiene: a realtime insert only triggers a toast when its severity
+ *    is in ACTIONABLE_SEVERITIES. Info-level items go silently to the inbox.
  */
 
 import {
@@ -23,7 +31,7 @@ import {
   type ReactNode,
 } from 'react'
 import { toast } from 'sonner'
-import type { AppNotification } from '@coverguard/shared'
+import { ACTIONABLE_SEVERITIES, type AppNotification } from '@coverguard/shared'
 import {
   fetchNotifications,
   markAllNotificationsRead,
@@ -33,9 +41,19 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { ensurePushSubscription } from '@/lib/push'
 
+const ACTIONABLE_SET = new Set<string>(ACTIONABLE_SEVERITIES)
+
+/** True iff this notification should drive the actionable badge + a toast. */
+export function isActionable(n: Pick<AppNotification, 'severity'>): boolean {
+  return ACTIONABLE_SET.has(n.severity)
+}
+
 interface NotificationsContextValue {
   items: AppNotification[]
+  /** Total unread (any severity). Surfaced for the All tab in PR 4. */
   unreadCount: number
+  /** Unread + severity in ACTIONABLE_SEVERITIES. Drives the bell badge. */
+  actionableCount: number
   loading: boolean
   refresh: () => Promise<void>
   markRead: (ids: string[]) => Promise<void>
@@ -90,7 +108,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
       unsub = subscribeNotifications(userId, (n) => {
         setItems((prev) => (prev.some((p) => p.id === n.id) ? prev : [n, ...prev]))
-        // Surface a toast. We keep it short; the bell dropdown has the full title/body.
+        // Toast only for actionable+. Info-severity items appear silently in
+        // the inbox; the bell badge will not light up for them either.
+        if (!isActionable(n)) return
         try {
           toast(n.title, {
             description: n.body ?? undefined,
@@ -119,17 +139,24 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, [refresh])
 
-  const value = useMemo<NotificationsContextValue>(
-    () => ({
+  const value = useMemo<NotificationsContextValue>(() => {
+    let unread = 0
+    let actionable = 0
+    for (const n of items) {
+      if (n.readAt) continue
+      unread++
+      if (isActionable(n)) actionable++
+    }
+    return {
       items,
-      unreadCount: items.filter((n) => !n.readAt).length,
+      unreadCount: unread,
+      actionableCount: actionable,
       loading,
       refresh,
       markRead,
       markAllRead,
-    }),
-    [items, loading, refresh, markRead, markAllRead],
-  )
+    }
+  }, [items, loading, refresh, markRead, markAllRead])
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>
 }
@@ -142,6 +169,7 @@ export function useNotifications(): NotificationsContextValue {
     return {
       items: [],
       unreadCount: 0,
+      actionableCount: 0,
       loading: false,
       refresh: async () => {},
       markRead: async () => {},
