@@ -308,7 +308,32 @@ export async function getOrComputeRiskProfile(
 
     const cached = property.riskProfile
     if (!forceRefresh && cached && cached.expiresAt > new Date()) {
-      const dto = prismaProfileToDto(cached, propertyId)
+      // Rebuild region-specific enrichment from the property's state. The DB
+      // model does not persist `stateContext` / `complianceScore`, so without
+      // this the cache path returned a region-blind DTO and the StateRiskContext
+      // panel silently disappeared between fresh computes.
+      const stateProfile = getStateProfile(property.state ?? 'XX')
+      const complianceScore = computeComplianceScore(stateProfile)
+      const stateContext: StateRiskContext = {
+        stateCode: stateProfile.stateCode,
+        stateName: stateProfile.stateName,
+        knownRisks: stateProfile.knownRisks,
+        carrierCountTrend: stateProfile.carrierCountTrend,
+        residualMarketUsage: stateProfile.residualMarketUsage,
+        compliance: stateProfile.compliance,
+        // Per-peril score modifiers are derived during a fresh compute from the
+        // delta between raw and adjusted scores. We don't retain the raw scores
+        // on the persisted profile, so on cache hits we surface zeros — the
+        // StateRiskContext UI hides the modifier section when all values are 0.
+        scoreModifiers: {
+          flood: 0,
+          fire: 0,
+          wind: 0,
+          earthquake: 0,
+          compliance: complianceScore,
+        },
+      }
+      const dto = prismaProfileToDto(cached, propertyId, { stateContext, complianceScore })
       riskCache.set(propertyId, dto, cached.expiresAt.getTime() - Date.now())
       return dto
     }

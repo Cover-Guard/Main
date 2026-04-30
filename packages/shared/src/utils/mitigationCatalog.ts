@@ -85,13 +85,13 @@ export const MITIGATION_CATALOG: MitigationAction[] = [
     id: 'seismic-retrofit',
     title: 'Seismic Retrofit (Bolting & Cripple Wall)',
     description:
-      'Bolt the home to the foundation and brace cripple walls. Qualifies for CA Earthquake Authority discounts of up to 25%.',
+      'Bolt the home to the foundation and brace cripple walls. Qualifies for earthquake-carrier premium discounts of up to 25%; California homes may additionally qualify under the CEA Brace + Bolt program.',
     peril: 'earthquake',
     estimatedDiscountMin: 0.1,
     estimatedDiscountMax: 0.25,
     investmentCostMin: 3000,
     investmentCostMax: 10000,
-    source: 'CEA Brace + Bolt',
+    source: 'FEMA P-50 / CEA Brace + Bolt (CA)',
   },
   {
     id: 'central-alarm',

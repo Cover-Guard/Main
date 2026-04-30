@@ -3,6 +3,7 @@ import { insuranceCache, insuranceDeduplicator } from '../utils/cache'
 import type { InsuranceCostEstimate } from '@coverguard/shared'
 import { INSURANCE_ESTIMATE_CACHE_TTL_SECONDS } from '@coverguard/shared'
 import { ConfidenceLevel } from '../generated/prisma/client'
+import { getStateProfile } from '../data/stateRiskProfiles'
 
 interface InsuranceInputs {
   propertyId: string
@@ -297,7 +298,7 @@ export async function getOrComputeInsuranceEstimate(
         designWindSpeed: risk?.designWindSpeed ?? null,
         overallRiskScore: risk?.overallRiskScore ?? 25,
       }
-      const dto = prismaEstimateToDto(cached, propertyId, buildKeyRiskFactors(cachedInputs))
+      const dto = prismaEstimateToDto(cached, propertyId, buildKeyRiskFactors(cachedInputs), property.state)
       insuranceCache.set(propertyId, dto, cached.expiresAt.getTime() - Date.now())
       return dto
     }
@@ -371,7 +372,7 @@ export async function getOrComputeInsuranceEstimate(
       create: { propertyId, ...estimateData },
     })
 
-    const dto = prismaEstimateToDto(estimate, propertyId, buildKeyRiskFactors(inputs))
+    const dto = prismaEstimateToDto(estimate, propertyId, buildKeyRiskFactors(inputs), property.state)
     insuranceCache.set(propertyId, dto, INSURANCE_ESTIMATE_CACHE_TTL_SECONDS * 1000)
     return dto
   })
@@ -381,7 +382,19 @@ function prismaEstimateToDto(
   e: Awaited<ReturnType<typeof prisma.insuranceEstimate.findUniqueOrThrow>>,
   propertyId: string,
   riskFactors?: string[],
+  state?: string,
 ): InsuranceCostEstimate {
+  // Resolve the property's state once so recommendations and coverage notes
+  // can name the residual-market program that actually exists in this state
+  // (e.g., Texas → "Texas FAIR Plan" / TWIA, FL → Citizens, CA → CEA + CA FAIR
+  // Plan). Avoids surfacing CEA / generic "FAIR Plan" copy on out-of-region
+  // properties.
+  const stateProfile = getStateProfile(state ?? 'XX')
+  const fairPlan = stateProfile.compliance.residualMarketPrograms.find(
+    (p) => p.type === 'FAIR_PLAN',
+  )
+  const isCA = state === 'CA'
+
   const recommendations: string[] = [
     'Get quotes from at least 3 insurers for the most competitive rates',
     'Ask about bundling home and auto insurance for potential discounts',
@@ -391,13 +404,19 @@ function prismaEstimateToDto(
   }
   if (e.fireRequired) {
     recommendations.push('Contact a surplus lines broker if admitted carriers decline fire coverage')
-    recommendations.push('Consider FAIR Plan as a last-resort option for fire coverage')
+    if (fairPlan) {
+      recommendations.push(`Consider ${fairPlan.name} as a last-resort option for fire coverage`)
+    }
   }
   if (e.windRequired) {
     recommendations.push('Evaluate separate wind/hurricane policy vs. all-perils coverage')
   }
   if (e.earthquakeRequired) {
-    recommendations.push('Compare CEA earthquake insurance with private earthquake carriers')
+    recommendations.push(
+      isCA
+        ? 'Compare California Earthquake Authority (CEA) coverage with private earthquake carriers'
+        : 'Compare specialty earthquake carriers (e.g., Palomar, GeoVera) for standalone earthquake coverage',
+    )
   }
   recommendations.push('Review policy exclusions carefully — standard policies often exclude flood, earthquake, and wind')
 
@@ -462,7 +481,9 @@ function prismaEstimateToDto(
               highEstimate: e.earthquakeHigh!,
               notes: [
                 'Not included in standard homeowners policy',
-                'Available through CEA (California) or private insurers',
+                isCA
+                  ? 'Available through California Earthquake Authority (CEA) or private insurers'
+                  : 'Available through specialty earthquake carriers (Palomar, GeoVera, etc.)',
                 'Typical deductibles: 10-20% of dwelling coverage',
               ],
             },
@@ -478,7 +499,9 @@ function prismaEstimateToDto(
               highEstimate: e.fireHigh!,
               notes: [
                 'Separate wildfire policy may be required in high-risk zones',
-                'FAIR Plan available as insurer of last resort',
+                fairPlan
+                  ? `${fairPlan.name} available as insurer of last resort`
+                  : 'Surplus-lines wildfire coverage may be required if voluntary carriers decline',
                 'Defensible space improvements may reduce premiums',
               ],
             },

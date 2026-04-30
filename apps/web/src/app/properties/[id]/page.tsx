@@ -13,6 +13,8 @@ import { InsurabilityPanel } from '@/components/property/InsurabilityPanel'
 import { BindPathBadge } from '@/components/property/BindPathBadge'
 import { MitigationSavingsCard } from '@/components/property/MitigationSavingsCard'
 import { ActiveCarriers } from '@/components/property/ActiveCarriers'
+import { StateRiskContext } from '@/components/property/StateRiskContext'
+import { ReportRiskNarratives } from '@/components/property/ReportRiskNarratives'
 import { computeBindPath, computeMitigationPlan } from '@coverguard/shared'
 import { SavePropertyButton } from '@/components/property/SavePropertyButton'
 import { PropertyChecklists } from '@/components/property/PropertyChecklists'
@@ -72,7 +74,12 @@ async function RiskSection({ id, isDummy }: { id: string; isDummy?: boolean }) {
   return (
     <>
       <RiskSummary profile={riskProfile} />
+      {/* Region-specific regulatory & residual-market context. Renders null
+          internally if the profile lacks stateContext, so it's safe to mount
+          unconditionally. */}
+      <StateRiskContext profile={riskProfile} />
       <RiskBreakdown profile={riskProfile} />
+      <ReportRiskNarratives profile={riskProfile} />
     </>
   )
 }
