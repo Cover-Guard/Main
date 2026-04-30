@@ -18,6 +18,8 @@ import type {
   AppNotification,
   DirectConversationWithPeer,
   DirectMessage,
+  NotificationMute,
+  UserNotificationPreferences,
 } from '@coverguard/shared'
 import { createClient } from './supabase/client'
 
@@ -435,4 +437,87 @@ export async function unmuteEntity(input: {
     const txt = await res.text().catch(() => '')
     throw new Error(`Unmute failed (${res.status}): ${txt.slice(0, 200)}`)
   }
+}
+
+// ─── Notification preferences (PR 6) ─────────────────────────────────────
+
+/**
+ * Read the current user's notification preferences. The server returns
+ * defaults when the user has no row, so callers can render immediately.
+ */
+export async function fetchNotificationPreferences(): Promise<UserNotificationPreferences> {
+  const sb = createClient()
+  const { data: sessionData } = await sb.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch('/api/notifications/preferences', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`Read prefs failed (${res.status}): ${txt.slice(0, 200)}`)
+  }
+  const json = (await res.json()) as { success: true; data: UserNotificationPreferences }
+  return json.data
+}
+
+/**
+ * Partial update of preferences. Send only the fields you're changing — the
+ * server merges with the existing row (or defaults if none) to keep
+ * unspecified fields intact.
+ */
+export async function updateNotificationPreferences(
+  patch: Partial<
+    Pick<
+      UserNotificationPreferences,
+      | 'channels'
+      | 'digestEnabled'
+      | 'digestHourLocal'
+      | 'quietHoursStart'
+      | 'quietHoursEnd'
+      | 'timezone'
+    >
+  >,
+): Promise<UserNotificationPreferences> {
+  const sb = createClient()
+  const { data: sessionData } = await sb.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch('/api/notifications/preferences', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`Update prefs failed (${res.status}): ${txt.slice(0, 200)}`)
+  }
+  const json = (await res.json()) as { success: true; data: UserNotificationPreferences }
+  return json.data
+}
+
+/**
+ * List the caller's active (non-expired) mutes. Used by the preferences page
+ * to render the "Muted threads" section with an unmute button per row.
+ */
+export async function fetchActiveMutes(): Promise<NotificationMute[]> {
+  const sb = createClient()
+  const { data: sessionData } = await sb.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch('/api/notifications/mutes', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    throw new Error(`List mutes failed (${res.status}): ${txt.slice(0, 200)}`)
+  }
+  const json = (await res.json()) as { success: true; data: NotificationMute[] }
+  return json.data
 }
