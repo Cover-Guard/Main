@@ -54,6 +54,12 @@ const WELCOME: Message = {
 
 // Page-specific suggestions. Falls back to GENERAL when no prefix matches.
 const PAGE_SUGGESTIONS: Record<string, string[]> = {
+  '/dashboard/help': [
+    'How do I add a new property?',
+    'How do exits affect my carrier list?',
+    'How are insurability scores calculated?',
+    'How do I share a report with my client?',
+  ],
   '/dashboard': [
     'What changed across my portfolio in the last 30 days?',
     'Which of my properties has the highest risk score right now?',
@@ -101,6 +107,8 @@ function pickSuggestions(pathname: string): string[] {
 
 // Pro-active tip the agent volunteers when the user lands on a top-level route.
 function pageInsight(pathname: string): string | null {
+  if (pathname.startsWith('/dashboard/help'))
+    return "Ask me how anything in CoverGuard works — I'll explain it without sending you to docs."
   if (pathname.startsWith('/dashboard'))
     return "I'm watching your portfolio — ask me to flag what changed since your last visit, or to surface your highest-risk property."
   if (pathname.startsWith('/check'))

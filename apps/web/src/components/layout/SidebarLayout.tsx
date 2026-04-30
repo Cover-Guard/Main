@@ -32,7 +32,7 @@ const navItems = [
   { href: '/check',     label: 'Search',     icon: Search,          exact: true },
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard, exact: false },
   { href: '/toolkit',   label: 'Toolkit',    icon: Wrench,          exact: false },
-  { href: '/help',      label: 'Help',       icon: HelpCircle,      exact: false },
+  { href: '/dashboard/help', label: 'Help',       icon: HelpCircle,      exact: false },
 ]
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
