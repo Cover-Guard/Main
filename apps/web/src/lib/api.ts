@@ -24,7 +24,6 @@ import type {
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
-
 // ─── Server-safe base URL ───────────────────────────────────────────────────
 // Client-side: use relative paths (same-origin, proxied by Next.js rewrites).
 // Server-side (SSR / server components): Node.js fetch() requires an absolute
@@ -43,21 +42,23 @@ function getBaseUrl(): string {
 
 const API_URL = getBaseUrl()
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
+async function getAuthHeaders(accessToken?: string): Promise<Record<string, string>> {
+  if (accessToken) return { Authorization: `Bearer ${accessToken}` }
+  // SSR fallback: the browser-only Supabase client returns no session during SSR,
+  // so server-side callers must pass an explicit access token via apiFetch options.
+  if (typeof window === 'undefined') return {}
   try {
     const supabase = createClient()
     const { data } = await supabase.auth.getSession()
     if (!data.session?.access_token) return {}
     return { Authorization: `Bearer ${data.session.access_token}` }
   } catch {
-    // Server-side render or missing session — return no auth headers.
-    // Endpoints that don't require auth (e.g. search) still work fine.
     return {}
   }
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = await getAuthHeaders()
+async function apiFetch<T>(path: string, options?: RequestInit & { accessToken?: string }): Promise<T> {
+  const headers = await getAuthHeaders(options?.accessToken)
 
   let res: Response
   try {
@@ -124,10 +125,13 @@ export async function suggestProperties(query: string, limit = 5): Promise<Prope
   return apiFetch<PropertySuggestion[]>(`/api/properties/suggest?${q}`)
 }
 
-export async function searchProperties(params: PropertySearchParams): Promise<PropertySearchResult> {
+export async function searchProperties(
+  params: PropertySearchParams,
+  accessToken?: string,
+): Promise<PropertySearchResult> {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)) })
-  return apiFetch<PropertySearchResult>(`/api/properties/search?${query}`)
+  return apiFetch<PropertySearchResult>(`/api/properties/search?${query}`, { accessToken })
 }
 
 export async function getProperty(id: string): Promise<Property> {

@@ -6,6 +6,7 @@ import { SearchResults } from '@/components/search/SearchResults'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { MobileSearchToggle } from '@/components/mobile/MobileSearchToggle'
 import { searchProperties } from '@/lib/api'
+import { createClient as createSupabaseServerClient } from '@/lib/supabase/server'
 import type { Property, PropertySearchParams } from '@coverguard/shared'
 
 export const metadata: Metadata = { title: 'Search Properties' }
@@ -74,9 +75,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       if (placeId) {
         params.placeId = placeId
       }
-      const result = await searchProperties(params)
+      // Pull the user's session server-side and pass the access token to
+      // searchProperties — api.ts is client-safe, so its apiFetch can't read
+      // the session during SSR. Server callers must thread the token through.
+      const supabase = await createSupabaseServerClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const result = await searchProperties(params, session?.access_token)
       properties = result.properties
-    } catch {
+    } catch (err) {
+      // Log the underlying error so it shows up in Vercel function logs —
+      // otherwise the user-facing fallback ("Unable to search properties…")
+      // is the only signal that anything went wrong, and the real cause
+      // (401, schema validation, provider outage, etc.) is invisible.
+      console.error('[search/page] property search failed:', err)
       searchError = true
     }
   }
