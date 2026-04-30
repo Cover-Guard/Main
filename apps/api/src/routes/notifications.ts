@@ -43,6 +43,18 @@ const dispatchSchema = z.object({
   messageId: z.string().min(1),
 })
 
+const muteSchema = z.object({
+  entityType: z.string().min(1).max(64),
+  entityId: z.string().min(1).max(128),
+  // ISO timestamp; omit for an indefinite mute.
+  expiresAt: z.string().datetime().optional(),
+})
+
+const unmuteQuerySchema = z.object({
+  entityType: z.string().min(1).max(64),
+  entityId: z.string().min(1).max(128),
+})
+
 // ─── Routes ───────────────────────────────────────────────────────────────
 
 /**
@@ -254,6 +266,98 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Mute notifications for a specific entity (e.g. a thread, a deal, a property).
+ * Idempotent — re-muting refreshes `expiresAt`. Body validated against
+ * `muteSchema`; the (entityType, entityId) tuple is upserted with the
+ * unique constraint defined in 20260430120000_add_notification_taxonomy_and_prefs.sql.
+ *
+ * Used by PR 5's "Mute this thread" affordance in the bell. The DB-side
+ * trigger short-circuits the insert when an active mute exists, so this
+ * endpoint is the only client-side write needed to silence a thread.
+ */
+notificationsRouter.post('/notifications/mute', requireAuth, async (req, res, next) => {
+  try {
+    const parsed = muteSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'BAD_REQUEST', message: parsed.error.errors[0]?.message ?? 'Invalid body' },
+      })
+      return
+    }
+
+    const authReq = req as AuthenticatedRequest
+    const { entityType, entityId, expiresAt } = parsed.data
+
+    const { error } = await supabaseAdmin
+      .from('notification_mutes')
+      .upsert(
+        {
+          userId: authReq.userId,
+          entityType,
+          entityId,
+          expiresAt: expiresAt ?? null,
+        },
+        { onConflict: 'userId,entityType,entityId' },
+      )
+
+    if (error) {
+      logger.error('Failed to upsert notification mute', { error: error.message })
+      res.status(500).json({
+        success: false,
+        error: { code: 'DB_ERROR', message: 'Failed to save mute.' },
+      })
+      return
+    }
+
+    res.json({ success: true, data: { muted: true, entityType, entityId, expiresAt: expiresAt ?? null } })
+  } catch (err) {
+    next(err)
+  }
+})
+
+/**
+ * Unmute (delete the mute row) for a specific entity. Query params rather
+ * than body because DELETE bodies are inconsistently supported across
+ * proxies and the existing API conventions use query strings for filters.
+ */
+notificationsRouter.delete('/notifications/mute', requireAuth, async (req, res, next) => {
+  try {
+    const parsed = unmuteQuerySchema.safeParse(req.query)
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'BAD_REQUEST', message: parsed.error.errors[0]?.message ?? 'Invalid query' },
+      })
+      return
+    }
+
+    const authReq = req as AuthenticatedRequest
+    const { entityType, entityId } = parsed.data
+
+    const { error } = await supabaseAdmin
+      .from('notification_mutes')
+      .delete()
+      .eq('userId', authReq.userId)
+      .eq('entityType', entityType)
+      .eq('entityId', entityId)
+
+    if (error) {
+      logger.error('Failed to delete notification mute', { error: error.message })
+      res.status(500).json({
+        success: false,
+        error: { code: 'DB_ERROR', message: 'Failed to remove mute.' },
+      })
+      return
+    }
+
+    res.json({ success: true, data: { muted: false, entityType, entityId } })
+  } catch (err) {
+    next(err)
+  }
+})
 
 function publicAppUrl(): string {
   return (
