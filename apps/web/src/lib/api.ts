@@ -23,7 +23,7 @@ import type {
   CarrierExitAlert,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
-
+import { createClient } from './supabase/client'
 // ─── Server-safe base URL ───────────────────────────────────────────────────
 // Client-side: use relative paths (same-origin, proxied by Next.js rewrites).
 // Server-side (SSR / server components): Node.js fetch() requires an absolute
@@ -42,30 +42,23 @@ function getBaseUrl(): string {
 
 const API_URL = getBaseUrl()
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
+async function getAuthHeaders(accessToken?: string): Promise<Record<string, string>> {
+  if (accessToken) return { Authorization: `Bearer ${accessToken}` }
+  // SSR fallback: the browser-only Supabase client returns no session during SSR,
+  // so server-side callers must pass an explicit access token via apiFetch options.
+  if (typeof window === 'undefined') return {}
   try {
-    // Pick the right Supabase client per environment.
-    //   - Server (SSR / server components): the server client reads Next.js
-    //     cookies via next/headers so it can resolve the user's session.
-    //   - Browser: the browser client reads from localStorage / in-memory.
-    // Using the browser client during SSR silently returns no session, which
-    // turned every authenticated server-rendered fetch into an anonymous 401.
-    const supabase = await (typeof window === 'undefined'
-      ? import('./supabase/server').then((m) => m.createClient())
-      : import('./supabase/client').then((m) => m.createClient()))
+    const supabase = createClient()
     const { data } = await supabase.auth.getSession()
     if (!data.session?.access_token) return {}
     return { Authorization: `Bearer ${data.session.access_token}` }
   } catch {
-    // No session available (unauthenticated user, missing env vars, etc.).
-    // Authenticated endpoints will then return 401, which is the correct
-    // behavior — callers should handle that explicitly.
     return {}
   }
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = await getAuthHeaders()
+async function apiFetch<T>(path: string, options?: RequestInit & { accessToken?: string }): Promise<T> {
+  const headers = await getAuthHeaders(options?.accessToken)
 
   let res: Response
   try {
@@ -132,10 +125,13 @@ export async function suggestProperties(query: string, limit = 5): Promise<Prope
   return apiFetch<PropertySuggestion[]>(`/api/properties/suggest?${q}`)
 }
 
-export async function searchProperties(params: PropertySearchParams): Promise<PropertySearchResult> {
+export async function searchProperties(
+  params: PropertySearchParams,
+  accessToken?: string,
+): Promise<PropertySearchResult> {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)) })
-  return apiFetch<PropertySearchResult>(`/api/properties/search?${query}`)
+  return apiFetch<PropertySearchResult>(`/api/properties/search?${query}`, { accessToken })
 }
 
 export async function getProperty(id: string): Promise<Property> {
