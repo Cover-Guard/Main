@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// In-app help is intentionally lightweight — it lives inside SidebarLayout and
+// In-app help is intentionally lightweight â€” it lives inside SidebarLayout and
 // answers the questions users actually ask once they're already signed in.
 // For deeper documentation (signup walkthroughs, marketing FAQs, the AI Help
 // Advisor) we link out to the public Help Center at /help.
@@ -71,7 +71,7 @@ const faqs: FAQ[] = [
   },
   {
     q: 'Can I share a report with a client who doesn\'t have a CoverGuard account?',
-    a: 'Yes. From any property, choose Reports → Share. You can send a view-only link or download a branded PDF. Shared links expire after 30 days unless you set them to permanent.',
+    a: 'Yes. From any property, choose Reports â†’ Share. You can send a view-only link or download a branded PDF. Shared links expire after 30 days unless you set them to permanent.',
   },
   {
     q: 'How do I switch between agent, broker, and lender views?',
@@ -83,11 +83,11 @@ const faqs: FAQ[] = [
   },
   {
     q: 'How do I export my data?',
-    a: 'Go to Settings → Data export. You can request a CSV of your saved properties and reports; we email a download link within a few minutes.',
+    a: 'Go to Settings â†’ Data export. You can request a CSV of your saved properties and reports; we email a download link within a few minutes.',
   },
   {
     q: 'Why did my dashboard scores change overnight?',
-    a: 'Scores re-run when underlying data updates — new claims filings, FEMA map revisions, carrier appetite shifts, or wildfire perimeter changes. Open the property and check "Recent changes" for a per-property changelog.',
+    a: 'Scores re-run when underlying data updates â€” new claims filings, FEMA map revisions, carrier appetite shifts, or wildfire perimeter changes. Open the property and check "Recent changes" for a per-property changelog.',
   },
 ]
 
@@ -135,7 +135,7 @@ export function InAppHelp() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search help topics…"
+          placeholder="Search help topicsâ€¦"
           aria-label="Search help topics"
           className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
         />
@@ -161,7 +161,7 @@ export function InAppHelp() {
               </div>
               <p className="text-xs leading-relaxed text-gray-600">{body}</p>
               <span className="mt-2 inline-block text-xs font-semibold text-teal-700 group-hover:text-teal-800">
-                {cta} →
+                {cta} â†’
               </span>
             </Link>
           ))}
@@ -176,7 +176,7 @@ export function InAppHelp() {
         {filtered.length === 0 ? (
           <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">
             No topics match{' '}
-            <span className="font-mono text-gray-900">"{query}"</span>. Try a
+            <span className="font-mono text-gray-900">&ldquo;{query}&rdquo;</span>. Try a
             different keyword, or{' '}
             <Link href="/contact" className="font-medium text-teal-700 hover:text-teal-800">
               contact support
