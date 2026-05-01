@@ -1,4 +1,5 @@
-export type { Detector, DetectorContext, Insight, RunResult } from './types'
+export type { Detector, DetectorContext, Insight } from './types'
+export type { RunResult } from './runner'
 export {
   evaluateThreshold,
   evaluateAnomaly,
@@ -26,7 +27,7 @@ import { savedPropertiesMilestoneDetector } from './savedPropertiesMilestoneDete
 
 /**
  * The active detector set. PR 7 shipped only the smoke detector; PR 8 adds
- * the production set. Order doesn't matter for correctness — the runner
+ * the production set. Order doesn't matter for correctness â the runner
  * iterates each one independently and dedupe is per-detector via dedupeKey.
  */
 export const ALL_DETECTORS: ReadonlyArray<Detector> = [
