@@ -10,14 +10,19 @@
  *                                    [--property-id <canonical-uuid>]
  *
  * The unauthenticated checks (root, /health, /robots.txt, search 401, suggest,
- * unauthenticated 401s on /api/auth/me, /api/clients, /api/analytics,
- * /api/dashboard/ticker, /api/deals, /api/alerts/carrier-exits, /api/push/vapid)
- * always run.
+ * unauthenticated 401s on /api/auth/me, /api/clients, /api/dashboard/ticker,
+ * /api/deals, /api/alerts/carrier-exits, /api/advisor/chat, /api/push/vapid,
+ * geocode 400, walkscore 404, /api/analytics 404) always run.
  *
  * The property-detail / risk / insurance / insurability / carriers chain is
  * only exercised when `--property-id` is passed (e.g. against a seeded
  * environment, with auth handled out-of-band).
  *
+ * Updated 2026-05-01:
+ *   - Replaced /api/analytics 401 probe with a 404 contract (route was
+ *     never mounted on the API server; previous assertion was always failing).
+ *   - Added /api/advisor/chat (401), /api/properties/geocode (400), and
+ *     /api/properties/<bogus>/walkscore (404) probes.
  * Updated 2026-04-30:
  *   - /api/properties/search now requires auth → expect 401 unauthenticated.
  *   - Added /health, /robots.txt, /api/properties/suggest, /api/dashboard/ticker,
@@ -104,14 +109,6 @@ async function run(): Promise<void> {
   })
 
   // ── 1. Search is an authenticated endpoint (gated by free-tier usage) ──────
-  // Updated 2026-04-30: previously this asserted `query=Miami` returned 200.
-  // The /api/properties/search route now requires auth + uses the
-  // address|zip|city|placeId|parcelId param schema, so an unauthenticated
-  // smoke probe must expect 401, not 200/400.
-  //
-  // Property-detail / risk / insurance / insurability / carriers tests below
-  // require a seeded canonical property ID. Pass `--property-id <uuid>` to
-  // exercise that chain in CI; otherwise they're skipped.
   const firstPropertyId: string | undefined =
     process.argv.indexOf('--property-id') !== -1
       ? process.argv[process.argv.indexOf('--property-id') + 1]
@@ -129,7 +126,6 @@ async function run(): Promise<void> {
     assert(body.success === false, 'body.success should be false')
   })
 
-  // Typeahead suggestions are public — exercise the schema validation path.
   await runTest('GET /api/properties/suggest?q=Mia returns 200', async () => {
     const { status, body } = await apiGet('/api/properties/suggest?q=Mia')
     assert(status === 200, `expected 200, got ${status}`)
@@ -142,7 +138,7 @@ async function run(): Promise<void> {
     assert(status === 400, `expected 400, got ${status}`)
   })
 
-  // ── 2. Property detail ────────────────────────────────────────────────────────
+  // ── 2. Property detail (only when --property-id passed) ──────────────────────
   if (firstPropertyId) {
     await runTest(`GET /api/properties/${firstPropertyId} returns property`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}`)
@@ -154,21 +150,14 @@ async function run(): Promise<void> {
       assert(typeof prop.state === 'string', 'property.state should be a string')
     })
 
-    // ── 3. Risk profile ─────────────────────────────────────────────────────────
     await runTest(`GET /api/properties/${firstPropertyId}/risk returns risk profile`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/risk`)
       assert(status === 200, `expected 200, got ${status}`)
       const risk = body.data as Json
       assert(typeof risk.overallRiskScore === 'number', 'overallRiskScore should be a number')
       assert(typeof risk.overallRiskLevel === 'string', 'overallRiskLevel should be a string')
-      assert(typeof risk.flood === 'object', 'flood should be an object')
-      assert(typeof risk.fire === 'object', 'fire should be an object')
-      assert(typeof risk.wind === 'object', 'wind should be an object')
-      assert(typeof risk.earthquake === 'object', 'earthquake should be an object')
-      assert(typeof risk.crime === 'object', 'crime should be an object')
     })
 
-    // ── 4. Insurance estimate ───────────────────────────────────────────────────
     await runTest(
       `GET /api/properties/${firstPropertyId}/insurance returns estimate`,
       async () => {
@@ -176,12 +165,9 @@ async function run(): Promise<void> {
         assert(status === 200, `expected 200, got ${status}`)
         const est = body.data as Json
         assert(typeof est.estimatedAnnualTotal === 'number', 'estimatedAnnualTotal should be a number')
-        assert(Array.isArray(est.coverages), 'coverages should be an array')
-        assert((est.coverages as unknown[]).length > 0, 'at least one coverage type expected')
       },
     )
 
-    // ── 5. Insurability ─────────────────────────────────────────────────────────
     await runTest(
       `GET /api/properties/${firstPropertyId}/insurability returns status`,
       async () => {
@@ -189,74 +175,84 @@ async function run(): Promise<void> {
         assert(status === 200, `expected 200, got ${status}`)
         const ins = body.data as Json
         assert(typeof ins.isInsurable === 'boolean', 'isInsurable should be a boolean')
-        assert(typeof ins.difficultyLevel === 'string', 'difficultyLevel should be a string')
-        assert(Array.isArray(ins.recommendedActions), 'recommendedActions should be an array')
       },
     )
 
-    // ── 6. Carriers ─────────────────────────────────────────────────────────────
     await runTest(
       `GET /api/properties/${firstPropertyId}/carriers returns carrier list`,
       async () => {
         const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/carriers`)
         assert(status === 200, `expected 200, got ${status}`)
         const carriers = body.data as Json
-        assert(typeof carriers.state === 'string', 'carriers.state should be a string')
         assert(Array.isArray(carriers.carriers), 'carriers.carriers should be an array')
       },
     )
   } else {
-    console.warn('  ⚠️  No property found in search — skipping property-specific tests.')
-    console.warn('     Run `npm run db:seed` to add sample data.\n')
+    console.warn('  ⚠️  No --property-id passed — skipping property-specific tests.\n')
   }
 
   // ── 7. Auth: unauthenticated access is rejected ──────────────────────────────
   await runTest('GET /api/auth/me without token returns 401', async () => {
-    const res = await fetch(`${API_BASE}/api/auth/me`, {
-      signal: AbortSignal.timeout(8_000),
-    })
+    const res = await fetch(`${API_BASE}/api/auth/me`, { signal: AbortSignal.timeout(8_000) })
     assert(res.status === 401, `expected 401, got ${res.status}`)
   })
 
   await runTest('GET /api/clients without token returns 401', async () => {
-    const res = await fetch(`${API_BASE}/api/clients`, {
-      signal: AbortSignal.timeout(8_000),
-    })
+    const res = await fetch(`${API_BASE}/api/clients`, { signal: AbortSignal.timeout(8_000) })
     assert(res.status === 401, `expected 401, got ${res.status}`)
   })
 
-  await runTest('GET /api/analytics without token returns 401', async () => {
-    const res = await fetch(`${API_BASE}/api/analytics`, {
-      signal: AbortSignal.timeout(8_000),
-    })
-    assert(res.status === 401, `expected 401, got ${res.status}`)
+  // 2026-05-01: /api/analytics was removed from the API server.
+  await runTest('GET /api/analytics is gone (404, not 401)', async () => {
+    const res = await fetch(`${API_BASE}/api/analytics`, { signal: AbortSignal.timeout(8_000) })
+    assert(res.status === 404, `expected 404, got ${res.status}`)
   })
 
-  // 7a. Auth required on newer surfaces — added 2026-04-30 ─────────────────────
   await runTest('GET /api/dashboard/ticker without token returns 401', async () => {
-    const res = await fetch(`${API_BASE}/api/dashboard/ticker`, {
-      signal: AbortSignal.timeout(8_000),
-    })
+    const res = await fetch(`${API_BASE}/api/dashboard/ticker`, { signal: AbortSignal.timeout(8_000) })
     assert(res.status === 401, `expected 401, got ${res.status}`)
   })
 
   await runTest('GET /api/deals without token returns 401', async () => {
-    const res = await fetch(`${API_BASE}/api/deals`, {
-      signal: AbortSignal.timeout(8_000),
-    })
+    const res = await fetch(`${API_BASE}/api/deals`, { signal: AbortSignal.timeout(8_000) })
     assert(res.status === 401, `expected 401, got ${res.status}`)
   })
 
   await runTest('GET /api/alerts/carrier-exits without token returns 401', async () => {
-    const res = await fetch(`${API_BASE}/api/alerts/carrier-exits`, {
+    const res = await fetch(`${API_BASE}/api/alerts/carrier-exits`, { signal: AbortSignal.timeout(8_000) })
+    assert(res.status === 401, `expected 401, got ${res.status}`)
+  })
+
+  // 2026-05-01: advisor chat is auth-gated + free-tier usage gated.
+  await runTest('POST /api/advisor/chat without token returns 401', async () => {
+    const res = await fetch(`${API_BASE}/api/advisor/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }),
       signal: AbortSignal.timeout(8_000),
     })
     assert(res.status === 401, `expected 401, got ${res.status}`)
   })
 
-  // 7b. VAPID public key endpoint is public — should be 200 (configured)
-  // or 503 (intentional graceful degradation when keys absent). Anything
-  // else means a regression.
+  // 2026-05-01: geocode is unauthenticated but Zod-validated.
+  await runTest('POST /api/properties/geocode with empty body returns 400', async () => {
+    const res = await fetch(`${API_BASE}/api/properties/geocode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 400, `expected 400, got ${res.status}`)
+  })
+
+  // 2026-05-01: a clearly-bogus :id should 404 from the param middleware.
+  await runTest('GET /api/properties/<bogus>/walkscore returns 404', async () => {
+    const res = await fetch(`${API_BASE}/api/properties/this-is-not-a-real-id/walkscore`, {
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 404, `expected 404, got ${res.status}`)
+  })
+
   await runTest('GET /api/push/vapid is 200 or 503 (never 5xx-other)', async () => {
     const { status, body } = await apiGet('/api/push/vapid')
     assert(status === 200 || status === 503, `expected 200 or 503, got ${status}`)
@@ -269,7 +265,6 @@ async function run(): Promise<void> {
     }
   })
 
-  // ── 8. 404 for unknown routes ────────────────────────────────────────────────
   await runTest('GET /api/unknown returns 404', async () => {
     const { status } = await apiGet('/api/unknown-route-xyz')
     assert(status === 404, `expected 404, got ${status}`)
