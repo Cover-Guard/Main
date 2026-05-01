@@ -1,44 +1,4 @@
-paste-test
-hello/**
- * Daily Review Test Suite — May 1, 2026
- *
- * Closes coverage gaps surfaced by today's QA pass:
- *
- *  1. Advisor chat schema (apps/api/src/routes/advisor.ts) — pin role
- *     enum, content length bounds, message count bounds, and the
- *     middleware order (requireAuth → enforceFreeUsageLimit:ai_interaction).
- *  2. Properties /geocode schema (apps/api/src/routes/properties.ts) —
- *     placeId is required and bounded to 1..300 chars.
- *  3. Properties param('id') 400/422/404 disambiguation.
- *  4. enforceFreeUsageLimit constants (apps/api/src/middleware/usageLimit.ts).
- *  5. CORS Vercel-preview regex boundaries — added a few extra cases that
- *     the 2026-04-30 file didn't pin (empty prefix, prefix ending with
- *     hyphen, HTTP scheme not allowed, suffix with extra path).
- *  6. /api/analytics is gone — assert the route is intentionally absent
- *     from the documented surface (catch-all returns 404).
- *  7. user_activity_events activity_event_type enum (per the
- *     2026-04-29 migration). Pin the documented set so future migrations
- *     don't quietly drop a member.
- *  8. Notifications dispatch schema — messageId required + min(1).
- *  9. Deals fallout-reason guard — PATCH stage='FELL_OUT' must include a
- *     falloutReason.
- */
-
-import { z } from 'zod'
-
-// ─── 1. Advisor chat schema ─────────────────────────────────────────────────
-
-const AdvisorChatSchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'assistant']),
-        content: z.string().min(1).max(10_000),
-      }),
-    )
-    .min(1)
-    .max(50),
-})/**
+/**
  * Daily Review Test Suite — May 1, 2026
  *
  * Closes coverage gaps surfaced by today's QA pass:
