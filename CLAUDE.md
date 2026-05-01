@@ -192,7 +192,21 @@ POST /api/clients                           Add client [auth]
 PATCH /api/clients/:id                      Update client [auth]
 DEL  /api/clients/:id                       Delete client [auth]
 
-GET  /api/analytics                         Analytics summary [auth]
+GET  /api/dashboard/ticker                  Dashboard activity ticker [auth]
+GET  /api/deals                             List deals [auth]
+GET  /api/deals/stats                       Pipeline + fallout stats [auth]
+POST /api/deals                             Create deal [auth]
+PATCH /api/deals/:id                         Update deal (require falloutReason on FELL_OUT) [auth]
+DEL  /api/deals/:id                          Delete deal [auth]
+
+GET  /api/alerts/carrier-exits               Carrier-exit alerts (VA-01) [auth]
+POST /api/alerts/carrier-exits/:id/acknowledge  Acknowledge an alert [auth]
+
+POST /api/advisor/chat                      AI Advisor chat — free-tier gated [auth]
+
+GET  /api/push/vapid                        Web push public key (200 or 503)
+POST /api/push/subscribe                    Register browser push subscription [auth]
+POST /api/notifications/dispatch             Fan-out email + web push for a DM [auth]
 
 GET  /api/stripe/subscription                Subscription status [auth]
 POST /api/stripe/checkout                    Create Stripe checkout session [auth]
