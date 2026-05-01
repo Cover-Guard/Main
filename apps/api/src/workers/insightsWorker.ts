@@ -1,22 +1,27 @@
 /**
- * Insights worker entrypoint (PR 7).
+ * Insights worker entrypoint (PR 7, observability added in PR 9).
  *
  * Runs `ALL_DETECTORS` against every active user in batches. Designed to be
  * invoked by a cron / scheduled job (Railway, Vercel cron, Supabase
- * scheduled function — any of them). Idempotent thanks to the runner's
+ * scheduled function â any of them). Idempotent thanks to the runner's
  * dedupe layer; safe to run on a 5-minute or 1-hour schedule depending on
  * how fresh insights need to be.
+ *
+ * PR 9: writes a batch-level summary row to `detector_runs` at the end of
+ * each invocation so the ops view can show "last run" status and totals at
+ * a glance.
  *
  * Run with:
  *   tsx apps/api/src/workers/insightsWorker.ts
  *
  * Production toggles:
- *   INSIGHTS_WORKER_BATCH_SIZE   (default 100) — users per batch
- *   INSIGHTS_WORKER_MAX_USERS    (default 0=unlimited) — cap for canaries
- *   INSIGHTS_SMOKE_DETECTOR=true — enable the smoke detector
+ *   INSIGHTS_WORKER_BATCH_SIZE   (default 100) â users per batch
+ *   INSIGHTS_WORKER_MAX_USERS    (default 0=unlimited) â cap for canaries
+ *   INSIGHTS_SMOKE_DETECTOR=true â enable the smoke detector
  */
 
 import { ALL_DETECTORS, runDetectorsForUser } from '../detectors'
+import { recordBatchSummary } from '../detectors/runLog'
 import { supabaseAdmin } from '../utils/supabaseAdmin'
 import { logger } from '../utils/logger'
 
@@ -35,8 +40,8 @@ async function main(): Promise<void> {
   let processed = 0
   let totalInserted = 0
   let totalSkipped = 0
+  let errors = 0
 
-  // Cursor-style pagination over `users.id`. Cheap because we only need the id.
   for (;;) {
     const { data, error } = await supabaseAdmin
       .from('users')
@@ -52,11 +57,11 @@ async function main(): Promise<void> {
 
     for (const user of data) {
       if (maxUsers > 0 && processed >= maxUsers) break
-
       const results = await runDetectorsForUser(ALL_DETECTORS, user.id, startedAt)
       for (const r of results) {
         totalInserted += r.inserted
         totalSkipped += r.skipped
+        if (r.status === 'error') errors++
       }
       processed++
     }
@@ -66,16 +71,25 @@ async function main(): Promise<void> {
     offset += batchSize
   }
 
+  const finishedAt = new Date()
+  await recordBatchSummary({
+    startedAt,
+    finishedAt,
+    usersProcessed: processed,
+    totalInserted,
+    totalSkipped,
+    errors,
+  })
+
   logger.info('Insights worker complete', {
     processed,
     inserted: totalInserted,
     skipped: totalSkipped,
-    elapsedMs: Date.now() - startedAt.getTime(),
+    errors,
+    elapsedMs: finishedAt.getTime() - startedAt.getTime(),
   })
 }
 
-// Run when invoked directly (i.e. via `tsx insightsWorker.ts`), but skip
-// during type-only imports or test discovery.
 const invokedDirectly = process.argv[1]?.endsWith('insightsWorker.ts')
 if (invokedDirectly) {
   main().catch((err) => {
