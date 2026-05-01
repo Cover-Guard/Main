@@ -18,11 +18,12 @@ import { dashboardRouter } from './routes/dashboard'
 import { dealsRouter } from './routes/deals'
 import { notificationsRouter } from './routes/notifications'
 import { alertsRouter } from './routes/alerts'
+import { detectorRunsRouter } from './routes/detectorRuns'
 
 
 
 
-// ─── Startup environment validation ────────────────────────────────────────
+// âââ Startup environment validation ââââââââââââââââââââââââââââââââââââââââ
 // config/env.ts (imported above) has already normalised prefixed Supabase vars
 // and emitted soft warnings for optional keys (RENTCAST_API_KEY, FBI_UCR_API_KEY).
 const hasDbUrl = !!(
@@ -56,7 +57,7 @@ const PORT = parseInt(process.env.PORT ?? '4000', 10)
 
 
 
-// ─── Security / middleware ──────────────────────────────────────────────────
+// âââ Security / middleware ââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.set('trust proxy', 1) // trust X-Forwarded-For from load balancer / Vercel edge
 
 
@@ -72,7 +73,7 @@ const allowedOrigins = (
 
 
 
-/** Check if origin is allowed — supports exact match + known coverguard.io subdomains + Vercel previews. */
+/** Check if origin is allowed â supports exact match + known coverguard.io subdomains + Vercel previews. */
 function isOriginAllowed(origin: string): boolean {
   if (origin.length > 256) return false
   if (allowedOrigins.includes(origin)) return true
@@ -108,7 +109,7 @@ app.use(compression())
 
 
 
-// ─── Rate limiting ──────────────────────────────────────────────────────────
+// âââ Rate limiting ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Factory to avoid repeating identical boilerplate across every limiter.
 function makeLimiter(opts: { windowMs: number; max: number | string; message: string }) {
   return rateLimit({
@@ -125,10 +126,10 @@ function makeLimiter(opts: { windowMs: number; max: number | string; message: st
 
 
 // Three tiers:
-// 1. Global safety net  — 500 req/min per IP (protects everything)
-// 2. Unauthenticated search — 60 req/min per IP (prevents scraping)
-// 3. External-data endpoints — 30 req/min per IP (risk/insurance/carriers)
-// 4. Auth endpoints — 20 req per 15 min per IP
+// 1. Global safety net  â 500 req/min per IP (protects everything)
+// 2. Unauthenticated search â 60 req/min per IP (prevents scraping)
+// 3. External-data endpoints â 30 req/min per IP (risk/insurance/carriers)
+// 4. Auth endpoints â 20 req per 15 min per IP
 const globalLimiter = makeLimiter({
   windowMs: 60_000,
   max: process.env.RATE_LIMIT_GLOBAL ?? '500',
@@ -153,14 +154,14 @@ const authLimiter = makeLimiter({
 
 
 
-// ─── Routes ─────────────────────────────────────────────────────────────────
+// âââ Routes âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Apply global rate limit BEFORE any route handlers (including webhooks)
 app.use('/api', globalLimiter)
 
 
 
 
-// Stripe webhook must receive the raw body for signature verification —
+// Stripe webhook must receive the raw body for signature verification â
 // mount it AFTER the rate limiter but BEFORE the global express.json() parser.
 app.use('/api/stripe', stripeWebhookRouter)
 app.use(express.json({ limit: '1mb' }))
@@ -190,7 +191,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// ─── Static assets ────────────────────────────────────────────────────────────
+// âââ Static assets âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Prevent search engines from crawling the API
 app.get('/robots.txt', (_req, res) => {
   res.type('text/plain').send('User-agent: *\nDisallow: /\n')
@@ -228,11 +229,12 @@ app.use('/api/deals', requestTimeout(15_000), dealsRouter)
 // Push subscription + notification dispatch (email + web push fan-out).
 app.use('/api', requestTimeout(20_000), notificationsRouter)
 app.use('/api/alerts', requestTimeout(15_000), alertsRouter)
+app.use('/api/internal/detector-runs', requestTimeout(15_000), detectorRunsRouter)
 
 
 
 
-// ─── 404 ────────────────────────────────────────────────────────────────────
+// âââ 404 ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Route not found' } })
 })
@@ -240,13 +242,13 @@ app.use((_req, res) => {
 
 
 
-// ─── Error handler ──────────────────────────────────────────────────────────
+// âââ Error handler ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 app.use(errorHandler)
 
 
 
 
-// ─── Start (skip in serverless environments like Vercel) ────────────────────
+// âââ Start (skip in serverless environments like Vercel) ââââââââââââââââââââ
 if (process.env.VERCEL !== '1') {
   app.listen(PORT, () => {
     logger.info(`CoverGuard API running on port ${PORT} [${process.env.NODE_ENV ?? 'development'}]`)
