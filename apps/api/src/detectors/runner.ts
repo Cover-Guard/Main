@@ -1,5 +1,5 @@
 /**
- * Detector runner (PR 7).
+ * Detector runner (PR 7, observability added in PR 9).
  *
  * Iterates a registered detector list per user, persists emitted insights as
  * `notifications` rows with category='insight', and dedupes on the
@@ -10,15 +10,14 @@
  * keys and skip the insert if found. Cheap per-user (`userId` index +
  * jsonb access), and avoids a separate dedupe table.
  *
- * The runner is intentionally synchronous-ish per user — detectors run in
- * a Promise.all, then inserts run sequentially per insight to keep the
- * dedupe check race-free. For the PR 7 single-detector case this is fine;
- * PR 8's larger set will still complete in <1s per user against typical
- * row counts.
+ * PR 9 wraps each detector evaluation with a run-logging layer that writes
+ * to `detector_runs`. Logging never throws â if the log insert fails, we
+ * warn and keep going. The detector's own success/failure isn't affected.
  */
 
 import { logger } from '../utils/logger'
 import { supabaseAdmin } from '../utils/supabaseAdmin'
+import { recordDetectorRun } from './runLog'
 import type { Detector, DetectorContext, Insight } from './types'
 
 const DEDUPE_LOOKBACK_DAYS = 30
@@ -28,13 +27,11 @@ export interface RunResult {
   emitted: number
   inserted: number
   skipped: number
+  status: 'success' | 'error' | 'skipped'
+  durationMs: number
+  errorMessage?: string
 }
 
-/**
- * Run a list of detectors against a single user. Returns one result per
- * detector for logging/metrics; failures of individual detectors don't
- * abort the others.
- */
 export async function runDetectorsForUser(
   detectors: ReadonlyArray<Detector>,
   userId: string,
@@ -44,54 +41,90 @@ export async function runDetectorsForUser(
   const results: RunResult[] = []
 
   for (const detector of detectors) {
+    const startedAt = new Date()
+    let emitted = 0
+    let inserted = 0
+    let skipped = 0
+    let status: 'success' | 'error' | 'skipped' = 'success'
+    let errorMessage: string | undefined
+
     try {
       if (detector.enabled) {
         const ok = await detector.enabled(ctx)
         if (!ok) {
-          results.push({ detector: detector.name, emitted: 0, inserted: 0, skipped: 0 })
+          status = 'skipped'
+          await recordDetectorRun({
+            detectorName: detector.name,
+            userId,
+            status,
+            startedAt,
+            finishedAt: new Date(),
+            emitted: 0,
+            inserted: 0,
+            skipped: 0,
+          })
+          results.push({
+            detector: detector.name,
+            emitted: 0,
+            inserted: 0,
+            skipped: 0,
+            status,
+            durationMs: Date.now() - startedAt.getTime(),
+          })
           continue
         }
       }
+
       const insights = await detector.evaluate(ctx)
-      let inserted = 0
-      let skipped = 0
+      emitted = insights.length
       for (const insight of insights) {
         const wasInserted = await tryInsertInsight(userId, insight, now)
         if (wasInserted) inserted++
         else skipped++
       }
-      results.push({
-        detector: detector.name,
-        emitted: insights.length,
-        inserted,
-        skipped,
-      })
     } catch (err) {
+      status = 'error'
+      errorMessage = err instanceof Error ? err.message : String(err)
       logger.error('Detector failed', {
         detector: detector.name,
         userId,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage,
       })
-      results.push({ detector: detector.name, emitted: 0, inserted: 0, skipped: 0 })
     }
+
+    const finishedAt = new Date()
+    await recordDetectorRun({
+      detectorName: detector.name,
+      userId,
+      status,
+      startedAt,
+      finishedAt,
+      emitted,
+      inserted,
+      skipped,
+      errorMessage,
+    })
+
+    results.push({
+      detector: detector.name,
+      emitted,
+      inserted,
+      skipped,
+      status,
+      durationMs: finishedAt.getTime() - startedAt.getTime(),
+      errorMessage,
+    })
   }
 
   return results
 }
 
-/**
- * Insert one insight into `notifications` if no row with the same dedupeKey
- * exists for this user in the last DEDUPE_LOOKBACK_DAYS. Returns whether a
- * row was actually inserted.
- */
 async function tryInsertInsight(
   userId: string,
   insight: Insight,
   now: Date,
 ): Promise<boolean> {
   const since = new Date(now.getTime() - DEDUPE_LOOKBACK_DAYS * 86400_000).toISOString()
-
-  // Filter on payload->>dedupeKey using PostgREST's jsonb syntax.
   const { data: existing, error: lookupErr } = await supabaseAdmin
     .from('notifications')
     .select('id')
