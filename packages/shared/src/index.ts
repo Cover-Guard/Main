@@ -62,3 +62,4 @@ export * from './constants'
 export * from './utils/notificationDefaults'
 
 export * from './utils/notificationCopy'
+export * from './utils/insightEvaluators'

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Notification bell — Inbox v2 (PR 4) + mute (PR 5).
+ * Notification bell — Inbox v2 (PR 4) + mute (PR 5) + insights tab (PR 7).
  *
  * Surfaces:
  *   • Bell button: badge tracks `actionableCount` (PR 3 behaviour).
@@ -42,7 +42,7 @@ function timeAgo(iso: string): string {
   return `${d}d`
 }
 
-type Tab = 'actionable' | 'all'
+type Tab = 'actionable' | 'insights' | 'all'
 
 /**
  * Group notifications by category, preserving each group's original order
@@ -93,14 +93,28 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', onClick)
   }, [open])
 
-  // Filter + cap items per tab. Actionable shows everything urgent first;
-  // All shows the most recent across categories.
+  // Filter + cap items per tab. Actionable filters by severity, Insights
+  // filters by category, All shows everything.
   const visible = useMemo(() => {
-    const filtered = tab === 'actionable' ? items.filter(isActionable) : items
+    let filtered: AppNotification[]
+    if (tab === 'actionable') {
+      filtered = items.filter(isActionable)
+    } else if (tab === 'insights') {
+      filtered = items.filter((n) => n.category === 'insight')
+    } else {
+      filtered = items
+    }
     return filtered.slice(0, 30)
   }, [items, tab])
 
   const grouped = useMemo(() => groupByCategory(visible), [visible])
+
+  // Unread + non-dismissed count of insight-category items, used as the
+  // chip on the Insights tab. Mirrors actionableCount's semantics.
+  const insightCount = useMemo(
+    () => items.filter((n) => n.category === 'insight' && !n.readAt && !n.dismissedAt).length,
+    [items],
+  )
 
   return (
     <div className="relative" ref={ref}>
@@ -110,7 +124,20 @@ export function NotificationBell() {
           // When opening, default to whichever tab has content. Done in the
           // click handler (not an effect) — the trigger is a user action, not
           // external state. See react-hooks/set-state-in-effect.
-          if (!open) setTab(actionableCount > 0 ? 'actionable' : 'all')
+          if (!open) {
+            // Priority: Action needed → Insights → All. Computed inline
+            // because the items array reference changes often and we want
+            // the current snapshot, not a stale effect-time read.
+            if (actionableCount > 0) {
+              setTab('actionable')
+            } else if (
+              items.some((n) => n.category === 'insight' && !n.dismissedAt)
+            ) {
+              setTab('insights')
+            } else {
+              setTab('all')
+            }
+          }
           setOpen((o) => !o)
         }}
         className="relative flex items-center justify-center p-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
@@ -136,6 +163,12 @@ export function NotificationBell() {
                 onClick={() => setTab('actionable')}
                 label="Action needed"
                 count={actionableCount}
+              />
+              <TabButton
+                active={tab === 'insights'}
+                onClick={() => setTab('insights')}
+                label="Insights"
+                count={insightCount}
               />
               <TabButton
                 active={tab === 'all'}
@@ -254,10 +287,14 @@ function TabButton({ active, onClick, label, count }: TabButtonProps) {
 }
 
 function EmptyState({ tab }: { tab: Tab }) {
-  const message =
-    tab === 'actionable'
-      ? "Nothing needs your attention right now."
-      : "You're all caught up."
+  let message: string
+  if (tab === 'actionable') {
+    message = 'Nothing needs your attention right now.'
+  } else if (tab === 'insights') {
+    message = "No insights yet. We'll surface them here as we spot patterns."
+  } else {
+    message = "You're all caught up."
+  }
   return (
     <p className="px-3 py-8 text-xs text-gray-500 text-center">{message}</p>
   )
