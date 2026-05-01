@@ -7,10 +7,10 @@ import { logger } from '../utils/logger'
 
 export const notificationsRouter = Router()
 
-// ─── VAPID configuration ──────────────────────────────────────────────────
+// âââ VAPID configuration ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // The public key is exposed via /api/push/vapid so the browser can subscribe.
 // The private key stays on the server. If either is missing we degrade
-// gracefully — push just becomes a no-op.
+// gracefully â push just becomes a no-op.
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
@@ -22,13 +22,13 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
     vapidConfigured = true
   } catch (err) {
-    logger.warn('VAPID configuration invalid — push disabled', {
+    logger.warn('VAPID configuration invalid â push disabled', {
       error: err instanceof Error ? err.message : String(err),
     })
   }
 }
 
-// ─── Schema ───────────────────────────────────────────────────────────────
+// âââ Schema âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const subscribeSchema = z.object({
   endpoint: z.string().url(),
@@ -79,11 +79,11 @@ const updatePrefsSchema = z.object({
   timezone:        z.string().min(1).max(64).optional(),
 })
 
-// ─── Routes ───────────────────────────────────────────────────────────────
+// âââ Routes âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * Return the VAPID public key so the browser can register a subscription.
- * Unauthenticated — the public key is, well, public.
+ * Unauthenticated â the public key is, well, public.
  */
 notificationsRouter.get('/push/vapid', (_req, res) => {
   if (!vapidConfigured || !VAPID_PUBLIC_KEY) {
@@ -149,7 +149,7 @@ notificationsRouter.post('/push/subscribe', requireAuth, async (req, res, next) 
  *   2. Look up the notification row the DB trigger already created.
  *   3. Fan out email (Resend) + web push to the recipient.
  *
- * This is idempotent — calling twice just re-sends; the recipient's email +
+ * This is idempotent â calling twice just re-sends; the recipient's email +
  * push providers will de-duplicate using their own message IDs. If email or
  * push is not configured the call still succeeds; the in-app notification is
  * already persisted by the trigger.
@@ -253,7 +253,7 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
             sent++
           } catch (err) {
             const pushErr = err as WebPushError
-            // 404/410 = endpoint gone — clean it up so we don't keep retrying.
+            // 404/410 = endpoint gone â clean it up so we don't keep retrying.
             if (pushErr?.statusCode === 404 || pushErr?.statusCode === 410) {
               await supabaseAdmin.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
             } else {
@@ -270,11 +270,32 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
 
     const [emailResult, pushResult] = await Promise.all([emailPromise, pushPromise])
 
+    // PR 12: close the loop with the PR 11 pushWorker â stamp `pushedAt` on
+    // the notification created by the DM trigger so the worker's "find
+    // unpushed" scan won't re-push the same DM. Best-effort; if the stamp
+    // fails the worker's own dedupe will still kick in (it'll detect the
+    // already-pushed state once the row was eventually pushed by either
+    // path). We filter on `payload->>messageId` to target the exact row.
+    const stampStarted = Date.now()
+    const { error: stampErr } = await supabaseAdmin
+      .from('notifications')
+      .update({ pushedAt: new Date().toISOString() })
+      .eq('userId', message.recipientId)
+      .filter('payload->>messageId', 'eq', message.id)
+      .is('pushedAt', null)
+    if (stampErr) {
+      logger.warn('Notification dispatched but pushedAt stamp failed', {
+        messageId,
+        error: stampErr.message,
+      })
+    }
+
     logger.info('Notification dispatched', {
       messageId,
       recipientId: message.recipientId,
       email: emailResult,
       push: pushResult,
+      stampMs: Date.now() - stampStarted,
     })
 
     res.json({
@@ -289,11 +310,11 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
   }
 })
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * Mute notifications for a specific entity (e.g. a thread, a deal, a property).
- * Idempotent — re-muting refreshes `expiresAt`. Body validated against
+ * Idempotent â re-muting refreshes `expiresAt`. Body validated against
  * `muteSchema`; the (entityType, entityId) tuple is upserted with the
  * unique constraint defined in 20260430120000_add_notification_taxonomy_and_prefs.sql.
  *
@@ -436,7 +457,7 @@ notificationsRouter.get('/notifications/preferences', requireAuth, async (req, r
 })
 
 /**
- * Update the caller's preferences. Partial updates supported — fields not in
+ * Update the caller's preferences. Partial updates supported â fields not in
  * the body are left as-is. Upsert ensures first-time savers create the row.
  */
 notificationsRouter.put('/notifications/preferences', requireAuth, async (req, res, next) => {
@@ -453,7 +474,7 @@ notificationsRouter.put('/notifications/preferences', requireAuth, async (req, r
     const authReq = req as AuthenticatedRequest
     const patch = parsed.data
 
-    // Read current row (or defaults) so we can merge — JSONB upsert needs the
+    // Read current row (or defaults) so we can merge â JSONB upsert needs the
     // whole `channels` object to avoid wiping unspecified categories.
     const { data: existing } = await supabaseAdmin
       .from('notification_preferences')
@@ -567,7 +588,7 @@ function renderEmailHtml(input: {
   snippet: string
   deepLink: string
 }): string {
-  // Kept intentionally simple — clients render a tiny chrome of black text on white.
+  // Kept intentionally simple â clients render a tiny chrome of black text on white.
   const escapeHtml = (s: string): string =>
     s
       .replace(/&/g, '&amp;')
@@ -581,7 +602,7 @@ function renderEmailHtml(input: {
     <p style="margin:0 0 8px 0;"><strong>${escapeHtml(input.senderName)}</strong> sent you a message:</p>
     <blockquote style="margin: 12px 0; padding: 10px 14px; background:#f2f4f7; border-left: 3px solid #6366f1; border-radius: 4px;">${escapeHtml(input.snippet)}</blockquote>
     <p style="margin: 16px 0;"><a href="${input.deepLink}" style="display:inline-block; padding:10px 16px; background:#6366f1; color:#fff; text-decoration:none; border-radius:6px; font-weight:600;">Open the conversation</a></p>
-    <p style="margin: 24px 0 0 0; font-size: 12px; color: #6b7280;">Not you? Ignore this email — the sender won't see that you opened it.</p>
+    <p style="margin: 24px 0 0 0; font-size: 12px; color: #6b7280;">Not you? Ignore this email â the sender won't see that you opened it.</p>
   </div>
 </body></html>`
 }
