@@ -23,7 +23,7 @@ const offerings = [
     icon: AlertTriangle,
     title: 'Property Risk — Done Right',
     description:
-      'Composite risk scoring from FEMA flood maps, USGS earthquake zones, NOAA wind/hail history, Cal Fire & USFS wildfire data, and FBI crime stats. One score, five hazards, sourced from federal data — not a black-box vendor model.',
+      'Composite risk scoring from 12+ public sources — FEMA, USGS, NOAA, Cal Fire, USFS, FBI, ASCE 7, and the Esri Living Atlas (flood, wildfire, hurricane tracks, drought, social vulnerability, landslide). One score, every hazard, sourced and auditable — not a black-box vendor model.',
   },
   {
     step: 'STEP 02',
