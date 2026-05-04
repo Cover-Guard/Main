@@ -17,16 +17,45 @@ const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? 'mailto:notifications@coverguard.io'
 
 let vapidConfigured = false
+let vapidDisabledReason: string | null = null
+
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   try {
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
     vapidConfigured = true
   } catch (err) {
+    vapidDisabledReason = 'invalid_keys_or_subject'
     logger.warn('VAPID configuration invalid — push disabled', {
       error: err instanceof Error ? err.message : String(err),
+      subject: VAPID_SUBJECT,
+      publicKeyLength: VAPID_PUBLIC_KEY.length,
+      privateKeyLength: VAPID_PRIVATE_KEY.length,
     })
   }
+} else {
+  // Build a precise reason so the next 503 self-diagnoses in logs.
+  const missing: string[] = []
+  if (!VAPID_PUBLIC_KEY) missing.push('VAPID_PUBLIC_KEY')
+  if (!VAPID_PRIVATE_KEY) missing.push('VAPID_PRIVATE_KEY')
+  vapidDisabledReason = `missing_env:${missing.join(',')}`
+  logger.warn('VAPID disabled — env vars missing', {
+    missing,
+    hasSubject: Boolean(process.env.VAPID_SUBJECT),
+  })
 }
+
+// One-shot startup log so the Vercel cold-start trace records whether push
+// is actually live in this deployment. This is the single most useful signal
+// for diagnosing a 503 on /api/push/vapid in production.
+logger.info('VAPID startup', {
+  configured: vapidConfigured,
+  reason: vapidDisabledReason,
+  subjectKind: VAPID_SUBJECT.startsWith('mailto:')
+    ? 'mailto'
+    : VAPID_SUBJECT.startsWith('https://')
+      ? 'https'
+      : 'invalid',
+})
 
 // ─── Schema ───────────────────────────────────────────────────────────────
 
@@ -51,6 +80,13 @@ const dispatchSchema = z.object({
  */
 notificationsRouter.get('/push/vapid', (_req, res) => {
   if (!vapidConfigured || !VAPID_PUBLIC_KEY) {
+    // Log every 503 so we can see how often this hits in prod and why. The
+    // reason is captured at module load and reused per request, so this is
+    // cheap and accurate.
+    logger.warn('GET /push/vapid → 503 PUSH_DISABLED', {
+      reason: vapidDisabledReason ?? 'unknown',
+    })
+    res.set('X-Push-Disabled-Reason', vapidDisabledReason ?? 'unknown')
     res.status(503).json({
       success: false,
       error: { code: 'PUSH_DISABLED', message: 'Web push is not configured on this server.' },
@@ -74,7 +110,6 @@ notificationsRouter.post('/push/subscribe', requireAuth, async (req, res, next) 
       })
       return
     }
-
     const authReq = req as AuthenticatedRequest
     const { endpoint, keys, userAgent } = parsed.data
 
@@ -88,7 +123,6 @@ notificationsRouter.post('/push/subscribe', requireAuth, async (req, res, next) 
       },
       { onConflict: 'endpoint' },
     )
-
     if (error) {
       logger.error('Failed to upsert push subscription', { error: error.message })
       res.status(500).json({
@@ -109,9 +143,9 @@ notificationsRouter.post('/push/subscribe', requireAuth, async (req, res, next) 
  * Input: the senderId's bearer token + messageId they just created.
  *
  * We:
- *   1. Verify the caller is the sender of that message (prevents abuse).
- *   2. Look up the notification row the DB trigger already created.
- *   3. Fan out email (Resend) + web push to the recipient.
+ *  1. Verify the caller is the sender of that message (prevents abuse).
+ *  2. Look up the notification row the DB trigger already created.
+ *  3. Fan out email (Resend) + web push to the recipient.
  *
  * This is idempotent — calling twice just re-sends; the recipient's email +
  * push providers will de-duplicate using their own message IDs. If email or
@@ -128,7 +162,6 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
       })
       return
     }
-
     const authReq = req as AuthenticatedRequest
     const { messageId } = parsed.data
 
@@ -138,7 +171,6 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
       .select('id,conversationId,senderId,recipientId,content,createdAt')
       .eq('id', messageId)
       .maybeSingle()
-
     if (msgErr) {
       logger.error('Dispatch: failed to look up message', { error: msgErr.message })
       res.status(500).json({
@@ -148,10 +180,7 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
       return
     }
     if (!message) {
-      res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Message not found' },
-      })
+      res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Message not found' } })
       return
     }
     if (message.senderId !== authReq.userId) {
@@ -173,7 +202,6 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
       sender && (sender.firstName || sender.lastName)
         ? `${sender.firstName ?? ''} ${sender.lastName ?? ''}`.trim()
         : sender?.email ?? 'A teammate'
-
     const deepLink = `${publicAppUrl()}/dashboard?thread=${message.conversationId}`
     const title = `New message from ${senderName}`
     const body = message.content.slice(0, 200)
@@ -198,14 +226,12 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
 
     const pushPromise = (async () => {
       if (!vapidConfigured || !subs || subs.length === 0) return { ok: false, sent: 0 }
-
       const payload = JSON.stringify({
         title: 'CoverGuard',
         body: `${senderName}: ${body}`,
         url: deepLink,
         tag: `dm-${message.conversationId}`,
       })
-
       let sent = 0
       await Promise.all(
         subs.map(async (s) => {
@@ -253,7 +279,7 @@ notificationsRouter.post('/notifications/dispatch', requireAuth, async (req, res
   }
 })
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
 function publicAppUrl(): string {
   return (
@@ -271,6 +297,7 @@ async function sendEmailViaResend(input: {
 }): Promise<{ ok: boolean; id?: string; reason?: string }> {
   const key = process.env.RESEND_API_KEY
   if (!key) return { ok: false, reason: 'not configured' }
+
   const from = process.env.RESEND_FROM_EMAIL ?? 'CoverGuard <notifications@coverguard.io>'
 
   const res = await fetch('https://api.resend.com/emails', {
@@ -287,7 +314,6 @@ async function sendEmailViaResend(input: {
       html: input.html,
     }),
   })
-
   if (!res.ok) {
     const txt = await res.text().catch(() => '')
     throw new Error(`Resend returned ${res.status}: ${txt.slice(0, 200)}`)
@@ -308,6 +334,7 @@ function renderEmailHtml(input: {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
+
   return `<!doctype html>
 <html><body style="font-family: Helvetica, Arial, sans-serif; color:#0d1929; margin:0; padding:24px;">
   <div style="max-width: 480px; margin: 0 auto;">
