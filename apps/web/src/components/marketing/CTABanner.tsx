@@ -32,7 +32,7 @@ export function CTABanner() {
           </Link>
         </div>
         <p className="mt-6 text-sm text-brand-400">
-          Free to start — no credit card required. Used by 500+ professionals across 38 states.
+          Free to start — no credit card required. Available in all 50 states.
         </p>
       </div>
     </section>

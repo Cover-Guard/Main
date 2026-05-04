@@ -7,13 +7,26 @@ interface RiskSummaryProps {
   profile: PropertyRiskProfile
 }
 
+// Convert a 0-100 risk score to a 1-10 scale aligned with consumer-facing
+// climate-risk scoring conventions (e.g. First Street Risk Factor).
+function toTenPointScore(score: number): number {
+  if (!Number.isFinite(score)) return 1
+  const clamped = Math.max(0, Math.min(100, score))
+  return Math.max(1, Math.min(10, Math.round(clamped / 10)))
+}
+
 export function RiskSummary({ profile }: RiskSummaryProps) {
+  const tenPoint = toTenPointScore(profile.overallRiskScore)
   return (
     <div className="card p-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Risk Summary</h2>
-        <RiskBadge level={profile.overallRiskLevel} score={profile.overallRiskScore} />
+        <RiskBadge level={profile.overallRiskLevel} score={profile.overallRiskScore} tenPoint={tenPoint} />
       </div>
+      <p className="mb-6 text-xs text-gray-500">
+        Aggregated from 12+ public sources — FEMA, USGS, NOAA, Cal Fire, USFS, FBI, ASCE 7, and the Esri Living Atlas.
+        Sourced and auditable.
+      </p>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <RiskTile
@@ -51,11 +64,21 @@ export function RiskSummary({ profile }: RiskSummaryProps) {
   )
 }
 
-function RiskBadge({ level, score }: { level: RiskLevel; score: number }) {
+function RiskBadge({ level, score, tenPoint }: { level: RiskLevel; score: number; tenPoint: number }) {
   return (
-    <div className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold', riskLevelClasses(level))}>
+    <div
+      className={cn(
+        'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold',
+        riskLevelClasses(level),
+      )}
+      title="Composite score: full 0-100 detail (left) and a 1-10 consumer-friendly score (right)."
+    >
       <span className="text-base font-bold">{score}</span>
-      <span>{riskLevelToLabel(level)} Risk</span>
+      <span className="opacity-70">/ 100</span>
+      <span aria-hidden="true" className="opacity-30">·</span>
+      <span className="text-base font-bold">{tenPoint}</span>
+      <span className="opacity-70">/ 10</span>
+      <span className="ml-1">{riskLevelToLabel(level)} Risk</span>
     </div>
   )
 }
