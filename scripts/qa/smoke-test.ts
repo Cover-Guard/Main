@@ -9,100 +9,82 @@
  *   npx tsx scripts/qa/smoke-test.ts [--api-url http://localhost:4000]
  *                                    [--property-id <canonical-uuid>]
  *
- * Unauthenticated checks (always run): root, /health, /robots.txt, search 401,
- * suggest, geocode 400, walkscore 404, /api/analytics 404, /api/totally-fake
- * 404, /api/auth/me 401, /api/auth/me/saved 401, /api/auth/me/reports 401,
- * PATCH/DELETE /api/auth/me 401, POST /api/auth/me/terms 401,
- * POST /api/auth/sync-profile 401, /api/clients 401 (GET+POST),
- * /api/dashboard/ticker 401, /api/deals 401 (GET+POST), /api/deals/stats 401,
+ * Unauthenticated checks (always run): root, /health, HEAD /health,
+ * /robots.txt, search 401, suggest, geocode 400, walkscore 404,
+ * /api/analytics 404, /api/totally-fake 404, /api/properties 404 (collection
+ * root), POST /api/properties/search 404 (wrong verb), GET /api/stripe/webhook
+ * 404 (POST-only), /api/auth/me 401, /api/auth/me/saved 401,
+ * /api/auth/me/reports 401, PATCH/DELETE /api/auth/me 401,
+ * POST /api/auth/me/terms 401, POST /api/auth/sync-profile 401,
+ * /api/clients 401 (GET+POST+PATCH+DELETE), /api/dashboard/ticker 401,
+ * /api/deals 401 (GET+POST+PATCH+DELETE), /api/deals/stats 401,
  * /api/alerts/carrier-exits 401, POST /api/alerts/carrier-exits/:id/acknowledge
  * 401, /api/advisor/chat 401, /api/push/subscribe 401,
  * /api/notifications/dispatch 401, /api/stripe/subscription 401,
- * /api/stripe/checkout 401, /api/stripe/portal 401, /api/auth/register 400,
+ * /api/stripe/checkout 401, /api/stripe/portal 401,
+ * POST /api/stripe/webhook 400 (no signature), /api/auth/register 400,
  * /api/push/vapid (200|503).
  *
  * Property-id-bound checks (--property-id <uuid>): property detail, risk,
- * insurance, insurability, carriers, walkscore (200|503), public-data, plus
- * 401 probes against the auth-gated /:id/{report.pdf,checklists,save,
- * quote-request,quote-requests} surfaces (param middleware resolves the id
- * first, so requireAuth fires before the handler).
+ * insurance, insurability, carriers, walkscore (200|503), public-data, full
+ * report (200), plus 401 probes against the auth-gated /:id/{report.pdf,
+ * checklists,save,quote-request,quote-requests} surfaces (param middleware
+ * resolves the id first, so requireAuth fires before the handler).
+ *
+ * Updated 2026-05-05 (daily-smokeqa-testing):
+ *   - Bug fix: smoke-test.ts was truncated mid-statement on disk (same
+ *     regression class as the 2026-05-01 morning run). The file would not
+ *     parse, so today's run started by restoring the full body. A jest
+ *     guard (`smoke-test-line-count.test.ts`) was added to fail loudly on a
+ *     future >50% truncation by line count.
+ *   - Added new always-on probes:
+ *       (a) GET /api/properties (no /search, no /suggest, no /:id) -> 404 --
+ *           pins the catch-all behavior on the bare collection root.
+ *       (b) GET /api/stripe/webhook -> 404 -- the webhook is POST-only;
+ *           a GET should hit the catch-all. The 2026-05-03 run pinned the
+ *           POST contract (no signature -> 400), but a GET regression that
+ *           registers a debug handler at the same path would silently 200.
+ *       (c) POST /api/properties/search (wrong verb) -> 404 -- search is
+ *           GET-only; pin the catch-all on the wrong-verb branch.
+ *       (d) HEAD /health -> 200 -- pins that helmet/compression/morgan don't
+ *           accidentally drop HEAD support (which monitoring services use).
+ *   - Added property-id-bound probe:
+ *       (e) HEAD /api/properties/:id/report.pdf -> 401 -- pins that the
+ *           verb-agnostic param middleware + requireAuth chain handles HEAD
+ *           the same as GET. A regression that special-cases GET in
+ *           requireAuth would let HEAD probes leak resource existence.
  *
  * Updated 2026-05-04 (daily-smokeqa-testing):
- *   - Added the unauthenticated full-report contract probes — the only
- *     /:id/* unauthenticated GET that wasn't covered. /:id/report is the
- *     public preview / share-link surface and the main reason a property
- *     row exists at all; without a probe a regression that auth-gates it
- *     (or 500s on an unresolvable slug) ships silently.
- *       (a) GET /api/properties/<bogus>/report -> 404 -- pins the :id
- *           param middleware on /report; previously only /walkscore and
- *           the bare detail had bogus-id 404 probes.
- *       (b) GET /api/properties/<bogus>/report.pdf -> 404 (NOT 401) --
- *           pins a non-obvious ordering invariant: the :id param middleware
- *           runs BEFORE requireAuth for any /:id route, so a bogus id under
- *           an auth-gated endpoint returns the param middleware's 404, not
- *           requireAuth's 401. A refactor that registers requireAuth at
- *           router level (above the param middleware) would silently flip
- *           404 -> 401 and break clients that depend on the distinction.
- *       (c) GET /api/properties/:id/report -> 200 (only with --property-id)
- *           -- happy-path probe verifying the response shape contains the
- *           full bundle: property, risk, insurance, insurability, carriers,
- *           publicData. Previously the smoke suite probed each of those
- *           individual endpoints but never the aggregator that sums them.
+ *   - Added the unauthenticated full-report contract probes -- the only
+ *     /:id/* unauthenticated GET that wasn't covered:
+ *       (a) GET /api/properties/<bogus>/report -> 404
+ *       (b) GET /api/properties/<bogus>/report.pdf -> 404 (NOT 401)
+ *       (c) GET /api/properties/:id/report -> 200 (with --property-id)
  *
  * Updated 2026-05-03 (daily-smokeqa-testing):
- *   - Added unauth 401 probes for the PATCH/DELETE methods on routers that
- *     were only partially probed: PATCH+DELETE /api/clients/:id and
- *     PATCH+DELETE /api/deals/:id. The clients and deals routers gate every
- *     verb behind a router-level requireAuth, so a refactor to per-route
- *     auth that forgets a single method ships unprotected. Today's check
- *     locks all four verb pairs.
- *   - Added the bare property-detail negative-path probe:
- *     GET /api/properties/<bogus> -> 404. Previously only /walkscore on a
- *     bogus id was probed, so a regression in the :id param middleware that
- *     returned 200 with stale data on an unknown id would have shipped.
- *   - Added the public Stripe webhook contract probe:
- *     POST /api/stripe/webhook with no stripe-signature header -> 400
- *     ("Missing stripe-signature header"). The webhook is unauth and was
- *     not probed at all; a regression that accepts unsigned payloads would
- *     let anyone forge subscription events.
- *   - Added property-id-bound probes (only run with --property-id):
- *     DELETE /:id/save (401 unauth -- POST was probed, DELETE wasn't),
- *     PATCH /:id/checklists/:checklistId (401 unauth),
- *     DELETE /:id/checklists/:checklistId (401 unauth). All three are
- *     auth-gated by requireAuth on the route itself; the param middleware
- *     resolves /:id first so a real id reaches requireAuth and 401s.
+ *   - PATCH+DELETE /api/clients/:id (401), PATCH+DELETE /api/deals/:id (401)
+ *   - GET /api/properties/<bogus> -> 404 (bare detail handler)
+ *   - POST /api/stripe/webhook with no signature -> 400
+ *   - DELETE /:id/save, PATCH+DELETE /:id/checklists/:checklistId (401)
  *
  * Updated 2026-05-02 (daily-smokeqa-testing):
- *   - Added unauth 401 probes for the write-side endpoints surfaced by today's
- *     audit: PATCH/DELETE /api/auth/me, POST /api/auth/me/terms,
- *     POST /api/auth/sync-profile, POST /api/clients, POST /api/deals, and
- *     POST /api/alerts/carrier-exits/:id/acknowledge. None of these had a
- *     smoke probe before today, so a regression that drops requireAuth from
- *     any of them would ship undetected.
- *   - Added property-id-bound probes (only run with --property-id):
- *     /:id/walkscore (200|503), /:id/public-data (200), /:id/report.pdf (401
- *     unauth -- auth-gated), /:id/checklists GET+POST (401 unauth),
- *     /:id/save (401 unauth), /:id/quote-request (401 unauth),
- *     /:id/quote-requests (401 unauth).
+ *   - PATCH/DELETE /api/auth/me, POST /api/auth/me/terms,
+ *     POST /api/auth/sync-profile, POST /api/clients, POST /api/deals,
+ *     POST /api/alerts/carrier-exits/:id/acknowledge -- all 401 unauth.
+ *   - /:id/walkscore (200|503), /:id/public-data (200), /:id/report.pdf
+ *     (401), /:id/checklists GET+POST (401), /:id/save (401),
+ *     /:id/quote-request (401), /:id/quote-requests (401).
  *
- * Updated 2026-05-01 (evening - daily-smokeqa-testing run #2):
- *   - Repaired the truncated file (the morning run left section 6 cut off
- *     mid-statement, and the unauthenticated 401 probes promised by the
- *     header docblock were never written into the body - the file was
- *     syntactically invalid and would not have run at all).
- *   - Added unauth 401 probes for the full set of authed routes.
- *   - Added /api/auth/register validation probe (400 on empty body).
- *   - Added /api/totally-fake 404 to pin the express catch-all contract.
- *   - Finished the carriers (section 6) test that was truncated.
+ * Updated 2026-05-01 (evening): repaired truncated file, added unauth 401
+ *   probes for the full set of authed routes, /api/auth/register 400 probe,
+ *   /api/totally-fake 404 catch-all, finished section 6 carriers test.
  *
- * Updated 2026-05-01 (morning):
- *   - Replaced /api/analytics 401 probe with a 404 contract.
- *   - Added /api/advisor/chat (401), /api/properties/geocode (400), and
- *     /api/properties/<bogus>/walkscore (404) probes.
- * Updated 2026-04-30:
- *   - /api/properties/search now requires auth -> expect 401 unauthenticated.
- *   - Added /health, /robots.txt, /api/properties/suggest, /api/dashboard/ticker,
- *     /api/deals, /api/alerts/carrier-exits, /api/push/vapid coverage.
+ * Updated 2026-05-01 (morning): /api/analytics 404, /api/advisor/chat 401,
+ *   /api/properties/geocode 400, /api/properties/<bogus>/walkscore 404.
+ *
+ * Updated 2026-04-30: search now requires auth -> 401 unauthenticated.
+ *   Added /health, /robots.txt, /api/properties/suggest, dashboard/ticker,
+ *   /api/deals, /api/alerts/carrier-exits, /api/push/vapid coverage.
  *
  * Exit codes:
  *   0 - all smoke tests passed
@@ -218,6 +200,15 @@ async function run(): Promise<void> {
     assert(typeof body.timestamp === 'string', 'body.timestamp should be a string')
   })
 
+  // 0a. HEAD /health (added 2026-05-05).
+  await runTest('HEAD /health returns 200', async () => {
+    const res = await fetch(`${API_BASE}/health`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 200, `expected 200, got ${res.status}`)
+  })
+
   await runTest('GET /robots.txt disallows crawlers', async () => {
     const res = await fetch(`${API_BASE}/robots.txt`, { signal: AbortSignal.timeout(8_000) })
     const text = await res.text()
@@ -236,6 +227,28 @@ async function run(): Promise<void> {
 
   await runTest('GET /api/totally-fake-route-xyz returns 404', async () => {
     const { status, body } = await apiGet('/api/totally-fake-route-xyz')
+    assert(status === 404, `expected 404, got ${status}`)
+    const error = body.error as { code?: string } | undefined
+    assert(error?.code === 'NOT_FOUND', `expected NOT_FOUND, got ${error?.code}`)
+  })
+
+  // 0c. Catch-all sub-cases (added 2026-05-05).
+  await runTest('GET /api/properties returns 404 (collection root not mounted)', async () => {
+    const { status, body } = await apiGet('/api/properties')
+    assert(status === 404, `expected 404, got ${status}`)
+    const error = body.error as { code?: string } | undefined
+    assert(error?.code === 'NOT_FOUND', `expected NOT_FOUND, got ${error?.code}`)
+  })
+
+  await runTest('GET /api/stripe/webhook returns 404 (POST-only)', async () => {
+    const { status, body } = await apiGet('/api/stripe/webhook')
+    assert(status === 404, `expected 404, got ${status}`)
+    const error = body.error as { code?: string } | undefined
+    assert(error?.code === 'NOT_FOUND', `expected NOT_FOUND, got ${error?.code}`)
+  })
+
+  await runTest('POST /api/properties/search returns 404 (GET-only)', async () => {
+    const { status, body } = await apiSend('/api/properties/search', 'POST', { address: 'x' })
     assert(status === 404, `expected 404, got ${status}`)
     const error = body.error as { code?: string } | undefined
     assert(error?.code === 'NOT_FOUND', `expected NOT_FOUND, got ${error?.code}`)
@@ -281,12 +294,7 @@ async function run(): Promise<void> {
     assert(body.success === false, 'body.success should be false')
   })
 
-  // 1c2. Report on bogus id -> 404 (param middleware) [added 2026-05-04]
-  // /report is the unauthenticated full-report aggregator. The :id param
-  // middleware should 404 a bogus id before the handler runs, just like
-  // /walkscore and the bare detail. Without this probe a regression in the
-  // middleware that swallows the bogus-id branch on /report would ship a
-  // 500 (or 200 with stale data) instead of the documented 404.
+  // 1c2. Report on bogus id -> 404 [added 2026-05-04]
   await runTest('GET /api/properties/<bogus>/report returns 404', async () => {
     const { status, body } = await apiGet('/api/properties/totally-bogus-id-zzz/report')
     assert(status === 404, `expected 404, got ${status}`)
@@ -296,20 +304,11 @@ async function run(): Promise<void> {
   })
 
   // 1c3. Report.pdf on bogus id -> 404 NOT 401 [added 2026-05-04]
-  // Pins a subtle ordering invariant: /report.pdf is auth-gated via
-  //   propertiesRouter.get('/:id/report.pdf', requireAuth, ...)
-  // but the :id param middleware runs FIRST. So an unauth request with a
-  // bogus id must surface the param middleware's 404, not requireAuth's
-  // 401. A future refactor that lifts requireAuth to router-level (e.g.
-  // `propertiesRouter.use(requireAuth)` above the param middleware) would
-  // silently flip 404 -> 401, breaking any client that distinguishes
-  // "wrong id" from "not signed in".
   await runTest('GET /api/properties/<bogus>/report.pdf returns 404 (not 401)', async () => {
     const res = await fetch(`${API_BASE}/api/properties/totally-bogus-id-zzz/report.pdf`, {
       signal: AbortSignal.timeout(15_000),
     })
     assert(res.status === 404, `expected 404, got ${res.status}`)
-    // We expect JSON from the param middleware here -- not the PDF binary.
     const ct = res.headers.get('content-type') ?? ''
     assert(/application\/json/i.test(ct), `expected JSON content-type, got ${ct}`)
   })
@@ -376,14 +375,8 @@ async function run(): Promise<void> {
   })
 
   // 1e2. Write-side auth probes added 2026-05-02
-  // These all sit behind requireAuth before any body validation, so an
-  // unauthenticated probe should always 401 -- never 400 (validation) and
-  // never 5xx. A regression that loses requireAuth on any of these would
-  // expose write methods to anonymous traffic.
   await runTest('PATCH /api/auth/me without token returns 401', async () => {
-    const { status, body } = await apiSend('/api/auth/me', 'PATCH', {
-      firstName: 'Anon',
-    })
+    const { status, body } = await apiSend('/api/auth/me', 'PATCH', { firstName: 'Anon' })
     assert(status === 401, `expected 401, got ${status}`)
     assert(body.success === false, 'body.success should be false')
   })
@@ -413,10 +406,6 @@ async function run(): Promise<void> {
   })
 
   // 1e3. Write-side auth probes added 2026-05-03
-  // The clients and deals routers gate every verb behind `router.use(requireAuth)`.
-  // The 2026-05-02 run added the POST probes; today's run adds PATCH and DELETE
-  // so a refactor to per-route auth that forgets a single method ships
-  // unprotected.
   await runTest('PATCH /api/clients/:id without token returns 401', async () => {
     await probe401Send('PATCH', '/api/clients/some-client-id', { firstName: 'Anon' })
   })
@@ -431,10 +420,6 @@ async function run(): Promise<void> {
   })
 
   // 1e4. Bare property-detail 404 (added 2026-05-03)
-  // Previously only /walkscore on a bogus id was probed; the bare detail
-  // handler reached a different branch. A regression in the :id param
-  // middleware that returns 200 with stale data on an unknown id would have
-  // shipped without this probe.
   await runTest('GET /api/properties/<bogus> returns 404', async () => {
     const { status, body } = await apiGet('/api/properties/totally-bogus-id-zzz')
     assert(status === 404, `expected 404, got ${status}`)
@@ -443,11 +428,7 @@ async function run(): Promise<void> {
     assert(error?.code === 'NOT_FOUND', `expected NOT_FOUND, got ${error?.code}`)
   })
 
-  // 1e5. Stripe webhook contract probe (added 2026-05-03)
-  // The webhook is unauthenticated by design (Stripe signs payloads with a
-  // shared secret instead of using a Bearer token). Without a stripe-signature
-  // header it must reject with 400 BAD_REQUEST. A regression that accepts
-  // unsigned payloads would let anyone forge subscription events.
+  // 1e5. Stripe webhook 400 no-signature (added 2026-05-03)
   await runTest('POST /api/stripe/webhook without signature returns 400', async () => {
     const { status, body } = await apiSend('/api/stripe/webhook', 'POST', {
       type: 'customer.subscription.updated',
@@ -507,22 +488,11 @@ async function run(): Promise<void> {
       assert(Array.isArray(ins.recommendedActions), 'recommendedActions should be an array')
     })
 
-    // 5b. Full report aggregator (added 2026-05-04). The route bundles
-    // property + risk + insurance + insurability + carriers + publicData.
-    // Each of those endpoints is probed individually above; today's probe
-    // asserts the aggregator successfully composes them and returns the
-    // full envelope. A regression where one of the inner Promise.all
-    // failures stops short of returning partial data (instead of the
-    // documented "individually-caught, partial response" contract) would
-    // break the public preview / share-link surface.
     await runTest(`GET /api/properties/${firstPropertyId}/report returns full bundle`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/report`)
       assert(status === 200, `expected 200, got ${status}`)
       assert(body.success === true, 'body.success should be true')
       const data = body.data as Json
-      // property is required; the four risk/insurance/insurability/carriers
-      // fields are individually nullable (each is .catch()-ed in the route),
-      // so we assert the keys are present rather than typed-narrow.
       assert(typeof data.property === 'object' && data.property !== null, 'data.property should be an object')
       assert('risk' in data, 'data.risk should be present (object or null)')
       assert('insurance' in data, 'data.insurance should be present (object or null)')
@@ -534,7 +504,6 @@ async function run(): Promise<void> {
       assert(typeof prop.address === 'string', 'property.address should be a string')
     })
 
-    // 6. Carriers (finished 2026-05-01 evening)
     await runTest(`GET /api/properties/${firstPropertyId}/carriers returns carriers list`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/carriers`)
       assert(status === 200, `expected 200, got ${status}`)
@@ -548,28 +517,20 @@ async function run(): Promise<void> {
       assert(list !== null, 'carriers payload should be an array or { carriers: [...] }')
     })
 
-    // 7. Walkscore (added 2026-05-02 -- bogus-id 404 was already covered above
-    // but the happy path against a real id was never probed)
     await runTest(`GET /api/properties/${firstPropertyId}/walkscore returns scores`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/walkscore`)
-      // 503 is acceptable when WALK_SCORE_API_KEY is not configured -- mirror the
-      // graceful-degrade pattern used by /api/push/vapid.
       assert(status === 200 || status === 503, `expected 200 or 503, got ${status}`)
       if (status === 200) {
         assert(body.success === true, 'body.success should be true on 200')
       }
     })
 
-    // 8. Public data (added 2026-05-02)
     await runTest(`GET /api/properties/${firstPropertyId}/public-data returns data`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/public-data`)
       assert(status === 200, `expected 200, got ${status}`)
       assert(body.success === true, 'body.success should be true')
     })
 
-    // 9. Report.pdf is auth-gated -- without a token it must 401
-    // (param middleware runs first, but the id IS valid, so we get to
-    // requireAuth and 401, not 404).
     await runTest(`GET /api/properties/${firstPropertyId}/report.pdf without token returns 401`, async () => {
       const res = await fetch(`${API_BASE}/api/properties/${firstPropertyId}/report.pdf`, {
         signal: AbortSignal.timeout(15_000),
@@ -577,7 +538,15 @@ async function run(): Promise<void> {
       assert(res.status === 401, `expected 401, got ${res.status}`)
     })
 
-    // 10. Checklists are auth-gated (added 2026-05-02 -- newly surfaced today)
+    // HEAD on report.pdf without token (added 2026-05-05).
+    await runTest(`HEAD /api/properties/${firstPropertyId}/report.pdf without token returns 401`, async () => {
+      const res = await fetch(`${API_BASE}/api/properties/${firstPropertyId}/report.pdf`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(15_000),
+      })
+      assert(res.status === 401, `expected 401, got ${res.status}`)
+    })
+
     await runTest(`GET /api/properties/${firstPropertyId}/checklists without token returns 401`, async () => {
       await probe401Get(`/api/properties/${firstPropertyId}/checklists`)
     })
@@ -589,22 +558,15 @@ async function run(): Promise<void> {
       })
     })
 
-    // 11. Save / quote-request are auth-gated
     await runTest(`POST /api/properties/${firstPropertyId}/save without token returns 401`, async () => {
       await probe401Post(`/api/properties/${firstPropertyId}/save`, {
         notes: '',
         tags: [],
       })
     })
-    // 11b. DELETE /:id/save (added 2026-05-03 -- POST was probed, DELETE wasn't).
     await runTest(`DELETE /api/properties/${firstPropertyId}/save without token returns 401`, async () => {
       await probe401Send('DELETE', `/api/properties/${firstPropertyId}/save`)
     })
-    // 11c. PATCH/DELETE /:id/checklists/:checklistId (added 2026-05-03).
-    // GET and POST on /:id/checklists were probed on 2026-05-02; the per-row
-    // PATCH and DELETE were not. Both handlers gate via requireAuth, so an
-    // unauth probe with a valid id must 401 (the param middleware resolves
-    // /:id first, then requireAuth fires before the handler).
     await runTest(`PATCH /api/properties/${firstPropertyId}/checklists/:checklistId without token returns 401`, async () => {
       await probe401Send(
         'PATCH',
