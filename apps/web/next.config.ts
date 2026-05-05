@@ -18,6 +18,23 @@ const buildId =
   process.env.BUILD_ID ||
   `dev-${Date.now()}`
 
+// ─── API rewrite target ───────────────────────────────────────────────────
+// The web app proxies /api/* to the API backend. If neither var is set, the
+// rewrite is silently skipped and every /api/* request falls through to a 404
+// (or worse, a 503 if some upstream catch-all handler eats it). We log a loud
+// warning at config-load time so Vercel build logs surface the misconfig
+// before any user request hits a broken endpoint.
+const apiRewriteTarget =
+  process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL
+if (!apiRewriteTarget && process.env.NODE_ENV === 'production') {
+  // eslint-disable-next-line no-console
+  console.warn(
+    '[next.config] WARNING: API_REWRITE_URL / NEXT_PUBLIC_API_URL is not set. ' +
+      '/api/* requests will not be proxied and will fail (e.g. /api/push/vapid → 503/404). ' +
+      'Set API_REWRITE_URL on the Vercel project before redeploying.',
+  )
+}
+
 const nextConfig: NextConfig = {
   generateBuildId: async () => buildId,
   env: {
@@ -39,7 +56,6 @@ const nextConfig: NextConfig = {
   async rewrites() {
     // Proxy /api/* requests to the API backend so the browser makes
     // same-origin calls and CORS is never needed.
-    const apiUrl = process.env.API_REWRITE_URL ?? process.env.NEXT_PUBLIC_API_URL
     return {
       // beforeFiles: checked BEFORE Next.js hits the filesystem, so this
       // takes precedence over any legacy public/sw.js file and routes
@@ -48,8 +64,8 @@ const nextConfig: NextConfig = {
       beforeFiles: [
         { source: '/sw.js', destination: '/sw' },
       ],
-      afterFiles: apiUrl
-        ? [{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }]
+      afterFiles: apiRewriteTarget
+        ? [{ source: '/api/:path*', destination: `${apiRewriteTarget}/api/:path*` }]
         : [],
       fallback: [],
     }

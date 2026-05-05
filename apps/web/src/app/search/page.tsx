@@ -29,7 +29,6 @@ function parseSearchQuery(query: string) {
       zip: fullMatch[4],
     }
   }
-
   // "Austin, TX 78701" or "Austin, TX"
   const cityStateZip = query.match(/^([^,]+),\s*([A-Za-z]{2})\s*(\d{5})?$/)
   if (cityStateZip) {
@@ -39,14 +38,12 @@ function parseSearchQuery(query: string) {
       zip: cityStateZip[3],
     }
   }
-
   // Extract ZIP if present anywhere
   const zipMatch = query.match(/\b(\d{5})\b/)
   if (zipMatch) {
     const address = query.replace(zipMatch[0], '').replace(/,\s*$/, '').trim()
     return { zip: zipMatch[1], ...(address ? { address } : {}) }
   }
-
   // "City, ST" pattern with lowercase
   const stateMatch = query.match(/,\s*([A-Za-z]{2})\s*$/)
   if (stateMatch) {
@@ -55,7 +52,6 @@ function parseSearchQuery(query: string) {
       state: stateMatch[1]!.toUpperCase(),
     }
   }
-
   return { address: query }
 }
 
@@ -65,29 +61,44 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   // Fetch once on the server — share results with both the list and the map.
   let properties: Property[] = []
   let searchError = false
+
   if (q) {
     try {
       const parsed = parseSearchQuery(q)
       const params: PropertySearchParams = { ...parsed, page: parseInt(page ?? '1', 10), limit: 50 }
+
       // When a Google Place ID is provided, pass it through for server-side geocoding.
       // If the query already parsed into city+state+zip, send those too so the API
       // can attempt a DB lookup while the geocode resolves (or skip it entirely).
       if (placeId) {
         params.placeId = placeId
       }
+
       // Pull the user's session server-side and pass the access token to
       // searchProperties — api.ts is client-safe, so its apiFetch can't read
       // the session during SSR. Server callers must thread the token through.
       const supabase = await createSupabaseServerClient()
       const { data: { session } } = await supabase.auth.getSession()
       const result = await searchProperties(params, session?.access_token)
+
       properties = result.properties
     } catch (err) {
-      // Log the underlying error so it shows up in Vercel function logs —
-      // otherwise the user-facing fallback ("Unable to search properties…")
-      // is the only signal that anything went wrong, and the real cause
-      // (401, schema validation, provider outage, etc.) is invisible.
-      console.error('[search/page] property search failed:', err)
+      // Log the underlying error with enough structure that a truncated
+      // Vercel log line is still actionable. Includes the query, parsed
+      // params, the error name, HTTP status (if it's an HTTP error), and
+      // the full message.
+      const httpStatus =
+        typeof err === 'object' && err !== null && 'status' in err
+          ? (err as { status: unknown }).status
+          : undefined
+      console.error('[search/page] property search failed', {
+        query: q,
+        placeId: placeId ?? null,
+        page: page ?? '1',
+        errorName: err instanceof Error ? err.name : typeof err,
+        errorMessage: err instanceof Error ? err.message : String(err),
+        httpStatus,
+      })
       searchError = true
     }
   }
@@ -134,7 +145,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         {/* ── Mobile: toggleable list / map ─────────────────────────── */}
         <MobileSearchToggle listContent={resultsList} mapContent={mapPanel} />
 
-        {/* ── Desktop: side-by-side list + map ─────────────────────── */}
+        {/* ── Desktop: side-by-side list + map ────────────────────── */}
         <div className="hidden flex-1 overflow-hidden md:flex">
           {/* Left: results list */}
           <div className="w-[420px] shrink-0 overflow-y-auto px-4 py-3 lg:w-[480px]">
