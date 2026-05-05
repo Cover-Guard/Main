@@ -3,13 +3,13 @@
  * prisma.ts — lazy-initialized Prisma client tests
  *
  * Validates that:
- *  - The Prisma client Proxy defers initialization until first property access
- *  - Module import does NOT throw when DATABASE_URL is missing
- *  - Accessing the proxy throws when DATABASE_URL is missing (lazy error)
- *  - The global.__prisma singleton is reused across accesses
- *  - Function properties are properly bound to the real client
- *  - Non-function properties are forwarded correctly
- *  - The proxy works for all Prisma model accessors and utility methods
+ * - The Prisma client Proxy defers initialization until first property access
+ * - Module import does NOT throw when DATABASE_URL is missing
+ * - Accessing the proxy throws when DATABASE_URL is missing (lazy error)
+ * - The global.__prisma singleton is reused across accesses
+ * - Function properties are properly bound to the real client
+ * - Non-function properties are forwarded correctly
+ * - The proxy works for all Prisma model accessors and utility methods
  */
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
@@ -77,7 +77,6 @@ function resetModuleAndGlobals() {
 }
 
 function loadPrismaModule() {
-   
   return require('../../utils/prisma') as { prisma: Record<string, unknown> }
 }
 
@@ -96,7 +95,6 @@ describe('prisma.ts — lazy Proxy initialization', () => {
   })
 
   // ── Module import safety ────────────────────────────────────────────────
-
   describe('module import', () => {
     it('does not throw when all connection string env vars are missing', () => {
       delete process.env.DATABASE_URL
@@ -127,14 +125,12 @@ describe('prisma.ts — lazy Proxy initialization', () => {
   })
 
   // ── Lazy initialization ────────────────────────────────────────────────
-
   describe('lazy initialization on first access', () => {
     it('creates PrismaClient on first property access', () => {
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
       const { PrismaClient } = require('../../generated/prisma/client')
       const mod = loadPrismaModule()
       ;(PrismaClient as jest.Mock).mockClear()
-
       // Access a property to trigger lazy init
       void mod.prisma.user
       expect(PrismaClient).toHaveBeenCalledTimes(1)
@@ -145,7 +141,6 @@ describe('prisma.ts — lazy Proxy initialization', () => {
       const { PrismaClient } = require('../../generated/prisma/client')
       const mod = loadPrismaModule()
       ;(PrismaClient as jest.Mock).mockClear()
-
       void mod.prisma.user
       void mod.prisma.property
       void mod.prisma.savedProperty
@@ -170,8 +165,7 @@ describe('prisma.ts — lazy Proxy initialization', () => {
     })
   })
 
-  // ── Singleton / global caching ─────────────────────────────────────────
-
+  // ── Singleton / global caching ───────────────────────────────────────
   describe('global.__prisma singleton', () => {
     it('stores client in global.__prisma after first access', () => {
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
@@ -201,7 +195,6 @@ describe('prisma.ts — lazy Proxy initialization', () => {
   })
 
   // ── Proxy property forwarding ──────────────────────────────────────────
-
   describe('proxy property forwarding', () => {
     let mod: { prisma: Record<string, unknown> }
 
@@ -251,8 +244,7 @@ describe('prisma.ts — lazy Proxy initialization', () => {
     })
   })
 
-  // ── Proxy method binding ───────────────────────────────────────────────
-
+  // ── Proxy method binding ─────────────────────────────────────────────
   describe('proxy method binding', () => {
     let mod: { prisma: Record<string, unknown> }
 
@@ -310,7 +302,6 @@ describe('prisma.ts — lazy Proxy initialization', () => {
   })
 
   // ── PrismaClient constructor configuration ────────────────────────────
-
   describe('PrismaClient constructor', () => {
     it('passes pg adapter with connection string', () => {
       process.env.DATABASE_URL = 'postgresql://user:pass@host:5432/db'
@@ -320,7 +311,7 @@ describe('prisma.ts — lazy Proxy initialization', () => {
       expect(PrismaPg).toHaveBeenCalledWith(expect.anything())
     })
 
-    it('configures production logging (error + warn)', () => {
+    it('configures production logging via event emitters (error + warn)', () => {
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
       process.env.NODE_ENV = 'production'
       const { PrismaClient } = require('../../generated/prisma/client')
@@ -329,12 +320,12 @@ describe('prisma.ts — lazy Proxy initialization', () => {
       void mod.prisma.user
       const config = (PrismaClient as jest.Mock).mock.calls[0][0]
       expect(config.log).toEqual([
-        { level: 'error', emit: 'stdout' },
-        { level: 'warn', emit: 'stdout' },
+        { level: 'error', emit: 'event' },
+        { level: 'warn', emit: 'event' },
       ])
     })
 
-    it('configures dev logging (query + error + warn)', () => {
+    it('configures dev logging via event emitters (query + error + warn)', () => {
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
       process.env.NODE_ENV = 'development'
       const { PrismaClient } = require('../../generated/prisma/client')
@@ -344,14 +335,25 @@ describe('prisma.ts — lazy Proxy initialization', () => {
       const config = (PrismaClient as jest.Mock).mock.calls[0][0]
       expect(config.log).toEqual([
         { level: 'query', emit: 'event' },
-        { level: 'error', emit: 'stdout' },
-        { level: 'warn', emit: 'stdout' },
+        { level: 'error', emit: 'event' },
+        { level: 'warn', emit: 'event' },
       ])
+    })
+
+    it('subscribes to error events to filter handled Prisma codes', () => {
+      process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
+      process.env.NODE_ENV = 'production'
+      const mod = loadPrismaModule()
+      mockPrismaClient.$on.mockClear()
+      void mod.prisma.user
+      const errorSubscriptions = mockPrismaClient.$on.mock.calls.filter(
+        (c: unknown[]) => c[0] === 'error',
+      )
+      expect(errorSubscriptions.length).toBeGreaterThanOrEqual(1)
     })
   })
 
-  // ── Shutdown listener guard ────────────────────────────────────────────
-
+  // ── Shutdown listener guard ──────────────────────────────────────────
   describe('shutdown listener registration', () => {
     beforeEach(() => {
       // These tests specifically need a clean shutdown flag
@@ -367,12 +369,15 @@ describe('prisma.ts — lazy Proxy initialization', () => {
     it('does not register duplicate listeners on repeated module loads', () => {
       process.env.DATABASE_URL = 'postgresql://localhost:5432/test'
       const listenersBefore = process.listenerCount('SIGTERM')
+
       // First load sets the guard flag
       jest.resetModules()
       loadPrismaModule()
+
       // Second load should skip registration because guard flag is set
       jest.resetModules()
       loadPrismaModule()
+
       const listenersAfter = process.listenerCount('SIGTERM')
       // Should add at most 1 new listener (the first load only)
       expect(listenersAfter - listenersBefore).toBeLessThanOrEqual(1)
