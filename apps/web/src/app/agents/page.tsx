@@ -14,8 +14,9 @@ const benefits = [
   'See which carriers are actively writing in that ZIP code before you write the offer',
   'Catch flood, fire, seismic, wind & crime risks — and know if each risk is coverable',
   'Request a binding quote in the same platform',
-  'Share a professional risk report with your clients',
-  'Works on any US property — residential & commercial',
+  'Share a professional, branded Insurability Report PDF with your clients',
+  'See a 1–10 insurability score on every property — back where Zillow stopped showing one',
+  'Works on any US property — residential & commercial. All 50 states. Day one.',
 ]
 
 export default function AgentsPage() {
