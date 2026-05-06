@@ -50,6 +50,7 @@ export function InsurabilityPanel({ status }: InsurabilityPanelProps) {
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Insurability Assessment</p>
           <p className={`text-lg font-bold ${config.color}`}>{config.label}</p>
+          <p className="text-[11px] text-gray-500">Sourced from 12+ public data sources &middot; auditable, not a black box.</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <div className="text-right">
