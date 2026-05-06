@@ -27,12 +27,14 @@ const pillars = [
   },
 ]
 
+// Refreshed May 6, 2026 — see Competitor-Analysis-2026-05-06.md
 const competitors = [
   { name: 'CoverGuard', risk: true, carriers: true, binding: true, national: true, twoPortal: true },
-  { name: 'Rhino DealShield', risk: true, carriers: true, binding: false, national: false, twoPortal: false },
-  { name: 'ZestyAI / CAPE / Betterview', risk: true, carriers: false, binding: false, national: true, twoPortal: false },
+  { name: 'Rhino DealShield (CA only · multi-state by EOY 2026)', risk: true, carriers: true, binding: false, national: false, twoPortal: false },
+  { name: 'ZestyAI / CAPE (Moody’s) / Betterview', risk: true, carriers: false, binding: false, national: true, twoPortal: false },
   { name: 'HazardHub / LexisNexis', risk: true, carriers: false, binding: false, national: true, twoPortal: false },
-  { name: 'First Street Risk Factor', risk: true, carriers: false, binding: false, national: true, twoPortal: false },
+  { name: 'First Street Risk Factor (Zillow removed Dec 2025)', risk: true, carriers: false, binding: false, national: true, twoPortal: false },
+  { name: 'Westwood Insurance (new construction only)', risk: false, carriers: true, binding: true, national: true, twoPortal: false },
   { name: 'CoverForce (commercial)', risk: false, carriers: true, binding: true, national: true, twoPortal: false },
 ]
 
@@ -54,8 +56,10 @@ export function WhyCoverGuard() {
             What only we can say in 2026.
           </h2>
           <p className="mt-4 text-lg text-gray-600">
-            One direct competitor — California-only. Adjacent layers serve carriers, not the transaction.
-            CoverGuard is the only platform that combines risk, carrier writing-status, and binding workflow nationally.
+            One direct competitor — California-only, with a public goal of multi-state by end of 2026.
+            Adjacent layers serve carriers (not the transaction). New-construction embedded plays only cover builders.
+            CoverGuard is the only platform that combines risk, carrier writing-status, and binding workflow nationally —
+            for resale and new construction alike, agents and consumers alike.
           </p>
         </div>
 
@@ -110,7 +114,9 @@ export function WhyCoverGuard() {
             </tbody>
           </table>
           <p className="mt-3 text-xs text-gray-500">
-            Comparison reflects publicly disclosed positioning as of May 2026. Competitor capabilities change frequently.
+            Comparison reflects publicly disclosed positioning as of May 6, 2026. Competitor capabilities change frequently.
+            Notable May 2026 updates: Rhino announced a multi-state expansion goal for end of 2026; Zillow removed embedded First Street climate scores from listings in December 2025; Cape Analytics now operates as part of Moody&rsquo;s.
+            Notable May 2026 updates: Rhino announced a multi-state expansion goal for end of 2026; Zillow removed embedded First Street climate scores from listings in December 2025; Cape Analytics now operates as part of Moody&rsquo;s.
           </p>
         </div>
       </div>
