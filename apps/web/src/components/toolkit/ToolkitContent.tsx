@@ -27,6 +27,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { isDemoMode } from '@/lib/mockData'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/layout/PageHeader'
 import {
   Dialog,
   DialogContent,
@@ -1187,7 +1188,7 @@ const TOOLS: ToolDefinition[] = [
     preview: [
       { label: 'Active in CA', value: '12', emphasis: true },
       { label: 'Limited', value: '3' },
-      { label: 'Withdrawn (90d)', value: '4' },
+      { label: 'Withdrawn', value: '4' },
     ],
     nextSteps: ['cost-estimator'],
     content: <CarrierLookupTool />,
@@ -1459,21 +1460,13 @@ export function ToolkitContent() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="min-h-full bg-gray-50">
-        {/* Header — search + customize. No more duplicated featured rail. */}
-        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
-          <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3 px-4 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="rounded-lg bg-indigo-600 p-1.5">
-                <Wrench size={16} className="text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-sm font-bold text-gray-900">Agent Toolkit</h1>
-                <p className="truncate text-xs text-gray-500">
-                  AI-powered tools sequenced as your daily workflow
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
+        {/* Unified page header — same shell as Search / Dashboard / Help. */}
+        <PageHeader
+          icon={Wrench}
+          title="Toolkit"
+          subtitle="AI-powered tools sequenced as your daily workflow"
+          actions={
+            <>
               <div className="relative">
                 <Search
                   size={13}
@@ -1500,9 +1493,9 @@ export function ToolkitContent() {
                 <Settings size={13} />
                 Customize
               </button>
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         <main className="mx-auto max-w-screen-2xl px-4 py-5">
           {/* WORKFLOW RAIL */}

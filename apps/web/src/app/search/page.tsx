@@ -1,9 +1,11 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 import { SearchBar } from '@/components/search/SearchBar'
 import { SearchResults } from '@/components/search/SearchResults'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { MobileSearchToggle } from '@/components/mobile/MobileSearchToggle'
 import { searchProperties } from '@/lib/api'
 import { createClient as createSupabaseServerClient } from '@/lib/supabase/server'
@@ -19,7 +21,7 @@ interface SearchPageProps {
 function parseSearchQuery(query: string) {
   // Try to extract: "123 Main St, Austin, TX 78701" → address, city, state, zip
   const fullMatch = query.match(
-    /^(.+?),\s*([^,]+?),\s*([A-Za-z]{2})\s+(\d{5})$/,
+    /^(.+?),s*([^,]+?),s*([A-Za-z]{2})s+(d{5})$/,
   )
   if (fullMatch) {
     return {
@@ -30,7 +32,7 @@ function parseSearchQuery(query: string) {
     }
   }
   // "Austin, TX 78701" or "Austin, TX"
-  const cityStateZip = query.match(/^([^,]+),\s*([A-Za-z]{2})\s*(\d{5})?$/)
+  const cityStateZip = query.match(/^([^,]+),s*([A-Za-z]{2})s*(d{5})?$/)
   if (cityStateZip) {
     return {
       city: cityStateZip[1]!.trim(),
@@ -39,13 +41,13 @@ function parseSearchQuery(query: string) {
     }
   }
   // Extract ZIP if present anywhere
-  const zipMatch = query.match(/\b(\d{5})\b/)
+  const zipMatch = query.match(/(d{5})/)
   if (zipMatch) {
-    const address = query.replace(zipMatch[0], '').replace(/,\s*$/, '').trim()
+    const address = query.replace(zipMatch[0], '').replace(/,s*$/, '').trim()
     return { zip: zipMatch[1], ...(address ? { address } : {}) }
   }
   // "City, ST" pattern with lowercase
-  const stateMatch = query.match(/,\s*([A-Za-z]{2})\s*$/)
+  const stateMatch = query.match(/,s*([A-Za-z]{2})s*$/)
   if (stateMatch) {
     return {
       address: query.slice(0, stateMatch.index).trim(),
@@ -135,17 +137,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <SidebarLayout>
       <div className="flex h-full flex-col overflow-hidden">
-        {/* Search bar */}
-        <div className="shrink-0 border-b border-gray-200 bg-white px-4 py-3 shadow-sm">
-          <div className="mx-auto max-w-full">
-            <SearchBar defaultValue={q ?? ''} />
-          </div>
-        </div>
+        {/* Unified page header — same shell as Dashboard / Toolkit / Help.
+            The wide SearchBar lives in `belowSlot` so it stays prominent
+            without breaking the standard title/icon row. */}
+        <PageHeader
+          icon={Search}
+          title="Search"
+          subtitle="Find any U.S. property by address, ZIP, or APN"
+          belowSlot={<SearchBar defaultValue={q ?? ''} />}
+        />
 
         {/* ── Mobile: toggleable list / map ─────────────────────────── */}
         <MobileSearchToggle listContent={resultsList} mapContent={mapPanel} />
 
-        {/* ── Desktop: side-by-side list + map ────────────────────── */}
+        {/* ── Desktop: side-by-side list + map ─────────────────────── */}
         <div className="hidden flex-1 overflow-hidden md:flex">
           {/* Left: results list */}
           <div className="w-[420px] shrink-0 overflow-y-auto px-4 py-3 lg:w-[480px]">

@@ -14,6 +14,7 @@ import {
   HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 // In-app help is intentionally lightweight â€” it lives inside SidebarLayout and
 // answers the questions users actually ask once they're already signed in.
@@ -87,7 +88,7 @@ const faqs: FAQ[] = [
   },
   {
     q: 'Why did my dashboard scores change overnight?',
-    a: 'Scores re-run when underlying data updates â€” new claims filings, FEMA map revisions, carrier appetite shifts, or wildfire perimeter changes. Open the property and check "Recent changes" for a per-property changelog.',
+    a: 'Scores re-run when underlying data updates â‬” new claims filings, FEMA map revisions, carrier appetite shifts, or wildfire perimeter changes. Open the property and check "Recent changes" for a per-property changelog.',
   },
 ]
 
@@ -104,44 +105,38 @@ export function InAppHelp() {
   }, [query])
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-10">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-teal-600">
-          <HelpCircle className="h-3.5 w-3.5" />
-          Help
-        </div>
-        <h1 className="mt-1 text-2xl font-bold text-gray-900 md:text-3xl">
-          How can we help?
-        </h1>
-        <p className="mt-1 text-sm text-gray-600 md:text-base">
-          Quick answers for everything inside CoverGuard. Looking for product
-          info or signup help?{' '}
+    <div className="min-h-full bg-gray-50">
+      {/* Unified page header — same shell as Search / Dashboard / Toolkit. */}
+      <PageHeader
+        icon={HelpCircle}
+        title="Help"
+        subtitle="Quick answers for everything inside CoverGuard"
+        actions={
           <Link
             href="/help"
-            className="inline-flex items-center gap-1 font-medium text-teal-700 hover:text-teal-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
           >
-            Visit the full Help Center
+            Full Help Center
             <ExternalLink className="h-3 w-3" />
           </Link>
-          .
-        </p>
-      </div>
+        }
+      />
 
-      {/* Search */}
-      <div className="relative mb-8">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search help topicsâ€¦"
-          aria-label="Search help topics"
-          className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-        />
-      </div>
+      <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-10">
+        {/* Search */}
+        <div className="relative mb-8">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search help topicsâ€¦"
+            aria-label="Search help topics"
+            className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+        </div>
 
-      {/* Quick actions */}
+        {/* Quick actions */}
       <section className="mb-10">
         <h2 className="mb-3 text-sm font-semibold text-gray-900">
           Common tasks
@@ -238,6 +233,7 @@ export function InAppHelp() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   )
 }
