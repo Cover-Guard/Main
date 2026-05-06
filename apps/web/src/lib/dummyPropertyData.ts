@@ -124,7 +124,7 @@ export const dummyRiskProfile: PropertyRiskProfile = {
   heat: {
     level: 'MODERATE',
     score: 32,
-    trend: 'INCREASING',
+    trend: 'WORSENING',
     description: 'Moderate heat risk with projected increase in extreme heat days due to climate change in central Illinois.',
     details: [
       'Average of 5–7 days per year exceeding 100°F',
