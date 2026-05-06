@@ -37,7 +37,8 @@ export function Hero() {
           <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
             The only national platform that combines carrier-grade risk data, live carrier-writing status,
             and binding-quote requests for any U.S. property. Flood, fire, wind, earthquake, and crime —
-            scored from 12+ public data sources. All 50 states. Day one.
+            scored from 12+ public data sources, with a 1&ndash;10 insurability score on every property.
+            All 50 states. Every transaction. Day one.
           </p>
 
           {/* Audience badges */}
