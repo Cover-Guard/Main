@@ -17,6 +17,7 @@ import {
 
 import { DealsKpiPanel } from '@/components/dashboard/DealsKpiPanel';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { ActiveCarriersPanel } from './enhanced/ActiveCarriersPanel';
 import { ClientManagementPanel } from './enhanced/ClientManagementPanel';
 import { ForecastPanel } from './enhanced/ForecastPanel';
@@ -86,31 +87,28 @@ export function EnhancedDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-indigo-600 rounded-lg">
-              <Shield size={16} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-gray-900">Insurance Dashboard</h1>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <LiveDot /> Real-time monitoring
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+      {/* Unified page header — same shell as Search / Toolkit / Help. */}
+      <PageHeader
+        icon={Shield}
+        title="Dashboard"
+        subtitle={
+          <span className="flex items-center gap-1">
+            <LiveDot /> Real-time monitoring
+          </span>
+        }
+        actions={
+          <>
             <NotificationBell />
             <button
               onClick={() => setShowCustomize(!showCustomize)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
             >
               <Settings size={13} />
               Customize
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {showCustomize && (
         <div className="bg-white border-b border-gray-200 shadow-sm">
