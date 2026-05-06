@@ -116,7 +116,6 @@ export function WhyCoverGuard() {
           <p className="mt-3 text-xs text-gray-500">
             Comparison reflects publicly disclosed positioning as of May 6, 2026. Competitor capabilities change frequently.
             Notable May 2026 updates: Rhino announced a multi-state expansion goal for end of 2026; Zillow removed embedded First Street climate scores from listings in December 2025; Cape Analytics now operates as part of Moody&rsquo;s.
-            Notable May 2026 updates: Rhino announced a multi-state expansion goal for end of 2026; Zillow removed embedded First Street climate scores from listings in December 2025; Cape Analytics now operates as part of Moody&rsquo;s.
           </p>
         </div>
       </div>
