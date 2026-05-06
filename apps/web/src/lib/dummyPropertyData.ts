@@ -7,6 +7,10 @@ import type {
   PropertyPublicData,
 } from '@coverguard/shared'
 
+// Google Static Maps API key — same convention as the rest of the app
+// (see PropertyCard.tsx, GoogleMapsProvider.tsx, NewCheckPage.tsx).
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
+
 const DUMMY_ID = 'demo-sample-property'
 
 export const dummyProperty: Property = {
@@ -336,14 +340,19 @@ export const dummyCarriers: CarriersResult = {
 
 export const dummyPublicData: PropertyPublicData = {
   propertyId: DUMMY_ID,
-  images: [
-    {
-      url: 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/-89.6501,39.7817,16,0,0/800x600?access_token=PLACEHOLDER',
-      source: 'Mapbox Satellite',
-      caption: 'Satellite view of 742 Evergreen Terrace, Springfield, IL',
-      type: 'satellite',
-    },
-  ],
+  // Satellite image is built from Google Static Maps using the same env var the
+  // rest of the app uses. Falls back to [] when the key is unset (PropertyImages
+  // already renders a sensible empty state in that case).
+  images: GOOGLE_MAPS_KEY
+    ? [
+        {
+          url: `https://maps.googleapis.com/maps/api/staticmap?center=${dummyProperty.lat},${dummyProperty.lng}&zoom=18&size=800x600&maptype=satellite&key=${GOOGLE_MAPS_KEY}`,
+          source: 'Google Static Maps',
+          caption: `Satellite view of ${dummyProperty.address}, ${dummyProperty.city}, ${dummyProperty.state}`,
+          type: 'satellite',
+        },
+      ]
+    : [],
   taxRecords: {
     assessedValue: 310000,
     taxAmount: 6820,
