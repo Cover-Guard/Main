@@ -32,7 +32,7 @@ export function initSentry(): void {
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
     profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
     integrations: [nodeProfilingIntegration()],
-    beforeSend(event) {
+    beforeSend(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
       // PII scrubbing. Sentry breadcrumbs/contexts can carry the full request,
       // including Authorization headers, cookies, and POST bodies. Strip the
       // most common leak vectors before transmission. Defensive try/catch:
