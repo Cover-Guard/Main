@@ -310,7 +310,7 @@ npm run db:studio      # Prisma Studio GUI
 4. **Supabase admin is server-only.** Never import `supabaseAdmin` from frontend code.
 5. **Check your branch.** Work on the designated `claude/` branch.
 6. **No secrets.** Never commit `.env` files or API keys.
-7. **DB migrations via Supabase.** Schema changes go in `supabase/migrations/*.sql`. After applying, run `db:pull` then `db:generate` to sync Prisma.
+7. **DB migrations via Supabase only.** Schema changes go in `supabase/migrations/*.sql`. After applying, run `db:pull` then `db:generate` to sync Prisma. **Do not recreate `apps/api/prisma/migrations/`** — that legacy directory was retired (see `docs/audits/2026-05-migration-reconciliation.md` and PR-A1.c). Prisma is the ORM client only; it does not own schema migrations.
 8. **Two portals.** Agent flows use `/agents/*`; consumer flows use `/(auth)/*`.
 9. **Onboarding required.** New users must accept terms at `/onboarding` before accessing the app.
 10. **Keep this file updated.** After adding routes, models, or patterns, update the relevant section.
