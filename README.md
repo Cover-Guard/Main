@@ -65,7 +65,7 @@ cp .env.example .env
 
 ```bash
 # Push schema to Supabase
-npm run db:migrate
+npm run db:push
 
 # (Optional) Seed with sample data
 npm run db:seed
@@ -119,7 +119,7 @@ Authentication uses **Supabase JWT access tokens** passed as `Authorization: Bea
      Used by the application at runtime for all database queries.
    - `DIRECT_URL` — the **Direct connection** URL (port 5432).
      Used by Prisma exclusively for migrations and schema introspection.
-4. Run `npm run db:migrate` to push the Prisma schema
+4. Run `npm run db:push` to apply Supabase migrations
 
 Required secrets in GitHub Actions:
 
@@ -154,7 +154,7 @@ npm run build        # Build all packages
 npm run test         # Run all tests
 npm run lint         # Lint all packages
 npm run typecheck    # TypeScript check all packages
-npm run db:migrate   # Apply Prisma migrations
+npm run db:push     # Apply Supabase migrations (Prisma is ORM-only; see CLAUDE.md)
 npm run db:seed      # Seed sample data
 npm run db:studio    # Open Prisma Studio
 ```
