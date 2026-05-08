@@ -10,13 +10,14 @@
  *                                    [--property-id <canonical-uuid>]
  *
  * Unauthenticated checks (always run): root, /health, HEAD /health,
- * /robots.txt, search 401, suggest, geocode 400, walkscore 404,
- * /api/analytics 404, /api/totally-fake 404, /api/properties 404 (collection
- * root), POST /api/properties/search 404 (wrong verb), GET /api/stripe/webhook
- * 404 (POST-only), /api/auth/me 401, /api/auth/me/saved 401,
- * /api/auth/me/reports 401, PATCH/DELETE /api/auth/me 401,
- * POST /api/auth/me/terms 401, POST /api/auth/sync-profile 401,
- * /api/clients 401 (GET+POST+PATCH+DELETE), /api/dashboard/ticker 401,
+ * /robots.txt, search 401, suggest, suggest Cache-Control + RateLimit
+ * headers, geocode 400, walkscore 404, /api/analytics 404,
+ * /api/totally-fake 404, /api/properties 404 (collection root),
+ * POST /api/properties/search 404 (wrong verb), GET /api/stripe/webhook
+ * 404 (POST-only), /api/auth/me 401, OPTIONS /api/auth/me preflight,
+ * /api/auth/me/saved 401, /api/auth/me/reports 401, PATCH/DELETE
+ * /api/auth/me 401, POST /api/auth/me/terms 401, POST /api/auth/sync-profile
+ * 401, /api/clients 401 (GET+POST+PATCH+DELETE), /api/dashboard/ticker 401,
  * /api/deals 401 (GET+POST+PATCH+DELETE), /api/deals/stats 401,
  * /api/alerts/carrier-exits 401, POST /api/alerts/carrier-exits/:id/acknowledge
  * 401, /api/advisor/chat 401, /api/push/subscribe 401,
@@ -25,16 +26,143 @@
  * POST /api/stripe/webhook 400 (no signature), /api/auth/register 400,
  * /api/push/vapid (200|503).
  *
- * Property-id-bound checks (--property-id <uuid>): property detail, risk,
- * insurance, insurability, carriers, walkscore (200|503), public-data, full
- * report (200), plus 401 probes against the auth-gated /:id/{report.pdf,
+ * Property-id-bound checks (--property-id <uuid>): property detail (+
+ * Cache-Control s-maxage=1800), risk (+ Cache-Control s-maxage=7200),
+ * insurance, insurability, carriers, walkscore (200|503), public-data,
+ * full report (200), plus 401 probes against the auth-gated /:id/{report.pdf,
  * checklists,save,quote-request,quote-requests} surfaces (param middleware
  * resolves the id first, so requireAuth fires before the handler).
+ *
+ * Updated 2026-05-08 (daily-smokeqa-testing):
+ *   - File integrity: today the run started clean (897-line file from
+ *     2026-05-07 was preserved, no truncation, no duplicate-tail). The
+ *     Edit-tool corruption that bit the file four times in 7 days
+ *     (2026-05-01 morning, 2026-05-05 morning, 2026-05-06, 2026-05-07)
+ *     did NOT recur this run. The widened file-integrity guard from
+ *     2026-05-07 (exactly one top-level `^run().catch(`, no orphan
+ *     `verage` line, line count >= 720) carries forward unchanged.
+ *   - Added always-on probe covering "tomorrow-targets" from yesterday:
+ *       (a) OPTIONS /api/clients from allowed origin -> 204 AND
+ *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
+ *           Third mounted surface beyond /api/properties/search
+ *           (added 2026-05-06) and /api/auth/me (added 2026-05-07),
+ *           building toward a per-router cors-override regression matrix.
+ *           /api/clients was picked because (1) the route is authed
+ *           agent-only surface where a CSRF-via-CORS regression would
+ *           leak client PII and (2) the file is a different router file
+ *           (clients.ts) than the prior two pins (properties.ts and
+ *           auth.ts), so a per-router cors override on the clients
+ *           router would be invisible to the existing two probes.
+ *   - Added property-id-bound Cache-Control probes (the three remaining
+ *     cached endpoints from the set of yesterday tomorrow-targets):
+ *       (b) GET /api/properties/:id/walkscore -> Cache-Control includes
+ *           s-maxage=86400. 24-hour CDN cache (walk/transit/bike scores
+ *           change rarely; the upstream is rate-limited so the cache
+ *           is the primary defense). Default branch only — refresh=true
+ *           emits no-cache.
+ *       (c) GET /api/properties/:id/insurance -> Cache-Control includes
+ *           s-maxage=7200. 2-hour CDN cache on the insurance estimate.
+ *           A regression that drops setCacheHeaders() would force every
+ *           request through the (CPU-intensive) premium calculation.
+ *       (d) GET /api/properties/:id/carriers -> Cache-Control includes
+ *           s-maxage=3600. 1-hour CDN cache on active carriers. The
+ *           1h TTL (vs 2h on insurance / risk and 24h on walkscore) is
+ *           sized against the carrier-exit alert SLA from VA-01: the
+ *           alert pipeline polls daily but UI must not show a carrier
+ *           that exited >1h ago. **Pinning the 1h value (and not just
+ *           the presence of s-maxage) is what catches a regression
+ *           that bumps it to 7200 to match insurance.**
+ *       (e) GET /api/properties/:id/risk?refresh=true -> Cache-Control
+ *           includes 'no-store' AND 'private' (the setNoCacheHeaders
+ *           branch). Pins the forceRefresh code path that yesterday-s
+ *           probe did not cover. The refresh branch invalidates four
+ *           dependent caches (insurance, carriers, insurability,
+ *           publicData); a regression that drops setNoCacheHeaders
+ *           would let the CDN serve a 7200s stale response after the
+ *           caller explicitly asked for a fresh read.
+ *       (f) GET /api/properties/:id/insurability -> Cache-Control
+ *           includes s-maxage=7200. 2-hour CDN cache parity with
+ *           /risk and /insurance (insurability is a derived view over
+ *           the same risk profile). Bonus pin — completes the
+ *           cached-endpoint Cache-Control matrix on a single
+ *           --property-id run.
+ *
+ * Updated 2026-05-07 (daily-smokeqa-testing):
+ *   - Bug fix: smoke-test.ts had a duplicate tail glued onto the file
+ *     (lines 731 onward started with the orphan fragment "verage type"
+ *     expected) — the leftover of "at least one coverage type expected"
+ *     — followed by a stale duplicate of the property-id-bound block and a
+ *     second copy of the result-printing tail). The TypeScript parser
+ *     would refuse to read the file. **Fourth occurrence in 7 days**
+ *     (2026-05-01 morning, 2026-05-05 morning, 2026-05-06, 2026-05-07).
+ *     Today the fix used a single Write of the full file instead of the
+ *     Edit tool, which avoids the ~30 KB sequential-Edit truncation that
+ *     has been the recurring root cause. The file-integrity guard in
+ *     daily-review-2026-05-07.test.ts is widened to also detect the
+ *     "duplicate tail" symptom (substring 'verage type expected' must
+ *     not appear, only one `run().catch(` invocation should exist).
+ *   - Added always-on probes covering "tomorrow-targets" from yesterday:
+ *       (a) GET /api/properties/suggest -> Cache-Control includes
+ *           s-maxage=300. Pins the CDN cache directive on the suggest
+ *           endpoint. A regression that drops setCacheHeaders() from the
+ *           handler would silently triple upstream load on Vercel Edge.
+ *       (b) GET /api/properties/suggest -> response carries the
+ *           express-rate-limit standardHeaders (RateLimit-Limit and
+ *           RateLimit-Remaining). The makeLimiter factory passes
+ *           standardHeaders:true; a regression that flips it to false
+ *           (or to legacyHeaders) would silently break clients that
+ *           negotiate retry timing from these headers.
+ *       (c) OPTIONS /api/auth/me from allowed origin -> 204 AND
+ *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
+ *           Today the probes pin a second mounted surface beyond
+ *           /api/properties/search (added 2026-05-06). The cors()
+ *           middleware is mounted globally, but pinning a second mount
+ *           protects against a future per-router cors override that
+ *           silently changes contract on /api/auth/*.
+ *   - Added property-id-bound Cache-Control probes:
+ *       (d) GET /api/properties/:id -> Cache-Control includes
+ *           s-maxage=1800. 30-min CDN cache on the property detail.
+ *       (e) GET /api/properties/:id/risk -> Cache-Control includes
+ *           s-maxage=7200. 2-hour CDN cache on the risk profile.
+ *           The forceRefresh=true branch returns no-cache instead;
+ *           today the probe pins the default (cached) branch.
+ *
+ * Updated 2026-05-06 (daily-smokeqa-testing):
+ *   - Added always-on CORS preflight contract probes:
+ *       (a) OPTIONS /api/properties/search from a disallowed origin
+ *           (https://evil.example.com) -> 204 AND no
+ *           Access-Control-Allow-Origin echoed for that origin. Pins the
+ *           CORS deny path. A regression that loosens isOriginAllowed (e.g.
+ *           adds a `*` fallback, or normalizes the callback to true)
+ *           would silently expose the API to CSRF from any origin.
+ *       (b) OPTIONS /api/properties/search from an allowed origin
+ *           (http://localhost:3000) -> 204 AND
+ *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
+ *           Pins the CORS happy path. A regression that breaks the
+ *           CORS_ALLOWED_ORIGINS parser (e.g. fails to .trim() per-entry)
+ *           would silently deny legitimate browsers in production.
+ *   - Added geocode boundary probes (zod schema is min(1).max(300)):
+ *       (c) POST /api/properties/geocode with placeId longer than 300
+ *           chars -> 400. Pins the upper bound. The empty-body 400 case
+ *           was added 2026-05-01 morning, but a length-cap regression
+ *           would not have been caught.
+ *       (d) POST /api/properties/geocode with placeId="" (empty string)
+ *           -> 400. Pins the lower bound. Different code path from the
+ *           empty-body case (zod has a .min(1) check vs the "no field" branch
+ *           in zod). Catches a regression that drops .min(1).
+ *   - Added property-id-bound HEAD probe completing the GET/HEAD x
+ *       valid/bogus matrix on /report.pdf:
+ *       (e) HEAD /api/properties/<bogus>/report.pdf -> 404 (NOT 401).
+ *           The 2026-05-04 run pinned this for GET; the 2026-05-05 run
+ *           pinned HEAD on a valid id (-> 401). Today the probe pins HEAD
+ *           on a bogus id (-> 404), closing the matrix. Catches a
+ *           regression where the param middleware special-cases GET and
+ *           lets HEAD bypass the resolution check, leaking existence info.
  *
  * Updated 2026-05-05 (daily-smokeqa-testing):
  *   - Bug fix: smoke-test.ts was truncated mid-statement on disk (same
  *     regression class as the 2026-05-01 morning run). The file would not
- *     parse, so today's run started by restoring the full body. A jest
+ *     parse, so today the run started by restoring the full body. A jest
  *     guard (`smoke-test-line-count.test.ts`) was added to fail loudly on a
  *     future >50% truncation by line count.
  *   - Added new always-on probes:
@@ -46,7 +174,7 @@
  *           registers a debug handler at the same path would silently 200.
  *       (c) POST /api/properties/search (wrong verb) -> 404 -- search is
  *           GET-only; pin the catch-all on the wrong-verb branch.
- *       (d) HEAD /health -> 200 -- pins that helmet/compression/morgan don't
+ *       (d) HEAD /health -> 200 -- pins that helmet/compression/morgan do not
  *           accidentally drop HEAD support (which monitoring services use).
  *   - Added property-id-bound probe:
  *       (e) HEAD /api/properties/:id/report.pdf -> 401 -- pins that the
@@ -56,7 +184,7 @@
  *
  * Updated 2026-05-04 (daily-smokeqa-testing):
  *   - Added the unauthenticated full-report contract probes -- the only
- *     /:id/* unauthenticated GET that wasn't covered:
+ *     /:id/* unauthenticated GET that was not covered:
  *       (a) GET /api/properties/<bogus>/report -> 404
  *       (b) GET /api/properties/<bogus>/report.pdf -> 404 (NOT 401)
  *       (c) GET /api/properties/:id/report -> 200 (with --property-id)
@@ -118,6 +246,22 @@ async function apiGet(path: string): Promise<{ status: number; body: Json }> {
   })
   const body = (await res.json()) as Json
   return { status: res.status, body }
+}
+
+async function apiGetRaw(
+  path: string,
+): Promise<{ status: number; headers: Headers; body: Json }> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(15_000),
+  })
+  let body: Json = {}
+  try {
+    body = (await res.json()) as Json
+  } catch {
+    body = {}
+  }
+  return { status: res.status, headers: res.headers, body }
 }
 
 async function apiSend(
@@ -254,6 +398,112 @@ async function run(): Promise<void> {
     assert(error?.code === 'NOT_FOUND', `expected NOT_FOUND, got ${error?.code}`)
   })
 
+  // 0d. CORS preflight contract (added 2026-05-06).
+  // The cors() middleware is mounted with a callback that returns false for
+  // unknown origins, AND `app.options('*', cors(corsOptions))` is registered
+  // for preflight. We pin both branches: a disallowed origin must NOT have
+  // its origin echoed back in Access-Control-Allow-Origin, and an allowed
+  // origin (http://localhost:3000 is in the default CORS_ALLOWED_ORIGINS)
+  // MUST be echoed. Without this pin, a regression that loosens isOriginAllowed
+  // (e.g. accidentally returns true on the catch-all) would expose the API
+  // to CSRF from any origin without changing the smoke-test PASS count.
+  await runTest('OPTIONS /api/properties/search from disallowed origin: no ACAO echo', async () => {
+    const res = await fetch(`${API_BASE}/api/properties/search`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://evil.example.com',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    // cors() returns 204 for handled preflights regardless of allow/deny;
+    // the discriminator is whether Access-Control-Allow-Origin echoes the
+    // requested origin. A deny path leaves the header unset.
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao !== 'https://evil.example.com' && acao !== '*',
+      `disallowed origin must not be echoed; got Access-Control-Allow-Origin=${acao}`,
+    )
+  })
+
+  await runTest('OPTIONS /api/properties/search from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/properties/search`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000, got ${acao}`,
+    )
+    // credentials:true means the server must NOT use the wildcard *.
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
+  // 0e. CORS preflight on a second mounted surface (added 2026-05-07).
+  // Today the run extends the preflight pins beyond /api/properties/search to
+  // /api/auth/me. The cors() middleware is mounted globally before any
+  // routers, so behavior is currently identical across all surfaces. This
+  // probe protects against a future per-router cors override (e.g. a
+  // contractor adds `app.use('/api/auth', cors({origin:'*'}), authRouter)`)
+  // that silently changes contract on the auth surface only.
+  await runTest('OPTIONS /api/auth/me from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/auth/me, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
+  // 0f. CORS preflight on a third mounted surface (added 2026-05-08).
+  // Today the run extends the preflight pins to /api/clients — different
+  // router file (clients.ts) than the prior two pins (properties.ts +
+  // auth.ts), so a per-router cors override on the clients router would
+  // be invisible to the existing two probes. /api/clients is an authed
+  // agent-only surface; a CSRF-via-CORS regression there would leak
+  // client PII. The 0e probe (auth/me) catches per-router overrides on
+  // the auth router, the 0d probe (properties/search) catches them on
+  // the properties router, and this one catches them on the clients
+  // router. Together they form a per-router pin matrix that grows by
+  // one surface per day.
+  await runTest('OPTIONS /api/clients from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/clients`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/clients, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
   // 1. Search is authenticated
   const firstPropertyId: string | undefined =
     process.argv.indexOf('--property-id') !== -1
@@ -280,9 +530,76 @@ async function run(): Promise<void> {
     assert(status === 400, `expected 400, got ${status}`)
   })
 
+  // 1a1. Cache-Control on suggest (added 2026-05-07).
+  // The suggest handler calls setCacheHeaders(res, 300, 60). Pin that
+  // s-maxage=300 is in the Cache-Control header. A regression that drops
+  // the call would silently triple upstream load on Vercel Edge by
+  // turning off CDN caching. Most CDNs key off s-maxage specifically.
+  await runTest('GET /api/properties/suggest sets Cache-Control s-maxage=300', async () => {
+    const { status, headers } = await apiGetRaw('/api/properties/suggest?q=Mia')
+    assert(status === 200, `expected 200, got ${status}`)
+    const cacheControl = headers.get('cache-control') ?? ''
+    assert(
+      /s-maxage=300\b/.test(cacheControl),
+      `expected s-maxage=300 in Cache-Control, got "${cacheControl}"`,
+    )
+    // CDN-cacheable must be public.
+    assert(
+      /\bpublic\b/.test(cacheControl),
+      `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+    )
+  })
+
+  // 1a2. Standard rate-limit headers on suggest (added 2026-05-07).
+  // The makeLimiter factory in apps/api/src/index.ts sets
+  // standardHeaders:true (RFC draft headers) and legacyHeaders:false. Pin
+  // that the response carries RateLimit-Limit + RateLimit-Remaining. A
+  // regression that flips standardHeaders to false (or accidentally
+  // re-enables legacyHeaders) would silently break clients that negotiate
+  // retry timing from these headers. The global rate limiter is mounted
+  // on /api so any /api/* GET is sufficient; we use suggest because it
+  // returns 200 unauthenticated.
+  await runTest('GET /api/properties/suggest exposes standard rate-limit headers', async () => {
+    const { status, headers } = await apiGetRaw('/api/properties/suggest?q=Mia')
+    assert(status === 200, `expected 200, got ${status}`)
+    const rlLimit = headers.get('ratelimit-limit')
+    const rlRemaining = headers.get('ratelimit-remaining')
+    assert(
+      rlLimit !== null,
+      `expected RateLimit-Limit header to be present`,
+    )
+    assert(
+      rlRemaining !== null,
+      `expected RateLimit-Remaining header to be present`,
+    )
+    // Belt + braces: legacyHeaders should be off.
+    assert(
+      headers.get('x-ratelimit-limit') === null,
+      `legacyHeaders should be disabled; got X-RateLimit-Limit=${headers.get('x-ratelimit-limit')}`,
+    )
+  })
+
   // 1b. Geocode validation
   await runTest('POST /api/properties/geocode with empty body returns 400', async () => {
     const { status, body } = await apiSend('/api/properties/geocode', 'POST', {})
+    assert(status === 400, `expected 400, got ${status}`)
+    assert(body.success === false, 'body.success should be false')
+  })
+
+  // 1b2. Geocode boundary cases (added 2026-05-06).
+  // Schema is z.string().min(1).max(300). Pin both bounds: an empty
+  // placeId fails .min(1), a 301-char placeId fails .max(300). Different
+  // code paths from the empty-body case above, where zod has a "field absent"
+  // branch fires before string-length validation.
+  await runTest('POST /api/properties/geocode with empty placeId returns 400', async () => {
+    const { status, body } = await apiSend('/api/properties/geocode', 'POST', { placeId: '' })
+    assert(status === 400, `expected 400, got ${status}`)
+    assert(body.success === false, 'body.success should be false')
+  })
+
+  await runTest('POST /api/properties/geocode with placeId > 300 chars returns 400', async () => {
+    const longPlaceId = 'x'.repeat(301)
+    const { status, body } = await apiSend('/api/properties/geocode', 'POST', { placeId: longPlaceId })
     assert(status === 400, `expected 400, got ${status}`)
     assert(body.success === false, 'body.success should be false')
   })
@@ -311,6 +628,22 @@ async function run(): Promise<void> {
     assert(res.status === 404, `expected 404, got ${res.status}`)
     const ct = res.headers.get('content-type') ?? ''
     assert(/application\/json/i.test(ct), `expected JSON content-type, got ${ct}`)
+  })
+
+  // 1c4. HEAD report.pdf on bogus id -> 404 [added 2026-05-06]
+  // Closes the GET/HEAD x valid/bogus matrix on /report.pdf. The
+  // 2026-05-04 run pinned GET bogus -> 404, the 2026-05-05 run pinned
+  // HEAD valid -> 401. This pins HEAD bogus -> 404. A regression where
+  // the param middleware special-cases GET (e.g. checks req.method
+  // before running ensurePropertyId) and lets HEAD fall through would
+  // either 401 here (leaking that the id format is "valid-shaped") or
+  // 200 with empty body (leaking existence). Both are bad.
+  await runTest('HEAD /api/properties/<bogus>/report.pdf returns 404 (not 401)', async () => {
+    const res = await fetch(`${API_BASE}/api/properties/totally-bogus-id-zzz/report.pdf`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(15_000),
+    })
+    assert(res.status === 404, `expected 404, got ${res.status}`)
   })
 
   // 1d. Unauthenticated 401 probes
@@ -457,6 +790,22 @@ async function run(): Promise<void> {
       assert(typeof prop.state === 'string', 'property.state should be a string')
     })
 
+    // Cache-Control on property detail (added 2026-05-07).
+    // setCacheHeaders(res, 1800, 300) -> public, s-maxage=1800, swr=300.
+    await runTest(`GET /api/properties/${firstPropertyId} sets Cache-Control s-maxage=1800`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /s-maxage=1800\b/.test(cacheControl),
+        `expected s-maxage=1800 in Cache-Control on property detail, got "${cacheControl}"`,
+      )
+      assert(
+        /\bpublic\b/.test(cacheControl),
+        `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+      )
+    })
+
     await runTest(`GET /api/properties/${firstPropertyId}/risk returns risk profile`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/risk`)
       assert(status === 200, `expected 200, got ${status}`)
@@ -468,6 +817,23 @@ async function run(): Promise<void> {
       assert(typeof risk.wind === 'object', 'wind should be an object')
       assert(typeof risk.earthquake === 'object', 'earthquake should be an object')
       assert(typeof risk.crime === 'object', 'crime should be an object')
+    })
+
+    // Cache-Control on risk profile (added 2026-05-07).
+    // setCacheHeaders(res, 7200, 600) -> public, s-maxage=7200, swr=600.
+    // Note: forceRefresh=true would emit no-cache; we do not pass refresh=true.
+    await runTest(`GET /api/properties/${firstPropertyId}/risk sets Cache-Control s-maxage=7200`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/risk`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /s-maxage=7200\b/.test(cacheControl),
+        `expected s-maxage=7200 in Cache-Control on risk profile, got "${cacheControl}"`,
+      )
+      assert(
+        /\bpublic\b/.test(cacheControl),
+        `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+      )
     })
 
     await runTest(`GET /api/properties/${firstPropertyId}/insurance returns estimate`, async () => {
@@ -523,6 +889,111 @@ async function run(): Promise<void> {
       if (status === 200) {
         assert(body.success === true, 'body.success should be true on 200')
       }
+    })
+
+    // Cache-Control on walkscore (added 2026-05-08).
+    // setCacheHeaders(res, 86400, 3600) -> public, s-maxage=86400, swr=3600.
+    // 24h CDN cache (scores change rarely; upstream is rate-limited).
+    // forceRefresh=true would emit no-cache; we do not pass refresh=true.
+    // Skip header assertion on 503 (the no-cache fallback); only pin the
+    // happy-path 200 branch.
+    await runTest(`GET /api/properties/${firstPropertyId}/walkscore sets Cache-Control s-maxage=86400`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/walkscore`)
+      assert(status === 200 || status === 503, `expected 200 or 503, got ${status}`)
+      if (status === 200) {
+        const cacheControl = headers.get('cache-control') ?? ''
+        assert(
+          /s-maxage=86400\b/.test(cacheControl),
+          `expected s-maxage=86400 in Cache-Control on walkscore, got "${cacheControl}"`,
+        )
+        assert(
+          /\bpublic\b/.test(cacheControl),
+          `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+        )
+      }
+    })
+
+    // Cache-Control on insurance (added 2026-05-08).
+    // setCacheHeaders(res, 7200, 600) -> public, s-maxage=7200, swr=600.
+    // 2h CDN cache on the premium estimate (CPU-intensive recompute).
+    await runTest(`GET /api/properties/${firstPropertyId}/insurance sets Cache-Control s-maxage=7200`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/insurance`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /s-maxage=7200\b/.test(cacheControl),
+        `expected s-maxage=7200 in Cache-Control on insurance, got "${cacheControl}"`,
+      )
+      assert(
+        /\bpublic\b/.test(cacheControl),
+        `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+      )
+    })
+
+    // Cache-Control on insurability (added 2026-05-08).
+    // setCacheHeaders(res, 7200, 600) -> public, s-maxage=7200, swr=600.
+    // 2h CDN cache parity with /risk and /insurance.
+    await runTest(`GET /api/properties/${firstPropertyId}/insurability sets Cache-Control s-maxage=7200`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/insurability`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /s-maxage=7200\b/.test(cacheControl),
+        `expected s-maxage=7200 in Cache-Control on insurability, got "${cacheControl}"`,
+      )
+      assert(
+        /\bpublic\b/.test(cacheControl),
+        `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+      )
+    })
+
+    // Cache-Control on carriers (added 2026-05-08).
+    // setCacheHeaders(res, 3600, 300) -> public, s-maxage=3600, swr=300.
+    // 1h CDN cache (shorter than insurance/risk because of the carrier-
+    // exit alert SLA from VA-01: UI must not show a carrier that exited
+    // more than 1 hour ago). Pinning the 3600 value specifically (not
+    // just s-maxage>0) catches a regression that bumps to 7200 to match
+    // insurance.
+    await runTest(`GET /api/properties/${firstPropertyId}/carriers sets Cache-Control s-maxage=3600`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/carriers`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /s-maxage=3600\b/.test(cacheControl),
+        `expected s-maxage=3600 (NOT 7200) in Cache-Control on carriers, got "${cacheControl}"`,
+      )
+      assert(
+        /\bpublic\b/.test(cacheControl),
+        `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+      )
+    })
+
+    // refresh=true no-cache branch on /:id/risk (added 2026-05-08).
+    // forceRefresh=true -> setNoCacheHeaders(res) emits private, no-cache,
+    // no-store, must-revalidate. Pins the refresh code path that
+    // yesterday-s probe did not cover. The refresh branch ALSO
+    // invalidates four dependent caches (insurance, carriers,
+    // insurability, publicData); a regression that drops
+    // setNoCacheHeaders would let the CDN serve a 7200s stale response
+    // after the caller explicitly asked for a fresh read.
+    await runTest(`GET /api/properties/${firstPropertyId}/risk?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/risk?refresh=true`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' in Cache-Control on risk?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' directive in Cache-Control on risk?refresh=true, got "${cacheControl}"`,
+      )
+      // And specifically NOT the 7200 default — a regression that flips
+      // the if/else would silently emit s-maxage=7200 here.
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on risk?refresh=true, got "${cacheControl}"`,
+      )
     })
 
     await runTest(`GET /api/properties/${firstPropertyId}/public-data returns data`, async () => {
