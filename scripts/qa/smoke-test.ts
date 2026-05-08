@@ -504,6 +504,33 @@ async function run(): Promise<void> {
     assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
   })
 
+
+  // 0g. CORS preflight on a fourth mounted surface (added 2026-05-09 followup).
+  // Today the run extends the preflight pins to /api/stripe/subscription —
+  // a different router file (stripe.ts) than the prior three pins
+  // (properties.ts, auth.ts, clients.ts). Per-router pin matrix is now
+  // 4-of-9 routers covered. /api/stripe is a sensitive billing surface;
+  // a CSRF-via-CORS regression here would let attacker pages trigger
+  // Stripe checkout sessions on the user behalf.
+  await runTest('OPTIONS /api/stripe/subscription from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/stripe/subscription`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/stripe/subscription, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
   // 1. Search is authenticated
   const firstPropertyId: string | undefined =
     process.argv.indexOf('--property-id') !== -1
@@ -996,10 +1023,84 @@ async function run(): Promise<void> {
       )
     })
 
+    // refresh=true no-cache branches on /:id/insurance, /:id/carriers, /:id/walkscore
+    // (added 2026-05-09 followup). Each handler emits setNoCacheHeaders when
+    // ?refresh=true is passed. These complete the refresh-branch matrix
+    // started by the /:id/risk probe on 2026-05-08.
+    await runTest(`GET /api/properties/${firstPropertyId}/insurance?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/insurance?refresh=true`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' on insurance?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' on insurance?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on insurance?refresh=true, got "${cacheControl}"`,
+      )
+    })
+
+    await runTest(`GET /api/properties/${firstPropertyId}/carriers?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/carriers?refresh=true`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' on carriers?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' on carriers?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on carriers?refresh=true, got "${cacheControl}"`,
+      )
+    })
+
+    await runTest(`GET /api/properties/${firstPropertyId}/walkscore?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/walkscore?refresh=true`)
+      assert(status === 200 || status === 503, `expected 200 or 503, got ${status}`)
+      if (status === 200) {
+        const cacheControl = headers.get('cache-control') ?? ''
+        assert(
+          /\bno-store\b/.test(cacheControl),
+          `expected 'no-store' on walkscore?refresh=true, got "${cacheControl}"`,
+        )
+        assert(
+          /\bprivate\b/.test(cacheControl),
+          `expected 'private' on walkscore?refresh=true, got "${cacheControl}"`,
+        )
+      }
+    })
+
     await runTest(`GET /api/properties/${firstPropertyId}/public-data returns data`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/public-data`)
       assert(status === 200, `expected 200, got ${status}`)
       assert(body.success === true, 'body.success should be true')
+    })
+
+    // Cache-Control on public-data (added 2026-05-09 followup).
+    // setCacheHeaders(res, 86400, 3600) -> public, s-maxage=86400, swr=3600.
+    // 24h CDN cache (public data: tax records, listings, amenities — change rarely).
+    // forceRefresh=true would emit no-cache; we do not pass refresh=true.
+    await runTest(`GET /api/properties/${firstPropertyId}/public-data sets Cache-Control s-maxage=86400`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/public-data`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /s-maxage=86400\b/.test(cacheControl),
+        `expected s-maxage=86400 in Cache-Control on public-data, got "${cacheControl}"`,
+      )
+      assert(
+        /\bpublic\b/.test(cacheControl),
+        `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
+      )
     })
 
     await runTest(`GET /api/properties/${firstPropertyId}/report.pdf without token returns 401`, async () => {
