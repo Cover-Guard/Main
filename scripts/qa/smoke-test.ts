@@ -34,27 +34,27 @@
  * resolves the id first, so requireAuth fires before the handler).
  *
  * Updated 2026-05-08 (daily-smokeqa-testing):
- *   - File integrity: today's run started clean (897-line file from
+ *   - File integrity: today the run started clean (897-line file from
  *     2026-05-07 was preserved, no truncation, no duplicate-tail). The
  *     Edit-tool corruption that bit the file four times in 7 days
  *     (2026-05-01 morning, 2026-05-05 morning, 2026-05-06, 2026-05-07)
  *     did NOT recur this run. The widened file-integrity guard from
  *     2026-05-07 (exactly one top-level `^run().catch(`, no orphan
  *     `verage` line, line count >= 720) carries forward unchanged.
- *   - Added always-on probe covering yesterday's "tomorrow-targets":
+ *   - Added always-on probe covering "tomorrow-targets" from yesterday:
  *       (a) OPTIONS /api/clients from allowed origin -> 204 AND
  *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
  *           Third mounted surface beyond /api/properties/search
  *           (added 2026-05-06) and /api/auth/me (added 2026-05-07),
  *           building toward a per-router cors-override regression matrix.
- *           /api/clients was picked because (1) it's an authed
+ *           /api/clients was picked because (1) the route is authed
  *           agent-only surface where a CSRF-via-CORS regression would
- *           leak client PII and (2) it's a different router file
+ *           leak client PII and (2) the file is a different router file
  *           (clients.ts) than the prior two pins (properties.ts and
  *           auth.ts), so a per-router cors override on the clients
  *           router would be invisible to the existing two probes.
  *   - Added property-id-bound Cache-Control probes (the three remaining
- *     cached endpoints from yesterday's tomorrow-targets):
+ *     cached endpoints from the set of yesterday tomorrow-targets):
  *       (b) GET /api/properties/:id/walkscore -> Cache-Control includes
  *           s-maxage=86400. 24-hour CDN cache (walk/transit/bike scores
  *           change rarely; the upstream is rate-limited so the cache
@@ -74,7 +74,7 @@
  *           that bumps it to 7200 to match insurance.**
  *       (e) GET /api/properties/:id/risk?refresh=true -> Cache-Control
  *           includes 'no-store' AND 'private' (the setNoCacheHeaders
- *           branch). Pins the forceRefresh code path that yesterday's
+ *           branch). Pins the forceRefresh code path that yesterday-s
  *           probe did not cover. The refresh branch invalidates four
  *           dependent caches (insurance, carriers, insurability,
  *           publicData); a regression that drops setNoCacheHeaders
@@ -89,19 +89,19 @@
  *
  * Updated 2026-05-07 (daily-smokeqa-testing):
  *   - Bug fix: smoke-test.ts had a duplicate tail glued onto the file
- *     (lines 731 onward started with the orphan fragment "verage type
- *     expected')" — the leftover of "at least one coverage type expected"
+ *     (lines 731 onward started with the orphan fragment "verage type"
+ *     expected) — the leftover of "at least one coverage type expected"
  *     — followed by a stale duplicate of the property-id-bound block and a
  *     second copy of the result-printing tail). The TypeScript parser
  *     would refuse to read the file. **Fourth occurrence in 7 days**
  *     (2026-05-01 morning, 2026-05-05 morning, 2026-05-06, 2026-05-07).
- *     Today's fix used a single Write of the full file instead of the
+ *     Today the fix used a single Write of the full file instead of the
  *     Edit tool, which avoids the ~30 KB sequential-Edit truncation that
  *     has been the recurring root cause. The file-integrity guard in
  *     daily-review-2026-05-07.test.ts is widened to also detect the
  *     "duplicate tail" symptom (substring 'verage type expected' must
  *     not appear, only one `run().catch(` invocation should exist).
- *   - Added always-on probes covering yesterday's "tomorrow-targets":
+ *   - Added always-on probes covering "tomorrow-targets" from yesterday:
  *       (a) GET /api/properties/suggest -> Cache-Control includes
  *           s-maxage=300. Pins the CDN cache directive on the suggest
  *           endpoint. A regression that drops setCacheHeaders() from the
@@ -114,7 +114,7 @@
  *           negotiate retry timing from these headers.
  *       (c) OPTIONS /api/auth/me from allowed origin -> 204 AND
  *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
- *           Today's probes pin a second mounted surface beyond
+ *           Today the probes pin a second mounted surface beyond
  *           /api/properties/search (added 2026-05-06). The cors()
  *           middleware is mounted globally, but pinning a second mount
  *           protects against a future per-router cors override that
@@ -125,7 +125,7 @@
  *       (e) GET /api/properties/:id/risk -> Cache-Control includes
  *           s-maxage=7200. 2-hour CDN cache on the risk profile.
  *           The forceRefresh=true branch returns no-cache instead;
- *           today's probe pins the default (cached) branch.
+ *           today the probe pins the default (cached) branch.
  *
  * Updated 2026-05-06 (daily-smokeqa-testing):
  *   - Added always-on CORS preflight contract probes:
@@ -145,16 +145,16 @@
  *       (c) POST /api/properties/geocode with placeId longer than 300
  *           chars -> 400. Pins the upper bound. The empty-body 400 case
  *           was added 2026-05-01 morning, but a length-cap regression
- *           wouldn't have been caught.
+ *           would not have been caught.
  *       (d) POST /api/properties/geocode with placeId="" (empty string)
  *           -> 400. Pins the lower bound. Different code path from the
- *           empty-body case (zod's .min(1) check vs the "no field" branch
+ *           empty-body case (zod has a .min(1) check vs the "no field" branch
  *           in zod). Catches a regression that drops .min(1).
  *   - Added property-id-bound HEAD probe completing the GET/HEAD x
  *       valid/bogus matrix on /report.pdf:
  *       (e) HEAD /api/properties/<bogus>/report.pdf -> 404 (NOT 401).
  *           The 2026-05-04 run pinned this for GET; the 2026-05-05 run
- *           pinned HEAD on a valid id (-> 401). Today's probe pins HEAD
+ *           pinned HEAD on a valid id (-> 401). Today the probe pins HEAD
  *           on a bogus id (-> 404), closing the matrix. Catches a
  *           regression where the param middleware special-cases GET and
  *           lets HEAD bypass the resolution check, leaking existence info.
@@ -162,7 +162,7 @@
  * Updated 2026-05-05 (daily-smokeqa-testing):
  *   - Bug fix: smoke-test.ts was truncated mid-statement on disk (same
  *     regression class as the 2026-05-01 morning run). The file would not
- *     parse, so today's run started by restoring the full body. A jest
+ *     parse, so today the run started by restoring the full body. A jest
  *     guard (`smoke-test-line-count.test.ts`) was added to fail loudly on a
  *     future >50% truncation by line count.
  *   - Added new always-on probes:
@@ -174,7 +174,7 @@
  *           registers a debug handler at the same path would silently 200.
  *       (c) POST /api/properties/search (wrong verb) -> 404 -- search is
  *           GET-only; pin the catch-all on the wrong-verb branch.
- *       (d) HEAD /health -> 200 -- pins that helmet/compression/morgan don't
+ *       (d) HEAD /health -> 200 -- pins that helmet/compression/morgan do not
  *           accidentally drop HEAD support (which monitoring services use).
  *   - Added property-id-bound probe:
  *       (e) HEAD /api/properties/:id/report.pdf -> 401 -- pins that the
@@ -184,7 +184,7 @@
  *
  * Updated 2026-05-04 (daily-smokeqa-testing):
  *   - Added the unauthenticated full-report contract probes -- the only
- *     /:id/* unauthenticated GET that wasn't covered:
+ *     /:id/* unauthenticated GET that was not covered:
  *       (a) GET /api/properties/<bogus>/report -> 404
  *       (b) GET /api/properties/<bogus>/report.pdf -> 404 (NOT 401)
  *       (c) GET /api/properties/:id/report -> 200 (with --property-id)
@@ -449,7 +449,7 @@ async function run(): Promise<void> {
   })
 
   // 0e. CORS preflight on a second mounted surface (added 2026-05-07).
-  // Today's run extends the preflight pins beyond /api/properties/search to
+  // Today the run extends the preflight pins beyond /api/properties/search to
   // /api/auth/me. The cors() middleware is mounted globally before any
   // routers, so behavior is currently identical across all surfaces. This
   // probe protects against a future per-router cors override (e.g. a
@@ -475,7 +475,7 @@ async function run(): Promise<void> {
   })
 
   // 0f. CORS preflight on a third mounted surface (added 2026-05-08).
-  // Today's run extends the preflight pins to /api/clients — different
+  // Today the run extends the preflight pins to /api/clients — different
   // router file (clients.ts) than the prior two pins (properties.ts +
   // auth.ts), so a per-router cors override on the clients router would
   // be invisible to the existing two probes. /api/clients is an authed
@@ -589,7 +589,7 @@ async function run(): Promise<void> {
   // 1b2. Geocode boundary cases (added 2026-05-06).
   // Schema is z.string().min(1).max(300). Pin both bounds: an empty
   // placeId fails .min(1), a 301-char placeId fails .max(300). Different
-  // code paths from the empty-body case above, where zod's "field absent"
+  // code paths from the empty-body case above, where zod has a "field absent"
   // branch fires before string-length validation.
   await runTest('POST /api/properties/geocode with empty placeId returns 400', async () => {
     const { status, body } = await apiSend('/api/properties/geocode', 'POST', { placeId: '' })
@@ -821,7 +821,7 @@ async function run(): Promise<void> {
 
     // Cache-Control on risk profile (added 2026-05-07).
     // setCacheHeaders(res, 7200, 600) -> public, s-maxage=7200, swr=600.
-    // Note: forceRefresh=true would emit no-cache; we don't pass refresh=true.
+    // Note: forceRefresh=true would emit no-cache; we do not pass refresh=true.
     await runTest(`GET /api/properties/${firstPropertyId}/risk sets Cache-Control s-maxage=7200`, async () => {
       const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/risk`)
       assert(status === 200, `expected 200, got ${status}`)
@@ -894,7 +894,7 @@ async function run(): Promise<void> {
     // Cache-Control on walkscore (added 2026-05-08).
     // setCacheHeaders(res, 86400, 3600) -> public, s-maxage=86400, swr=3600.
     // 24h CDN cache (scores change rarely; upstream is rate-limited).
-    // forceRefresh=true would emit no-cache; we don't pass refresh=true.
+    // forceRefresh=true would emit no-cache; we do not pass refresh=true.
     // Skip header assertion on 503 (the no-cache fallback); only pin the
     // happy-path 200 branch.
     await runTest(`GET /api/properties/${firstPropertyId}/walkscore sets Cache-Control s-maxage=86400`, async () => {
@@ -969,9 +969,9 @@ async function run(): Promise<void> {
     })
 
     // refresh=true no-cache branch on /:id/risk (added 2026-05-08).
-    // forceRefresh=true -> setNoCacheHeaders(res) -> 'private, no-cache,
-    // no-store, must-revalidate'. Pins the refresh code path that
-    // yesterday's probe did not cover. The refresh branch ALSO
+    // forceRefresh=true -> setNoCacheHeaders(res) emits private, no-cache,
+    // no-store, must-revalidate. Pins the refresh code path that
+    // yesterday-s probe did not cover. The refresh branch ALSO
     // invalidates four dependent caches (insurance, carriers,
     // insurability, publicData); a regression that drops
     // setNoCacheHeaders would let the CDN serve a 7200s stale response
