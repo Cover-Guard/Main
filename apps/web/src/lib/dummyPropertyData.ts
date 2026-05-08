@@ -7,6 +7,10 @@ import type {
   PropertyPublicData,
 } from '@coverguard/shared'
 
+// Google Static Maps API key — same convention as the rest of the app
+// (see PropertyCard.tsx, GoogleMapsProvider.tsx, NewCheckPage.tsx).
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
+
 const DUMMY_ID = 'demo-sample-property'
 
 export const dummyProperty: Property = {
@@ -120,6 +124,68 @@ export const dummyRiskProfile: PropertyRiskProfile = {
     violentCrimeIndex: 32,
     propertyCrimeIndex: 44,
     nationalAverageDiff: -12,
+  },
+  heat: {
+    level: 'MODERATE',
+    score: 32,
+    trend: 'WORSENING',
+    description: 'Moderate heat risk with projected increase in extreme heat days due to climate change in central Illinois.',
+    details: [
+      'Average of 5–7 days per year exceeding 100°F',
+      'Projected to increase to 12–15 days by 2050 (RCP 4.5)',
+      'Urban heat island effect: 1.5–2°F above rural areas',
+      'Cooling infrastructure adequate but aging in some areas',
+    ],
+    dataSource: 'NOAA Climate Data / IPCC Projections',
+    lastUpdated: '2024-12-01T00:00:00Z',
+    extremeHeatDays: 6,
+    projectedHeatDays2050: 14,
+    urbanHeatIslandEffect: 1.8,
+    coolingInfrastructureDeficit: false,
+  },
+  drought: {
+    level: 'LOW',
+    score: 35,
+    trend: 'STABLE',
+    description: 'Low-to-moderate drought risk with stable conditions. Illinois has reliable precipitation and minimal drought severity historically.',
+    details: [
+      'Palmer Drought Severity Index: −0.5 (near normal)',
+      'Current drought monitor category: None (D0 or better)',
+      'Projected precipitation change by 2050: +2% to +4% (slightly wetter)',
+      'Subsidence risk from soil shrink/swell: Minimal',
+    ],
+    dataSource: 'USDA Palmer Drought Severity Index / NOAA Climate Projections',
+    lastUpdated: '2024-12-01T00:00:00Z',
+    palmerDroughtIndex: -0.5,
+    droughtMonitorCategory: 'NONE',
+    projectedPrecipitationChange2050: 3,
+    subsidenceRisk: 'LOW',
+  },
+  complianceScore: 78,
+  stateContext: {
+    stateCode: 'IL',
+    stateName: 'Illinois',
+    knownRisks: ['New Madrid Seismic Zone proximity', 'Tornado Alley location', 'Seasonal temperature extremes'],
+    carrierCountTrend: 'STABLE',
+    residualMarketUsage: 'LOW',
+    compliance: {
+      buildingCodeLevel: 'CURRENT',
+      buildingCodeEnforcement: 4,
+      rateRegulation: 'PRIOR_APPROVAL',
+      mandatoryFloodZones: true,
+      mandatoryWindstorm: false,
+      earthquakeDisclosureRequired: false,
+      naturalHazardDisclosure: true,
+      sinkholeDisclosure: false,
+      residualMarketPrograms: [],
+    },
+    scoreModifiers: {
+      flood: 0,
+      fire: 0,
+      wind: 2,
+      earthquake: 3,
+      compliance: 1,
+    },
   },
   generatedAt: '2024-12-01T00:00:00Z',
   cacheTtlSeconds: 7200,
@@ -274,7 +340,19 @@ export const dummyCarriers: CarriersResult = {
 
 export const dummyPublicData: PropertyPublicData = {
   propertyId: DUMMY_ID,
-  images: [],
+  // Satellite image is built from Google Static Maps using the same env var the
+  // rest of the app uses. Falls back to [] when the key is unset (PropertyImages
+  // already renders a sensible empty state in that case).
+  images: GOOGLE_MAPS_KEY
+    ? [
+        {
+          url: `https://maps.googleapis.com/maps/api/staticmap?center=${dummyProperty.lat},${dummyProperty.lng}&zoom=18&size=800x600&maptype=satellite&key=${GOOGLE_MAPS_KEY}`,
+          source: 'Google Static Maps',
+          caption: `Satellite view of ${dummyProperty.address}, ${dummyProperty.city}, ${dummyProperty.state}`,
+          type: 'satellite',
+        },
+      ]
+    : [],
   taxRecords: {
     assessedValue: 310000,
     taxAmount: 6820,

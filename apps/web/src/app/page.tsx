@@ -5,6 +5,7 @@ import {
   Hero,
   ProductOfferings,
   HowItWorks,
+  WhyCoverGuard,
   InvestorsSection,
   CTABanner,
   MarketingFooter,
@@ -12,9 +13,9 @@ import {
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'CoverGuard — Check Property Insurability Before the Offer',
+  title: 'CoverGuard — Know Whether You Can Insure It Before You Bid',
   description:
-    'Real-time flood, fire, earthquake, wind & crime risk for any US property. See which carriers are still writing — in 90 seconds. Built for agents, brokers & lenders.',
+    'The only national platform that combines carrier-grade risk data, live carrier-writing status, and binding-quote requests for any U.S. property. All 50 states. Day one. Built for home buyers, agents, brokers, and lenders.',
 }
 
 export default async function HomePage() {
@@ -36,6 +37,7 @@ export default async function HomePage() {
         <Hero />
         <ProductOfferings />
         <HowItWorks />
+        <WhyCoverGuard />
         <InvestorsSection />
         <CTABanner />
       </main>

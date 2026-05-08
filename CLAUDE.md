@@ -192,7 +192,21 @@ POST /api/clients                           Add client [auth]
 PATCH /api/clients/:id                      Update client [auth]
 DEL  /api/clients/:id                       Delete client [auth]
 
-GET  /api/analytics                         Analytics summary [auth]
+GET  /api/dashboard/ticker                  Dashboard activity ticker [auth]
+GET  /api/deals                             List deals [auth]
+GET  /api/deals/stats                       Pipeline + fallout stats [auth]
+POST /api/deals                             Create deal [auth]
+PATCH /api/deals/:id                         Update deal (require falloutReason on FELL_OUT) [auth]
+DEL  /api/deals/:id                          Delete deal [auth]
+
+GET  /api/alerts/carrier-exits               Carrier-exit alerts (VA-01) [auth]
+POST /api/alerts/carrier-exits/:id/acknowledge  Acknowledge an alert [auth]
+
+POST /api/advisor/chat                      AI Advisor chat — free-tier gated [auth]
+
+GET  /api/push/vapid                        Web push public key (200 or 503)
+POST /api/push/subscribe                    Register browser push subscription [auth]
+POST /api/notifications/dispatch             Fan-out email + web push for a DM [auth]
 
 GET  /api/stripe/subscription                Subscription status [auth]
 POST /api/stripe/checkout                    Create Stripe checkout session [auth]
@@ -296,7 +310,7 @@ npm run db:studio      # Prisma Studio GUI
 4. **Supabase admin is server-only.** Never import `supabaseAdmin` from frontend code.
 5. **Check your branch.** Work on the designated `claude/` branch.
 6. **No secrets.** Never commit `.env` files or API keys.
-7. **DB migrations via Supabase.** Schema changes go in `supabase/migrations/*.sql`. After applying, run `db:pull` then `db:generate` to sync Prisma.
+7. **DB migrations via Supabase only.** Schema changes go in `supabase/migrations/*.sql`. After applying, run `db:pull` then `db:generate` to sync Prisma. **Do not recreate `apps/api/prisma/migrations/`** — that legacy directory was retired (see `docs/audits/2026-05-migration-reconciliation.md` and PR-A1.c). Prisma is the ORM client only; it does not own schema migrations.
 8. **Two portals.** Agent flows use `/agents/*`; consumer flows use `/(auth)/*`.
 9. **Onboarding required.** New users must accept terms at `/onboarding` before accessing the app.
 10. **Keep this file updated.** After adding routes, models, or patterns, update the relevant section.

@@ -29,14 +29,16 @@ export function Hero() {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 leading-[1.1]">
-            We score the property risk.
-            <span className="block text-brand-600">Then we tell you who&apos;s still writing it.</span>
+            Know whether you can insure it —
+            <span className="block text-brand-600">before you bid.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Flood, fire, wind, earthquake, and crime — scored from federal data. Carrier appetite — mapped to the ZIP.
-            Cost-to-insure — quoted in the report. All in 90 seconds, before the deal closes.
+            The only national platform that combines carrier-grade risk data, live carrier-writing status,
+            and binding-quote requests for any U.S. property. Flood, fire, wind, earthquake, and crime —
+            scored from 12+ public data sources, with a 1&ndash;10 insurability score on every property.
+            All 50 states. Every transaction. Day one.
           </p>
 
           {/* Audience badges */}
@@ -74,7 +76,7 @@ export function Hero() {
 
           {/* Trust indicators */}
           <p className="mt-8 text-sm text-gray-500">
-            Trusted by 500+ real estate professionals across 38 states — agents, brokers, lenders & insurers
+            Available in all 50 states · 500+ professionals · agents, brokers, lenders &amp; insurers
           </p>
         </div>
 
@@ -84,8 +86,8 @@ export function Hero() {
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mx-auto mb-3">
               <CoverGuardShield className="h-6 w-6" />
             </div>
-            <div className="text-3xl font-bold text-gray-900">8+</div>
-            <div className="text-sm text-gray-500 mt-1">Federal Data Sources</div>
+            <div className="text-3xl font-bold text-gray-900">12+</div>
+            <div className="text-sm text-gray-500 mt-1">Public Data Sources</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-50 mx-auto mb-3">

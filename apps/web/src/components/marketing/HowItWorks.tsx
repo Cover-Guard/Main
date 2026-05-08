@@ -11,9 +11,9 @@ const steps = [
   {
     icon: BarChart3,
     step: '02',
-    title: 'Get a 90-Second Risk Report',
+    title: 'Get a 90-Second Multi-Peril Report',
     description:
-      'CoverGuard pulls from FEMA flood maps, USGS seismic data, NOAA wind and hurricane risk, Cal Fire severity zones, and FBI crime stats — all in one multi-peril report in under 90 seconds.',
+      'CoverGuard pulls from FEMA, USGS, NOAA, Cal Fire, USFS, FBI, ASCE 7, and the Esri Living Atlas — 12+ public sources, sourced and auditable, in one multi-peril report in under 90 seconds.',
   },
   {
     icon: Building2,
