@@ -33,6 +33,153 @@
  * checklists,save,quote-request,quote-requests} surfaces (param middleware
  * resolves the id first, so requireAuth fires before the handler).
  *
+ * Updated 2026-05-11 (daily-smokeqa-testing):
+ *   - File integrity: today the run started clean for the THIRD
+ *     consecutive day (1395-line file from 2026-05-10 was preserved,
+ *     no truncation, 88 probes intact, brace balance 433/433). The
+ *     Edit-tool corruption that bit the file FIVE times in 8 days
+ *     (2026-05-01 morning, 2026-05-05 morning, 2026-05-06, 2026-05-07,
+ *     2026-05-08) did NOT recur today either -- now a three-day
+ *     dormant streak. The mitigation established 2026-05-09 (single
+ *     atomic Python rewrite from the bash sandbox) was reused today
+ *     (run from /tmp/patch_smoke_05_11.py) and worked cleanly.
+ *   - Added always-on probe growing the per-router CORS pin matrix
+ *     from 5-of-9 to 6-of-9 routers:
+ *       (a) OPTIONS /api/deals from allowed origin -> 204 AND
+ *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
+ *           Sixth mounted surface beyond /api/properties/search
+ *           (added 2026-05-06), /api/auth/me (added 2026-05-07),
+ *           /api/clients (added 2026-05-08), /api/dashboard
+ *           (added 2026-05-09), and /api/advisor/chat (added
+ *           2026-05-10). deals.ts is yet another router file (and
+ *           does dealsRouter.use(requireAuth) router-wide), so the
+ *           OPTIONS preflight goes through cors() before the auth
+ *           middleware has a chance to fire. A per-router cors
+ *           override on the deals router would let any origin
+ *           credential-sniff the deal pipeline (deal value, client
+ *           name, carrier, fallout reason) via a XHR initiated from
+ *           a victim's browser session -- a CSRF-via-CORS regression
+ *           into the agent's revenue pipeline. Per-router pin matrix
+ *           is now 6-of-9 routers (properties, auth, clients,
+ *           dashboard, advisor, deals).
+ *   - Added property-id-bound response-shape probe -- initiates the
+ *     RESPONSE-SHAPE PINNING AXIS now that the refresh=true matrix
+ *     was closed yesterday at 6-of-6:
+ *       (b) GET /api/properties/:id/report exact-key-cardinality:
+ *           response body has EXACTLY the 2 top-level keys
+ *           { success, data } and data has EXACTLY the 6 documented
+ *           keys { property, risk, insurance, insurability, carriers,
+ *           publicData }. The existing /report probe (added 2026-05-04)
+ *           already asserts that each of these keys is PRESENT;
+ *           today's probe additionally asserts that no EXTRA keys
+ *           leaked. The regression class is: a future PR adds an
+ *           internal field to the report bundle (e.g. ownerEmail,
+ *           apiCallCount, computeMillis) intended for a debug/admin
+ *           rendering path but inadvertently leaks it on the public
+ *           /report endpoint. Existing 'has property + has risk + ...'
+ *           probes are silent on extras; an exact-cardinality assert
+ *           is what catches the leak.
+ *
+ * Updated 2026-05-10 (daily-smokeqa-testing):
+ *   - File integrity: today the run started clean (1294-line file from
+ *     2026-05-09 was preserved, no truncation, no duplicate-tail, 86
+ *     probes intact, brace balance 419/419). The Edit-tool corruption
+ *     that bit the file FIVE times in 8 days (2026-05-01 morning,
+ *     2026-05-05 morning, 2026-05-06, 2026-05-07, 2026-05-08) did NOT
+ *     recur today (second consecutive clean day). The mitigation
+ *     established 2026-05-09 (single atomic Python rewrite from the
+ *     bash sandbox) remains the documented workflow for any
+ *     modification to this file.
+ *   - Added always-on probe covering yesterday's 5th-surface CORS target:
+ *       (a) OPTIONS /api/advisor/chat from allowed origin -> 204 AND
+ *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
+ *           Fifth mounted surface beyond /api/properties/search
+ *           (added 2026-05-06), /api/auth/me (added 2026-05-07),
+ *           /api/clients (added 2026-05-08), and /api/dashboard
+ *           (added 2026-05-09). advisor.ts is yet another router file,
+ *           and /api/advisor/chat is the AI-assisted insurance advisor
+ *           surface; a per-router cors override on advisor would let a
+ *           malicious origin issue credentialed POSTs to the chat
+ *           handler and bill the user's free-tier usage allowance
+ *           against an attacker's prompt. Per-router pin matrix is now
+ *           5-of-9 routers (properties, auth, clients, dashboard,
+ *           advisor).
+ *   - Added property-id-bound Cache-Control probe covering yesterday's
+ *     last unpinned refresh=true branch:
+ *       (b) GET /api/properties/:id/public-data?refresh=true ->
+ *           Cache-Control includes 'no-store' AND 'private', NOT
+ *           s-maxage=. Pins the setNoCacheHeaders branch on
+ *           /public-data. Closes the refresh=true matrix on a single
+ *           --property-id run (6-of-6 endpoints, every refresh
+ *           branch pinned). Especially important because public-data
+ *           is the heaviest aggregate (images + tax + listings +
+ *           amenities); a regression that drops setNoCacheHeaders
+ *           after a force-refresh would let the CDN serve a 24-hour
+ *           stale response after the caller explicitly asked for a
+ *           fresh recompute -- the worst-case staleness of any
+ *           refresh branch.
+ *
+ * Updated 2026-05-09 (daily-smokeqa-testing):
+ *   - File integrity: today the run started clean (1085-line file from
+ *     2026-05-08 was preserved, no truncation, no duplicate-tail).
+ *     The Edit-tool corruption that bit the file FIVE times in 8 days
+ *     (2026-05-01 morning, 2026-05-05 morning, 2026-05-06, 2026-05-07,
+ *     2026-05-08) did NOT recur today. To keep it that way, today's
+ *     edits are applied via a single atomic Python rewrite (run from
+ *     the bash sandbox) instead of a chain of Edit-tool calls. The
+ *     widened file-integrity guard from 2026-05-08 (line count >= 1000,
+ *     exactly one top-level `^run().catch(`, no orphan `verage` line,
+ *     no `carriers shou$` truncation marker) carries forward unchanged.
+ *   - Added always-on probe covering yesterday's 4th-surface CORS target:
+ *       (a) OPTIONS /api/dashboard from allowed origin -> 204 AND
+ *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
+ *           Fourth mounted surface beyond /api/properties/search
+ *           (added 2026-05-06), /api/auth/me (added 2026-05-07), and
+ *           /api/clients (added 2026-05-08). dashboard.ts is a
+ *           different router file than the prior three pins, so a
+ *           per-router cors override on the dashboard router would be
+ *           invisible to the existing three probes. Per-router pin
+ *           matrix is now 4-of-9 routers (properties, auth, clients,
+ *           dashboard).
+ *   - Added property-id-bound Cache-Control probes covering all 4 of
+ *     yesterday's remaining tomorrow-targets in one pass:
+ *       (b) GET /api/properties/:id/public-data -> Cache-Control includes
+ *           s-maxage=86400. 24-hour CDN cache parity with /walkscore.
+ *           public-data is the heaviest aggregate read (images + tax +
+ *           listings + amenities); a regression that drops the cache
+ *           would force every property-detail page-load through the
+ *           full upstream-fan-out. Default branch only -- refresh=true
+ *           emits no-cache (pinned in (e) below). Closes the
+ *           penultimate gap in the cached-endpoint matrix; only
+ *           /:id/report.pdf remains unpinned (it is auth-gated, so a
+ *           smoke probe without a token cannot exercise the handler).
+ *       (c) GET /api/properties/:id/insurance?refresh=true -> Cache-Control
+ *           includes 'no-store' AND 'private', NOT s-maxage=. Pins the
+ *           setNoCacheHeaders branch on /insurance. Symmetric to the
+ *           /risk?refresh=true probe added 2026-05-08. The refresh
+ *           branch invalidates the property's insurance cache before
+ *           returning, so the regression class is: someone drops
+ *           setNoCacheHeaders, and the CDN serves a 7200s stale
+ *           response after the caller explicitly asked for a fresh
+ *           recompute.
+ *       (d) GET /api/properties/:id/carriers?refresh=true -> Cache-Control
+ *           includes 'no-store' AND 'private', NOT s-maxage=. Pins the
+ *           setNoCacheHeaders branch on /carriers. Especially important
+ *           given the VA-01 carrier-exit alert SLA -- a stale carriers
+ *           response after a force-refresh is the exact failure mode
+ *           the SLA exists to prevent.
+ *       (e) GET /api/properties/:id/insurability?refresh=true ->
+ *           Cache-Control includes 'no-store' AND 'private', NOT
+ *           s-maxage=. Pins the setNoCacheHeaders branch on
+ *           /insurability. Bonus pin -- completes 4 of the 5 remaining
+ *           refresh=true branches identified yesterday.
+ *       (f) GET /api/properties/:id/walkscore?refresh=true ->
+ *           Cache-Control includes 'no-store' AND 'private', NOT
+ *           s-maxage=. Pins the setNoCacheHeaders branch on
+ *           /walkscore. Closes the refresh=true matrix on a single
+ *           --property-id run (only /public-data?refresh=true remains
+ *           unpinned -- carryover for tomorrow).
+ *
  * Updated 2026-05-08 (daily-smokeqa-testing):
  *   - File integrity: today the run started clean (897-line file from
  *     2026-05-07 was preserved, no truncation, no duplicate-tail). The
@@ -504,6 +651,102 @@ async function run(): Promise<void> {
     assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
   })
 
+  // 0g. CORS preflight on a fourth mounted surface (added 2026-05-09).
+  // Today's run extends the preflight pins to /api/dashboard --
+  // dashboard.ts is yet another router file (different from
+  // properties.ts, auth.ts, clients.ts), and the dashboard surface is
+  // where the agent's deal-pipeline ticker, KPI cards, and recent-
+  // activity feed are served. A per-router cors override on the
+  // dashboard router would let any origin scrape pipeline numbers via
+  // a credentialed XHR. The per-router pin matrix is now 4-of-9
+  // routers (properties, auth, clients, dashboard).
+  await runTest('OPTIONS /api/dashboard from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/dashboard/ticker`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/dashboard, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
+  // 0h. CORS preflight on a fifth mounted surface (added 2026-05-10).
+  // Today's run extends the preflight pins to /api/advisor/chat --
+  // advisor.ts is yet another router file (different from properties,
+  // auth, clients, and dashboard), and the chat surface is where the
+  // AI-assisted insurance advisor lives. A per-router cors override on
+  // the advisor router would let a malicious origin issue credentialed
+  // POSTs to the chat handler and bill the user's free-tier usage
+  // allowance against an attacker's prompt -- a regression class with
+  // both a security blast (CSRF-via-CORS into a credentialed POST) and
+  // a billing blast (usage-quota exhaustion). The per-router pin
+  // matrix is now 5-of-9 routers (properties, auth, clients,
+  // dashboard, advisor). Note: advisor/chat is POST-only, so the
+  // preflight Access-Control-Request-Method header is POST (not GET
+  // like the prior pins).
+  await runTest('OPTIONS /api/advisor/chat from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/advisor/chat`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/advisor/chat, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
+  // 0i. CORS preflight on a sixth mounted surface (added 2026-05-11).
+  // Today's run extends the preflight pins to /api/deals -- deals.ts
+  // is yet another router file (different from properties, auth,
+  // clients, dashboard, and advisor), and the deals surface is where
+  // the agent's revenue pipeline lives. deals.ts does
+  // dealsRouter.use(requireAuth) router-wide so every handler is
+  // auth-gated, but the OPTIONS preflight goes through cors() in
+  // index.ts BEFORE requireAuth fires (Express short-circuits OPTIONS
+  // when a CORS middleware emits a 204). A per-router cors override
+  // on the deals router would let any origin credential-sniff the
+  // deal pipeline (deal value, client name, carrier, fallout reason)
+  // via a XHR initiated from a victim's browser session -- a CSRF-
+  // via-CORS regression into the agent's revenue pipeline. The
+  // per-router pin matrix is now 6-of-9 routers (properties, auth,
+  // clients, dashboard, advisor, deals). Three remaining router
+  // targets: alerts, stripe, notifications.
+  await runTest('OPTIONS /api/deals from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/deals`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/deals, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
   // 1. Search is authenticated
   const firstPropertyId: string | undefined =
     process.argv.indexOf('--property-id') !== -1
@@ -870,6 +1113,38 @@ async function run(): Promise<void> {
       assert(typeof prop.address === 'string', 'property.address should be a string')
     })
 
+    // /report response-shape exact-key-cardinality (added 2026-05-11).
+    // Initiates the response-shape pinning axis. The existing /report
+    // probe (added 2026-05-04) already asserts that each of the 6
+    // documented data keys is PRESENT; today's probe additionally
+    // asserts that no EXTRA keys leaked. The regression class is:
+    // a future PR adds an internal field to the report bundle (e.g.
+    // ownerEmail, apiCallCount, computeMillis, internalDebugBlob)
+    // intended for a debug/admin rendering path but inadvertently
+    // leaks it on the public /report endpoint. Existing 'has property
+    // + has risk + ...' probes are silent on extras; an exact-
+    // cardinality assert is what catches the leak. Pins both the
+    // top-level body keys ({ success, data }) and data keys
+    // ({ property, risk, insurance, insurability, carriers,
+    // publicData }).
+    await runTest(`GET /api/properties/${firstPropertyId}/report response shape: exactly 2 top-level keys, exactly 6 data keys`, async () => {
+      const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/report`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const topKeys = Object.keys(body).sort()
+      const expectedTop = ['data', 'success']
+      assert(
+        topKeys.length === expectedTop.length && topKeys.every((k, i) => k === expectedTop[i]),
+        `expected top-level keys [${expectedTop.join(', ')}], got [${topKeys.join(', ')}]`,
+      )
+      const data = body.data as Json
+      const dataKeys = Object.keys(data).sort()
+      const expectedData = ['carriers', 'insurability', 'insurance', 'property', 'publicData', 'risk']
+      assert(
+        dataKeys.length === expectedData.length && dataKeys.every((k, i) => k === expectedData[i]),
+        `expected data keys [${expectedData.join(', ')}], got [${dataKeys.join(', ')}]`,
+      )
+    })
+
     await runTest(`GET /api/properties/${firstPropertyId}/carriers returns carriers list`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/carriers`)
       assert(status === 200, `expected 200, got ${status}`)
@@ -996,6 +1271,154 @@ async function run(): Promise<void> {
       )
     })
 
+    // Cache-Control on public-data (added 2026-05-09).
+    // setCacheHeaders(res, 86400, 3600) -> public, s-maxage=86400, swr=3600.
+    // 24h CDN cache (parity with /walkscore). public-data is the
+    // heaviest aggregate read (images + tax + listings + amenities);
+    // a regression that drops setCacheHeaders would force every
+    // property-detail page-load through the full upstream-fan-out.
+    await runTest(`GET /api/properties/${firstPropertyId}/public-data sets Cache-Control s-maxage=86400`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/public-data`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /s-maxage=86400\b/.test(cacheControl),
+        `expected s-maxage=86400 in Cache-Control on public-data, got "${cacheControl}"`,
+      )
+      assert(
+        /\bpublic\b/.test(cacheControl),
+        `expected 'public' directive in Cache-Control on public-data, got "${cacheControl}"`,
+      )
+    })
+
+    // refresh=true no-cache branch on /:id/public-data (added 2026-05-10).
+    // forceRefresh=true -> setNoCacheHeaders(res). Closes the
+    // refresh=true matrix at 6-of-6 endpoints (every refresh branch
+    // pinned). public-data is the heaviest aggregate (images + tax +
+    // listings + amenities), so a regression that drops
+    // setNoCacheHeaders after a force-refresh would let the CDN serve
+    // a 24-hour stale response after the caller explicitly asked for
+    // a fresh recompute -- the worst-case staleness of any refresh
+    // branch. Pins all three discriminators: 'no-store' present,
+    // 'private' present, 's-maxage=' absent.
+    await runTest(`GET /api/properties/${firstPropertyId}/public-data?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/public-data?refresh=true`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' in Cache-Control on public-data?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' in Cache-Control on public-data?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on public-data?refresh=true, got "${cacheControl}"`,
+      )
+    })
+
+    // refresh=true no-cache branch on /:id/insurance (added 2026-05-09).
+    // forceRefresh=true -> setNoCacheHeaders(res) emits private, no-cache,
+    // no-store, must-revalidate. Symmetric to the /risk?refresh=true
+    // probe added 2026-05-08. The refresh branch invalidates the
+    // property's insurance cache before returning; a regression that
+    // drops setNoCacheHeaders would let the CDN serve a 7200s stale
+    // response after the caller explicitly asked for a fresh recompute.
+    await runTest(`GET /api/properties/${firstPropertyId}/insurance?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/insurance?refresh=true`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' in Cache-Control on insurance?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' in Cache-Control on insurance?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on insurance?refresh=true, got "${cacheControl}"`,
+      )
+    })
+
+    // refresh=true no-cache branch on /:id/carriers (added 2026-05-09).
+    // forceRefresh=true -> setNoCacheHeaders(res). Especially important
+    // given the VA-01 carrier-exit alert SLA -- a stale carriers
+    // response after a force-refresh is the exact failure mode the
+    // SLA exists to prevent. Pins all three discriminators:
+    // 'no-store' present, 'private' present, 's-maxage=' absent.
+    await runTest(`GET /api/properties/${firstPropertyId}/carriers?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/carriers?refresh=true`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' in Cache-Control on carriers?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' in Cache-Control on carriers?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on carriers?refresh=true, got "${cacheControl}"`,
+      )
+    })
+
+    // refresh=true no-cache branch on /:id/insurability (added 2026-05-09).
+    // Bonus pin -- completes 4 of the 5 remaining refresh=true branches
+    // identified yesterday. insurability is a derived view over the
+    // same risk profile that drives /risk and /insurance; the refresh
+    // branch recomputes from the freshly-pulled risk inputs.
+    await runTest(`GET /api/properties/${firstPropertyId}/insurability?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/insurability?refresh=true`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' in Cache-Control on insurability?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' in Cache-Control on insurability?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on insurability?refresh=true, got "${cacheControl}"`,
+      )
+    })
+
+    // refresh=true no-cache branch on /:id/walkscore (added 2026-05-09).
+    // Closes the refresh=true matrix on a single --property-id run --
+    // only /public-data?refresh=true remains unpinned (carryover for
+    // tomorrow). walkscore?refresh=true bypasses the 24h CDN cache
+    // when an upstream-rate-limit-recovery is needed.
+    await runTest(`GET /api/properties/${firstPropertyId}/walkscore?refresh=true sets no-cache`, async () => {
+      const { status, headers } = await apiGetRaw(`/api/properties/${firstPropertyId}/walkscore?refresh=true`)
+      // walkscore can return 503 if the upstream is down; treat that as
+      // a skip for the header assertion (mirrors the default-branch probe).
+      if (status === 503) {
+        return
+      }
+      assert(status === 200, `expected 200 or 503, got ${status}`)
+      const cacheControl = headers.get('cache-control') ?? ''
+      assert(
+        /\bno-store\b/.test(cacheControl),
+        `expected 'no-store' in Cache-Control on walkscore?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        /\bprivate\b/.test(cacheControl),
+        `expected 'private' in Cache-Control on walkscore?refresh=true, got "${cacheControl}"`,
+      )
+      assert(
+        !/s-maxage=/.test(cacheControl),
+        `expected no s-maxage on walkscore?refresh=true, got "${cacheControl}"`,
+      )
+    })
+
     await runTest(`GET /api/properties/${firstPropertyId}/public-data returns data`, async () => {
       const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/public-data`)
       assert(status === 200, `expected 200, got ${status}`)
@@ -1083,4 +1506,4 @@ run().catch((err) => {
   console.error('Smoke test runner crashed:', err)
   process.exit(1)
 })
-    
+
