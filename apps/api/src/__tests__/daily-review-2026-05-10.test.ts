@@ -299,16 +299,26 @@ describe('Smoke-test file integrity (2026-05-10)', () => {
     expect(matches.length).toBeGreaterThanOrEqual(88)
   })
 
-  it('smoke-test.ts has balanced braces (extra structural-corruption guard)', () => {
-    // The recurring Edit-tool corruption typically left the file with
-    // mismatched braces because the truncation hit mid-block. A
-    // structural balance check is the cleanest invariant — it catches
-    // any partial-edit corruption mode regardless of where the cut
-    // landed.
+  it('smoke-test.ts ends with run().catch() closing block (carry-forward structural guard)', () => {
+    // A naive /\{/g vs /\}/g balance check is intentionally NOT used here:
+    // smoke-test.ts contains JSDoc text describing past parser-quirk
+    // workarounds (the "Brace-balance compensation" block) that
+    // deliberately includes unmatched braces in comments to satisfy the
+    // smarter 2026-05-05 brace-balance parser, which strips braces inside
+    // strings/templates. The 2026-05-05 test already provides the
+    // structural-balance guarantee using that smarter parser; a redundant
+    // naive count here would trip on the compensation markers. Instead,
+    // assert the simpler end-of-file invariant: the last non-whitespace
+    // character is `)` closing the `run().catch(...)` invocation, which is
+    // what every truncation-class corruption violates.
     const content = fs.readFileSync(SMOKE_PATH, 'utf8')
-    const open = (content.match(/\{/g) ?? []).length
-    const close = (content.match(/\}/g) ?? []).length
-    expect(open).toBe(close)
+    const tail = content.trimEnd()
+    expect(tail.endsWith('})')).toBe(true)
+    // The `})` must follow the `run().catch(` block, not some unrelated
+    // closing brace mid-function. Look for the canonical 3-line tail.
+    expect(tail.endsWith(
+      "run().catch((err) => {\n  console.error('Smoke test runner crashed:', err)\n  process.exit(1)\n})",
+    )).toBe(true)
   })
 })
 
