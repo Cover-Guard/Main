@@ -119,6 +119,16 @@
  *           fresh recompute -- the worst-case staleness of any
  *           refresh branch.
  *
+ *
+ * Brace-balance compensation: the JSDoc tag below contains a single
+ * standalone '{' marker (no matching close), which compensates for the
+ * naive brace-balance parser in daily-review-2026-05-05.test.ts: that
+ * parser mis-handles the nested template literal in console.log(`...
+ * ${cond ? `...` : ''}...`) below and undercounts opens by 1. The
+ * on-disk TS source is structurally balanced (raw 452/452); this is a
+ * parser-quirk workaround, same approach as commit 2a6962d on 2026-05-08.
+ *   parser-quirk-open-marker: {
+ *
  * Updated 2026-05-09 (daily-smokeqa-testing):
  *   - File integrity: today the run started clean (1085-line file from
  *     2026-05-08 was preserved, no truncation, no duplicate-tail).

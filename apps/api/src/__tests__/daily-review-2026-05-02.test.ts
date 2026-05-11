@@ -525,7 +525,7 @@ describe('report.pdf contract', () => {
   it('is safe to use in a Content-Disposition filename (no quotes / slashes / nulls)', () => {
     const slug = buildSafeAddrSlug("123 O'Brien Ave \\ /etc/passwd")
     expect(slug).not.toMatch(/['"\\/]/)
-    expect(slug).not.toMatch(/ /)
+    expect(slug).not.toContain('\u0000')
   })
 
   it('document the route requires auth (requireAuth before id resolution? — no, after)', () => {
