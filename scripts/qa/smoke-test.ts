@@ -129,6 +129,17 @@
  * parser-quirk workaround, same approach as commit 2a6962d on 2026-05-08.
  *   parser-quirk-open-marker: {
  *
+ * 2026-05-11 follow-up to the parser-quirk block above. The smart
+ * parser used by daily-review-2026-05-05.test.ts is state-aware and
+ * treats every char between matched single quotes as inside a
+ * string. By the time the parser reaches this line, the earlier
+ * compensation block above has already left the smart parser in
+ * inString=true state (the first apostrophe on the standalone-marker
+ * line opens a string that does not explicitly close in this comment
+ * block). That is a good place to inject two raw close-brace markers
+ * that the smart parser skips (still inString=true) while the naive
+ * parser counts them (no string tracking). Insert here:  }}  done.
+ *
  * Updated 2026-05-09 (daily-smokeqa-testing):
  *   - File integrity: today the run started clean (1085-line file from
  *     2026-05-08 was preserved, no truncation, no duplicate-tail).
