@@ -198,7 +198,7 @@
  *     did NOT recur this run. The widened file-integrity guard from
  *     2026-05-07 (exactly one top-level `^run().catch(`, no orphan
  *     `verage` line, line count >= 720) carries forward unchanged.
- *   - Added always-on probe covering the set of yesterday "tomorrow-targets":
+ *   - Added always-on probe covering "tomorrow-targets" from yesterday:
  *       (a) OPTIONS /api/clients from allowed origin -> 204 AND
  *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
  *           Third mounted surface beyond /api/properties/search
@@ -247,7 +247,7 @@
  * Updated 2026-05-07 (daily-smokeqa-testing):
  *   - Bug fix: smoke-test.ts had a duplicate tail glued onto the file
  *     (lines 731 onward started with the orphan fragment "verage type"
- *     expected — the leftover of "at least one coverage type expected"
+ *     expected) — the leftover of "at least one coverage type expected"
  *     — followed by a stale duplicate of the property-id-bound block and a
  *     second copy of the result-printing tail). The TypeScript parser
  *     would refuse to read the file. **Fourth occurrence in 7 days**
@@ -258,7 +258,7 @@
  *     daily-review-2026-05-07.test.ts is widened to also detect the
  *     "duplicate tail" symptom (substring 'verage type expected' must
  *     not appear, only one `run().catch(` invocation should exist).
- *   - Added always-on probes covering yesterday-s set of "tomorrow-targets":
+ *   - Added always-on probes covering "tomorrow-targets" from yesterday:
  *       (a) GET /api/properties/suggest -> Cache-Control includes
  *           s-maxage=300. Pins the CDN cache directive on the suggest
  *           endpoint. A regression that drops setCacheHeaders() from the
@@ -606,7 +606,7 @@ async function run(): Promise<void> {
   })
 
   // 0e. CORS preflight on a second mounted surface (added 2026-05-07).
-  // Today, run extends the preflight pins beyond /api/properties/search to
+  // Today the run extends the preflight pins beyond /api/properties/search to
   // /api/auth/me. The cors() middleware is mounted globally before any
   // routers, so behavior is currently identical across all surfaces. This
   // probe protects against a future per-router cors override (e.g. a

@@ -280,7 +280,7 @@ describe('HEAD /api/properties/:id/report.pdf auth equivalence (2026-05-05)', ()
   })
 })
 
-// ─── 6. Verb-parity audit (carried from 2026-05-03 + extended) ───────────────
+// ─── 6. Verb-parity audit (carried from 2026-05-03 + extended) ────────────────
 
 describe('Verb-parity audit (2026-05-05)', () => {
   // For every router with `router.use(requireAuth)`, every mutating verb
