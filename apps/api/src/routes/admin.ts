@@ -130,8 +130,14 @@ adminRouter.get('/users', async (req: Request, res, next) => {
 adminRouter.patch('/users/:id/role', async (req: Request, res, next) => {
   try {
     const { userId: actorUserId } = req as AuthenticatedRequest
-    const targetUserId = req.params.id
+    const rawTargetId = req.params.id
+    const targetUserId = typeof rawTargetId === 'string' ? rawTargetId : ''
     const newRole = (req.body as { role?: unknown })?.role
+
+    if (!targetUserId) {
+      res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Invalid user id' } })
+      return
+    }
 
     if (typeof newRole !== 'string' || !ALLOWED_ROLES.has(newRole)) {
       res.status(400).json({
