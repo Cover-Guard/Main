@@ -198,7 +198,8 @@ export function AdminUsersTable() {
                   No users match.
                 </td>
               </tr>
-            )T/tbody>
+            )}
+          </tbody>
         </table>
       </div>
 
