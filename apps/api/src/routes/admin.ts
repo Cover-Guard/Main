@@ -1,6 +1,13 @@
 import { Router } from 'express'
 import type { Request } from 'express'
 import { requireAuth, requireRole } from '../middleware/auth'
+import {
+  changeUserRole,
+  listAdminUsers,
+  RoleChangeError,
+} from '../services/adminUsersService'
+import type { AuthenticatedRequest } from '../middleware/auth'
+import type { UserRole } from '@coverguard/shared'
 import { prisma } from '../utils/prisma'
 import { logger } from '../utils/logger'
 
@@ -91,6 +98,62 @@ adminRouter.get('/stats', async (_req: Request, res, next) => {
     res.set('Cache-Control', 'private, max-age=60')
     res.json({ success: true, data })
   } catch (err) {
+    next(err)
+  }
+})
+
+
+// ─── User management (P-B5.b) ───────────────────────────────────────────────
+
+const ALLOWED_ROLES: ReadonlySet<string> = new Set(['BUYER', 'AGENT', 'LENDER', 'INSURANCE', 'ADMIN'])
+
+adminRouter.get('/users', async (req: Request, res, next) => {
+  try {
+    const role = typeof req.query.role === 'string' ? req.query.role : undefined
+    if (role && !ALLOWED_ROLES.has(role)) {
+      res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'Unknown role filter' } })
+      return
+    }
+    const data = await listAdminUsers({
+      page: req.query.page ? Number(req.query.page) : undefined,
+      pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
+      search: typeof req.query.search === 'string' ? req.query.search : undefined,
+      role: role as UserRole | undefined,
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json({ success: true, data })
+  } catch (err) {
+    next(err)
+  }
+})
+
+adminRouter.patch('/users/:id/role', async (req: Request, res, next) => {
+  try {
+    const { userId: actorUserId } = req as AuthenticatedRequest
+    const targetUserId = req.params.id
+    const newRole = (req.body as { role?: unknown })?.role
+
+    if (typeof newRole !== 'string' || !ALLOWED_ROLES.has(newRole)) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'BAD_REQUEST', message: 'role must be one of BUYER, AGENT, LENDER, INSURANCE, ADMIN' },
+      })
+      return
+    }
+
+    const data = await changeUserRole({
+      actorUserId,
+      targetUserId,
+      newRole: newRole as UserRole,
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json({ success: true, data })
+  } catch (err) {
+    if (err instanceof RoleChangeError) {
+      const status = err.code === 'NOT_FOUND' ? 404 : err.code === 'NO_CHANGE' ? 409 : 403
+      res.status(status).json({ success: false, error: { code: err.code, message: err.message } })
+      return
+    }
     next(err)
   }
 })
