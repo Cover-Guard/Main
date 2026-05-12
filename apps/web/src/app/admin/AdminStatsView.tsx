@@ -28,6 +28,7 @@ export function AdminStatsView() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- foundation PR; deferred refactor in B5 follow-up
   useEffect(() => { load() }, [])
 
   if (loading && !stats) {
