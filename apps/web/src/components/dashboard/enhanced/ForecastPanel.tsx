@@ -59,7 +59,7 @@ export function ForecastPanel() {
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} />
             <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-            <Tooltip formatter={(v) => fmt(v as number)} />
+            <Tooltip formatter={(v) => fmt((v as number) ?? 0)} />
             {showPremium && <Area type="monotone" dataKey="premium" stroke="#6366f1" strokeWidth={2} fill="url(#colorPrem)" name="Premium" />}
             {showProjected && <Area type="monotone" dataKey="projected" stroke="#a78bfa" strokeWidth={2} strokeDasharray="5 5" fill="url(#colorProj)" name="Projected" />}
             {showClaims && <Area type="monotone" dataKey="claims" stroke="#f59e0b" strokeWidth={2} fill="none" name="Claims" />}
@@ -77,10 +77,10 @@ export function ForecastPanel() {
               {data.map((d) => (
                 <tr key={d.month} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="py-1 px-2 font-medium text-gray-900">{d.month}</td>
-                  <td className="py-1 px-2">{fmt(d.premium)}</td>
-                  <td className="py-1 px-2">{fmt(d.projected)}</td>
-                  <td className="py-1 px-2">{fmt(d.claims)}</td>
-                  <td className="py-1 px-2">{fmtPct(d.loss)}</td>
+                  <td className="py-1 px-2">{d.premium == null ? '—' : fmt(d.premium)}</td>
+                  <td className="py-1 px-2">{d.projected == null ? '—' : fmt(d.projected)}</td>
+                  <td className="py-1 px-2">{d.claims == null ? '—' : fmt(d.claims)}</td>
+                  <td className="py-1 px-2">{d.loss == null ? '—' : fmtPct(d.loss)}</td>
                 </tr>
               ))}
             </tbody>
