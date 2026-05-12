@@ -30,9 +30,12 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
       >
         Overview
       </Link>
-      <span className="rounded px-3 py-2 text-sm text-gray-400 cursor-not-allowed flex items-center gap-2" aria-disabled>
-        <Users className="h-3.5 w-3.5" /> Users <em className="ml-auto text-xs not-italic">soon</em>
-      </span>
+      <Link
+        href="/admin/users"
+        className={`rounded px-3 py-2 text-sm flex items-center gap-2 ${isActive('/admin/users') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+      >
+        <Users className="h-3.5 w-3.5" /> Users
+      </Link>
       <span className="rounded px-3 py-2 text-sm text-gray-400 cursor-not-allowed flex items-center gap-2" aria-disabled>
         <CreditCard className="h-3.5 w-3.5" /> Subscriptions <em className="ml-auto text-xs not-italic">soon</em>
       </span>
