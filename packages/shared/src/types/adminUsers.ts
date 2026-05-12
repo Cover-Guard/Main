@@ -5,7 +5,7 @@
  * /api/admin/users. Built on top of the PR-B5.a foundation.
  */
 
-export type UserRole = 'BUYER' | 'AGENT' | 'LENDER' | 'INSURANCE' | 'ADMIN'
+import type { UserRole } from './user'
 
 export interface AdminUserListItem {
   id: string
