@@ -21,6 +21,7 @@ import type {
   DealStage,
   DealFalloutReason,
   CarrierExitAlert,
+  AdminStats,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
@@ -214,6 +215,9 @@ export async function requestBindingQuote(
 
 export async function getMe(): Promise<User> {
   return apiFetch('/api/auth/me')
+}
+export async function getAdminStats(): Promise<AdminStats> {
+  return apiFetch<AdminStats>('/api/admin/stats')
 }
 
 export async function updateMe(data: Partial<Pick<User, 'firstName' | 'lastName' | 'company' | 'licenseNumber' | 'avatarUrl'>>): Promise<User> {
