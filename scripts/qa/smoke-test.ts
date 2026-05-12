@@ -33,6 +33,65 @@
  * checklists,save,quote-request,quote-requests} surfaces (param middleware
  * resolves the id first, so requireAuth fires before the handler).
  *
+ * Updated 2026-05-12 (daily-smokeqa-testing):
+ *   - File integrity: today the run started clean for the FOURTH
+ *     consecutive day (1530-line file from 2026-05-11 was preserved,
+ *     no truncation, 90 probes intact, brace balance 433/433 per the
+ *     daily-review-2026-05-05 smart parser). The Edit-tool corruption
+ *     that bit the file FIVE times in 8 days (2026-05-01 morning,
+ *     2026-05-05 morning, 2026-05-06, 2026-05-07, 2026-05-08) did NOT
+ *     recur today either -- now a four-day dormant streak. The
+ *     mitigation established 2026-05-09 (single atomic Python rewrite
+ *     from the bash sandbox) was reused today (run from
+ *     /tmp/patch_smoke_05_12.py) and worked cleanly.
+ *   - Added always-on probe growing the per-router CORS pin matrix
+ *     from 6-of-9 to 7-of-9 routers:
+ *       (a) OPTIONS /api/alerts from allowed origin -> 204 AND
+ *           Access-Control-Allow-Origin: http://localhost:3000 echoed.
+ *           Seventh mounted surface beyond /api/properties/search
+ *           (added 2026-05-06), /api/auth/me (added 2026-05-07),
+ *           /api/clients (added 2026-05-08), /api/dashboard
+ *           (added 2026-05-09), /api/advisor/chat (added 2026-05-10),
+ *           and /api/deals (added 2026-05-11). alerts.ts is yet
+ *           another router file (and the alerts router gates every
+ *           handler behind requireAuth router-wide), so the OPTIONS
+ *           preflight goes through cors() before the auth middleware
+ *           has a chance to fire. A per-router cors override on the
+ *           alerts router would let any origin issue credentialed
+ *           POSTs to /api/alerts/carrier-exits/:id/acknowledge --
+ *           silently dismissing a victim user carrier-exit alerts
+ *           from an attacker-controlled origin. The carrier-exit
+ *           alert is a regulatory-grade signal (VA-01 SLA), so a
+ *           CSRF-via-CORS regression that lets a third party silence
+ *           those alerts in the victim browser session is exactly
+ *           the failure mode the SLA was built to prevent. Per-router
+ *           pin matrix is now 7-of-9 routers (properties, auth,
+ *           clients, dashboard, advisor, deals, alerts). Two
+ *           remaining router targets: stripe, notifications.
+ *   - Added property-id-bound response-shape probe -- extends the
+ *     RESPONSE-SHAPE PINNING AXIS started 2026-05-11 from 1 endpoint
+ *     to 2 endpoints:
+ *       (b) GET /api/properties/:id exact-key-cardinality: top-level
+ *           body has EXACTLY the 2 keys { success, data }. Symmetric
+ *           to yesterday probe on /report, but on the simpler bare
+ *           detail surface. Why bother on both: /report is a
+ *           composed bundle of 6 services, while /:id is a direct
+ *           DB row through getPropertyById -- the leakage risks are
+ *           qualitatively different. Specifically, a future PR that
+ *           adds an internal column to the Property table (e.g.
+ *           rentcastSnapshot, attomRawPayload, internalRiskScore,
+ *           ownerNotes) would have its leak surface here on the
+ *           direct row read, not on /report (which assembles its
+ *           payload manually). The same regression class (debug/
+ *           admin field shipped on the public path) is what this
+ *           probe catches. Note: the inner data shape on /:id is
+ *           wide (15+ Prisma columns) and varies across migrations,
+ *           so today probe pins only the top-level cardinality, not
+ *           the data-key set. A future migration that adds a
+ *           legitimate Property column does NOT need to update this
+ *           probe; only a regression that adds a NEW top-level body
+ *           key (e.g. { success, data, debug }) would trip it.
+ *
  * Updated 2026-05-11 (daily-smokeqa-testing):
  *   - File integrity: today the run started clean for the THIRD
  *     consecutive day (1395-line file from 2026-05-10 was preserved,
@@ -768,6 +827,42 @@ async function run(): Promise<void> {
     assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
   })
 
+  // 0j. CORS preflight on a seventh mounted surface (added 2026-05-12).
+  // Today extends the preflight pins to /api/alerts -- alerts.ts is yet
+  // another router file (different from properties, auth, clients,
+  // dashboard, advisor, and deals), and the alerts router gates every
+  // handler behind requireAuth router-wide. Still, the OPTIONS preflight
+  // goes through cors() in index.ts BEFORE requireAuth fires (Express
+  // short-circuits OPTIONS when a CORS middleware emits a 204). A per-
+  // router cors override on the alerts router would let any origin issue
+  // credentialed POSTs to /api/alerts/carrier-exits/:id/acknowledge --
+  // silently dismissing a victim carrier-exit alerts from an attacker-
+  // controlled origin. The carrier-exit alert is a regulatory-grade
+  // signal (VA-01 SLA), so a CSRF-via-CORS regression that lets a third
+  // party silence those alerts in the victim browser session is exactly
+  // the failure mode the SLA was built to prevent. The per-router pin
+  // matrix is now 7-of-9 routers (properties, auth, clients, dashboard,
+  // advisor, deals, alerts). Two remaining router targets: stripe and
+  // notifications.
+  await runTest('OPTIONS /api/alerts from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/alerts/carrier-exits`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/alerts, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
   // 1. Search is authenticated
   const firstPropertyId: string | undefined =
     process.argv.indexOf('--property-id') !== -1
@@ -1068,6 +1163,33 @@ async function run(): Promise<void> {
         /\bpublic\b/.test(cacheControl),
         `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
       )
+    })
+
+    // Response-shape pinning axis member #2 (added 2026-05-12).
+    // The /report exact-key-cardinality pin (added 2026-05-11) initiated
+    // the axis. Today extends it to /:id -- a qualitatively different
+    // leak surface: /report assembles its payload manually from 6
+    // services, while /:id is a direct DB row through getPropertyById,
+    // so a future PR that adds an internal column to the Property table
+    // (e.g. rentcastSnapshot, attomRawPayload, internalRiskScore,
+    // ownerNotes) would have its leak surface here on the direct row
+    // read, not on /report. Only the top-level cardinality is pinned
+    // ({ success, data }); the inner data shape is wide (15+ Prisma
+    // columns) and a future migration that adds a legitimate Property
+    // column does NOT need to update this probe; only a regression that
+    // adds a NEW top-level body key (e.g. { success, data, debug }) trips
+    // it. Two endpoints now on the response-shape axis: /report and /:id.
+    await runTest(`GET /api/properties/${firstPropertyId} response shape: exactly 2 top-level keys, exactly 2 top-level keys for property detail`, async () => {
+      const { status, body } = await apiGet(`/api/properties/${firstPropertyId}`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const topKeys = Object.keys(body).sort()
+      const expectedTop = ['data', 'success']
+      assert(
+        topKeys.length === expectedTop.length && topKeys.every((k, i) => k === expectedTop[i]),
+        `expected top-level keys [${expectedTop.join(', ')}], got [${topKeys.join(', ')}]`,
+      )
+      assert(body.success === true, 'body.success should be true')
+      assert(typeof body.data === 'object' && body.data !== null, 'body.data should be an object')
     })
 
     await runTest(`GET /api/properties/${firstPropertyId}/risk returns risk profile`, async () => {
