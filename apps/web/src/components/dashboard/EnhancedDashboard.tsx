@@ -19,7 +19,7 @@ import { DealsKpiPanel } from '@/components/dashboard/DealsKpiPanel';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { ActiveCarriersPanel } from './enhanced/ActiveCarriersPanel';
-import { ClientManagementPanel } from './enhanced/ClientManagementPanel';
+import { ClientsPanel } from './ClientsPanel';
 import { ForecastPanel } from './enhanced/ForecastPanel';
 import { InsightsPanel } from './enhanced/InsightsPanel';
 import { KPIPanel } from './enhanced/KPIPanel';
@@ -45,7 +45,7 @@ const PANEL_COMPONENTS: Record<string, () => JSX.Element | null> = {
   insights: InsightsPanel,
   kpis: KPIPanel,
   deals: DealsKpiPanel,
-  clients: ClientManagementPanel,
+    clients: ClientsPanel,
   properties: SavedPropertiesPanel,
   carriers: ActiveCarriersPanel,
   forecast: ForecastPanel,
