@@ -16,6 +16,12 @@ import type {
   ChecklistItem,
   SavedPropertyWithProperty,
   DashboardTicker,
+  DashboardKpisResponse,
+  DashboardForecastResponse,
+  DashboardRiskTrendResponse,
+  DashboardPortfolioMixResponse,
+  DashboardInsightsResponse,
+  DashboardActiveCarriersResponse,
   DealStats,
   DealWithRelations,
   DealStage,
@@ -211,11 +217,12 @@ export async function requestBindingQuote(
   })
 }
 
-// ─── Auth / User ─────────────────────────────────────────────────────────────
+// ─── Auth / User ────────────────────────────────────────────────────────────
 
 export async function getMe(): Promise<User> {
   return apiFetch('/api/auth/me')
 }
+
 export async function getAdminStats(): Promise<AdminStats> {
   return apiFetch<AdminStats>('/api/admin/stats')
 }
@@ -285,6 +292,36 @@ export async function getDashboardTicker(): Promise<DashboardTicker> {
   return apiFetch<DashboardTicker>('/api/dashboard/ticker')
 }
 
+/** Per-KPI detail (PR-B1.e). Powers the KPI panel modal. */
+export async function getDashboardKpis(): Promise<DashboardKpisResponse> {
+  return apiFetch<DashboardKpisResponse>('/api/dashboard/kpis')
+}
+
+/** 12-month premium / claims forecast (PR-B1.f). */
+export async function getDashboardForecast(): Promise<DashboardForecastResponse> {
+  return apiFetch<DashboardForecastResponse>('/api/dashboard/forecast')
+}
+
+/** 12-month average-risk-score trend + annotations (PR-B1.g). */
+export async function getDashboardRiskTrend(): Promise<DashboardRiskTrendResponse> {
+  return apiFetch<DashboardRiskTrendResponse>('/api/dashboard/risk-trend')
+}
+
+/** Saved-portfolio mix by category (PR-B1.h). */
+export async function getDashboardPortfolioMix(): Promise<DashboardPortfolioMixResponse> {
+  return apiFetch<DashboardPortfolioMixResponse>('/api/dashboard/portfolio-mix')
+}
+
+/** Insights feed (PR-B1.h). */
+export async function getDashboardInsights(): Promise<DashboardInsightsResponse> {
+  return apiFetch<DashboardInsightsResponse>('/api/dashboard/insights')
+}
+
+/** Active carriers across the saved portfolio (PR-B1.h). */
+export async function getDashboardActiveCarriers(): Promise<DashboardActiveCarriersResponse> {
+  return apiFetch<DashboardActiveCarriersResponse>('/api/dashboard/active-carriers')
+}
+
 // ─── Deals ───────────────────────────────────────────────────────────────────
 
 export async function listDeals(): Promise<DealWithRelations[]> {
@@ -350,7 +387,7 @@ export async function chatWithAdvisor(
   })
 }
 
-// ─── Property Checklists ─────────────────────────────────────────────────────
+// ─── Property Checklists ─────────────────────────────────────────────────
 
 export async function getPropertyChecklists(propertyId: string): Promise<PropertyChecklist[]> {
   return apiFetch<PropertyChecklist[]>(`/api/properties/${propertyId}/checklists`)

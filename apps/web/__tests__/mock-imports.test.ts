@@ -141,7 +141,10 @@ describe('Mock-import guard (P-B2)', () => {
     // If this fails, the regex is broken or the source tree moved. The known
     // production importers of the enhanced mock are real and listed in the
     // registry; we expect to see them in the raw scan.
-    expect(mockImports.length).toBeGreaterThanOrEqual(7)
+    // PR-B1.e-h removed 6 of 7 production mock imports as part of the panel
+    // consolidation. Threshold lowered from 7 to 1 to keep the sanity check
+    // alive without re-introducing dead mocks.
+    expect(mockImports.length).toBeGreaterThanOrEqual(1)
   })
 
   it('every mock importer in production code references isDemoMode', () => {

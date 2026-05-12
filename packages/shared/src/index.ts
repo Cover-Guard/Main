@@ -7,6 +7,10 @@ export * from './types/adminStats'
 export * from './types/api'
 export * from './types/subscription'
 export * from './types/ticker'
+export * from './types/dashboardKpis'
+export * from './types/dashboardForecast'
+export * from './types/dashboardRiskTrend'
+export * from './types/dashboardPanels'
 export * from './types/deal'
 export * from './types/chat'
 export * from './types/bulkUpload'
@@ -59,5 +63,3 @@ export * from './utils/agentDirectory'
 
 // Constants
 export * from './constants'
-
-export * from './utils/notificationDefaults'
