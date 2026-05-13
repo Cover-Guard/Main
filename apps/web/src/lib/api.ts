@@ -28,10 +28,14 @@ import type {
   DealFalloutReason,
   CarrierExitAlert,
   AdminStats,
+  AdminUsersListQuery,
+  AdminUsersListResponse,
+  AdminRoleChangeRequest,
+  AdminRoleChangeResponse,
 } from '@coverguard/shared'
 import type { CoverageType } from '@coverguard/shared'
 import { createClient } from './supabase/client'
-// ─── Server-safe base URL ───────────────────────────────────────────────────
+// ─── Server-safe base URL ──────────────────────────────────────────────────
 // Client-side: use relative paths (same-origin, proxied by Next.js rewrites).
 // Server-side (SSR / server components): Node.js fetch() requires an absolute
 // URL — there is no `window.location.origin` to resolve against.  Fall back to
@@ -454,5 +458,29 @@ export async function getCarrierExitAlerts(params?: { severity?: 'INFO' | 'WARNI
 export async function acknowledgeCarrierExitAlert(id: string): Promise<void> {
   await apiFetch(`/api/alerts/carrier-exits/${encodeURIComponent(id)}/acknowledge`, {
     method: 'POST',
+  })
+}
+
+// ─── Admin user management (PR-B5.b) ────────────────────────────────────────
+
+/** Paginated, searchable, filterable user list (PR-B5.b). Admin-only. */
+export async function listAdminUsers(query: AdminUsersListQuery = {}): Promise<AdminUsersListResponse> {
+  const qs = new URLSearchParams()
+  if (query.page) qs.set('page', String(query.page))
+  if (query.pageSize) qs.set('pageSize', String(query.pageSize))
+  if (query.search) qs.set('search', query.search)
+  if (query.role) qs.set('role', query.role)
+  const q = qs.toString()
+  return apiFetch<AdminUsersListResponse>(`/api/admin/users${q ? `?${q}` : ''}`)
+}
+
+/** Change a user's role (PR-B5.b). Admin-only; cannot promote/demote ADMINs or self. */
+export async function changeAdminUserRole(
+  userId: string,
+  body: AdminRoleChangeRequest,
+): Promise<AdminRoleChangeResponse> {
+  return apiFetch<AdminRoleChangeResponse>(`/api/admin/users/${encodeURIComponent(userId)}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
   })
 }
