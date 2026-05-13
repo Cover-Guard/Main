@@ -10,7 +10,9 @@ export function InvestorsSection() {
           </h2>
           <p className="mt-4 text-lg text-gray-600">
             We&apos;re building the data infrastructure layer for property insurance decisions.
-            If you&apos;re interested in learning more about investment opportunities, we&apos;d love to hear from you.
+            Our May 2026 Business Plan refresh and Pitch Deck are available on request — including the latest
+            competitive scrub on Rhino DealShield, Matic, RealReports, and the May 2026 carrier-appetite shifts.
+            If you&apos;d like to dig in, we&apos;d love to hear from you.
           </p>
         </div>
 
@@ -24,13 +26,4 @@ export function InvestorsSection() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
               <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-            </svg>
-          </a>
-          <p className="mt-4 text-sm text-gray-500">
-            investor@coverguard.io
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
+            </
