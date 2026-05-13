@@ -33,6 +33,66 @@
  * checklists,save,quote-request,quote-requests} surfaces (param middleware
  * resolves the id first, so requireAuth fires before the handler).
  *
+ * Updated 2026-05-13 (daily-smokeqa-testing):
+ *   - File integrity: today the run started clean for the FIFTH
+ *     consecutive day (1652-line file from 2026-05-12 was preserved,
+ *     no truncation, 92 probes intact, brace balance 472/472). The
+ *     Edit-tool corruption that bit the file FIVE times in 8 days
+ *     (2026-05-01 morning, 2026-05-05 morning, 2026-05-06,
+ *     2026-05-07, 2026-05-08) did NOT recur today either -- now a
+ *     five-day dormant streak. The mitigation established 2026-05-09
+ *     (single atomic Python rewrite from the bash sandbox) was
+ *     reused today (run from /tmp/patch_smoke_05_13.py / outputs/
+ *     patch_smoke_05_13.py) and worked cleanly.
+ *   - Added always-on probe growing the per-router CORS pin matrix
+ *     from 7-of-9 to 8-of-9 routers:
+ *       (a) OPTIONS /api/stripe/subscription from allowed origin
+ *           -> 204 AND Access-Control-Allow-Origin: http://localhost:3000
+ *           echoed. Eighth mounted surface beyond /api/properties/search
+ *           (added 2026-05-06), /api/auth/me (added 2026-05-07),
+ *           /api/clients (added 2026-05-08), /api/dashboard (added
+ *           2026-05-09), /api/advisor/chat (added 2026-05-10),
+ *           /api/deals (added 2026-05-11), and /api/alerts (added
+ *           2026-05-12). stripe.ts is yet another router file
+ *           (stripeRouter for /subscription /checkout /portal --
+ *           all requireAuth-gated -- plus stripeWebhookRouter for
+ *           the raw-body /webhook). The OPTIONS preflight goes
+ *           through cors() in index.ts (mounted line 104, before
+ *           any router) and the global app.options('*', cors())
+ *           handler (mounted line 105) -- both fire BEFORE the
+ *           per-handler requireAuth in stripeRouter. A per-router
+ *           cors override on the stripe router would let any
+ *           origin issue credentialed GETs to
+ *           /api/stripe/subscription -- leaking the victim user
+ *           subscription plan, status, current_period_end, and
+ *           Stripe customer/subscription IDs to an attacker-
+ *           controlled origin via a XHR initiated from the
+ *           victim browser session. Per-router pin matrix is now
+ *           8-of-9 routers (properties, auth, clients, dashboard,
+ *           advisor, deals, alerts, stripe). One remaining router
+ *           target: notifications.
+ *   - Added property-id-bound response-shape probe -- extends the
+ *     RESPONSE-SHAPE PINNING AXIS from 2 endpoints (2026-05-12) to
+ *     3 endpoints:
+ *       (b) GET /api/properties/:id/risk exact top-level
+ *           cardinality: response body has EXACTLY the 2 keys
+ *           { success, data }. Third pin on the axis after /report
+ *           (2026-05-11) and /:id (2026-05-12). Symmetric to the
+ *           /:id approach: only top-level cardinality is pinned;
+ *           the inner data shape (overallRiskScore +
+ *           overallRiskLevel + flood + fire + wind + earthquake +
+ *           crime) is wide and varies across the risk-service
+ *           refactor history, so pinning the inner key set would
+ *           churn on legitimate risk-service evolution. The
+ *           regression class this probe catches is a future PR
+ *           that adds a NEW top-level body key (e.g. { success,
+ *           data, debug } -- a debug/admin field on the public
+ *           path). The 5 remaining endpoints on the response-
+ *           shape pinning axis (insurance, insurability,
+ *           carriers, walkscore, public-data) are tomorrow-
+ *           targets for the same axis. Three endpoints now
+ *           pinned: /report, /:id, /:id/risk.
+ *
  * Updated 2026-05-12 (daily-smokeqa-testing):
  *   - File integrity: today the run started clean for the FOURTH
  *     consecutive day (1530-line file from 2026-05-11 was preserved,
@@ -863,6 +923,44 @@ async function run(): Promise<void> {
     assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
   })
 
+  // 0k. CORS preflight on an eighth mounted surface (added 2026-05-13).
+  // Today extends the preflight pins to /api/stripe -- stripe.ts is yet
+  // another router file (different from properties, auth, clients,
+  // dashboard, advisor, deals, and alerts). stripeRouter gates every
+  // handler behind requireAuth router-wide (stripeRouter.get('/subscription',
+  // requireAuth, ...), .post('/checkout', requireAuth, ...),
+  // .post('/portal', requireAuth, ...)); separately, stripeWebhookRouter
+  // handles the raw-body /webhook signature-verified flow. The OPTIONS
+  // preflight goes through cors() in index.ts (mounted line 104, before
+  // any router) and the global app.options('*', cors()) handler (mounted
+  // line 105) -- both fire BEFORE the per-handler requireAuth. A per-router
+  // cors override on the stripe router would let any origin issue
+  // credentialed GETs to /api/stripe/subscription -- leaking the victim
+  // user subscription plan, status, current_period_end, and Stripe
+  // customer/subscription IDs to an attacker-controlled origin via a
+  // XHR initiated from the victim browser session. The per-router pin
+  // matrix is now 8-of-9 routers (properties, auth, clients, dashboard,
+  // advisor, deals, alerts, stripe). One remaining router target:
+  // notifications.
+  await runTest('OPTIONS /api/stripe/subscription from allowed origin: ACAO echoed', async () => {
+    const res = await fetch(`${API_BASE}/api/stripe/subscription`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+      signal: AbortSignal.timeout(8_000),
+    })
+    assert(res.status === 204 || res.status === 200, `expected 204 or 200, got ${res.status}`)
+    const acao = res.headers.get('access-control-allow-origin')
+    assert(
+      acao === 'http://localhost:3000',
+      `expected ACAO=http://localhost:3000 on /api/stripe/subscription, got ${acao}`,
+    )
+    assert(acao !== '*', `Access-Control-Allow-Origin must not be '*' when credentials are allowed`)
+  })
+
   // 1. Search is authenticated
   const firstPropertyId: string | undefined =
     process.argv.indexOf('--property-id') !== -1
@@ -1220,6 +1318,33 @@ async function run(): Promise<void> {
         /\bpublic\b/.test(cacheControl),
         `expected 'public' directive in Cache-Control, got "${cacheControl}"`,
       )
+    })
+
+    // Response-shape pinning axis member #3 (added 2026-05-13).
+    // The axis was initiated 2026-05-11 with the /report exact-key-
+    // cardinality pin, extended 2026-05-12 to /:id (top-level only).
+    // Today extends it to /:id/risk -- the next lightest payload.
+    // Like /:id, only top-level cardinality is pinned; the inner data
+    // shape on /risk is wide (overallRiskScore, overallRiskLevel,
+    // flood, fire, wind, earthquake, crime -- and each hazard sub-
+    // object has its own nested fields that have evolved with the
+    // risk-service refactor history) and pinning the inner key set
+    // would churn on legitimate risk-service evolution. The regression
+    // class this probe catches is a future PR that adds a NEW
+    // top-level body key (e.g. { success, data, debug } -- a debug or
+    // admin field on the public path). Three endpoints now on the
+    // response-shape axis: /report, /:id, /:id/risk.
+    await runTest(`GET /api/properties/${firstPropertyId}/risk response shape: exactly 2 top-level keys`, async () => {
+      const { status, body } = await apiGet(`/api/properties/${firstPropertyId}/risk`)
+      assert(status === 200, `expected 200, got ${status}`)
+      const topKeys = Object.keys(body).sort()
+      const expectedTop = ['data', 'success']
+      assert(
+        topKeys.length === expectedTop.length && topKeys.every((k, i) => k === expectedTop[i]),
+        `expected top-level keys [${expectedTop.join(', ')}], got [${topKeys.join(', ')}]`,
+      )
+      assert(body.success === true, 'body.success should be true')
+      assert(typeof body.data === 'object' && body.data !== null, 'body.data should be an object')
     })
 
     await runTest(`GET /api/properties/${firstPropertyId}/insurance returns estimate`, async () => {
