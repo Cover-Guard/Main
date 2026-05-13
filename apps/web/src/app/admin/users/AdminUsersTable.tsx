@@ -38,6 +38,7 @@ export function AdminUsersTable() {
 
   // Reset to page 1 whenever filters change.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- B5 follow-up will refactor with reducer
     setPage(1)
   }, [debouncedSearch, roleFilter])
 
@@ -59,8 +60,8 @@ export function AdminUsersTable() {
     }
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- B5 follow-up will refactor
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() updates loading/data/error state; B5 follow-up will refactor with useTransition
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, debouncedSearch, roleFilter])
