@@ -1,11 +1,9 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Search } from 'lucide-react'
-import { SearchBar } from '@/components/search/SearchBar'
 import { SearchResults } from '@/components/search/SearchResults'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { SearchPageHeader } from '@/components/search/SearchPageHeader'
 import { MobileSearchToggle } from '@/components/mobile/MobileSearchToggle'
 import { searchProperties } from '@/lib/api'
 import { createClient as createSupabaseServerClient } from '@/lib/supabase/server'
@@ -21,7 +19,7 @@ interface SearchPageProps {
 function parseSearchQuery(query: string) {
   // Try to extract: "123 Main St, Austin, TX 78701" → address, city, state, zip
   const fullMatch = query.match(
-    /^(.+?),s*([^,]+?),s*([A-Za-z]{2})s+(d{5})$/,
+    /^(.+?),\s*([^,]+?),\s*([A-Za-z]{2})\s+(\d{5})$/,
   )
   if (fullMatch) {
     return {
@@ -32,7 +30,7 @@ function parseSearchQuery(query: string) {
     }
   }
   // "Austin, TX 78701" or "Austin, TX"
-  const cityStateZip = query.match(/^([^,]+),s*([A-Za-z]{2})s*(d{5})?$/)
+  const cityStateZip = query.match(/^([^,]+),\s*([A-Za-z]{2})\s*(\d{5})?$/)
   if (cityStateZip) {
     return {
       city: cityStateZip[1]!.trim(),
@@ -41,13 +39,13 @@ function parseSearchQuery(query: string) {
     }
   }
   // Extract ZIP if present anywhere
-  const zipMatch = query.match(/(d{5})/)
+  const zipMatch = query.match(/\b(\d{5})\b/)
   if (zipMatch) {
-    const address = query.replace(zipMatch[0], '').replace(/,s*$/, '').trim()
+    const address = query.replace(zipMatch[0], '').replace(/,\s*$/, '').trim()
     return { zip: zipMatch[1], ...(address ? { address } : {}) }
   }
   // "City, ST" pattern with lowercase
-  const stateMatch = query.match(/,s*([A-Za-z]{2})s*$/)
+  const stateMatch = query.match(/,\s*([A-Za-z]{2})\s*$/)
   if (stateMatch) {
     return {
       address: query.slice(0, stateMatch.index).trim(),
@@ -138,14 +136,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     <SidebarLayout>
       <div className="flex h-full flex-col overflow-hidden">
         {/* Unified page header — same shell as Dashboard / Toolkit / Help.
-            The wide SearchBar lives in `belowSlot` so it stays prominent
-            without breaking the standard title/icon row. */}
-        <PageHeader
-          icon={Search}
-          title="Search"
-          subtitle="Find any U.S. property by address, ZIP, or APN"
-          belowSlot={<SearchBar defaultValue={q ?? ''} />}
-        />
+            Rendered via the SearchPageHeader 'use client' wrapper: this page is
+            a Server Component, and the lucide `Search` icon is a component
+            reference that cannot be serialized across the RSC boundary into the
+            client <PageHeader>. Passing it directly threw an uncaught "Server
+            Components render" error — a 500 on every /search request. */}
+        <SearchPageHeader defaultQuery={q ?? ''} />
 
         {/* ── Mobile: toggleable list / map ─────────────────────────── */}
         <MobileSearchToggle listContent={resultsList} mapContent={mapPanel} />
