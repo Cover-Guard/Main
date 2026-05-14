@@ -35,7 +35,7 @@ export default function CarrierAvailabilityPage() {
       badge="Carrier Availability"
       headingLead="Know who's writing —"
       headingAccent="before you write the offer"
-      subtitle="State Farm, Allstate, and Farmers have pulled out of entire markets. CoverGuard tracks which carriers are actively binding at any US address — updated continuously."
+      subtitle="State Farm is under CDI enforcement in California (May 2026). Florida residual rates are easing. Allstate, Farmers, and regional carriers continue to reshuffle appetite by ZIP. CoverGuard tracks which carriers are actively binding at any US address — updated continuously."
       ctaLabel="Check Carrier Availability"
       ctaHref="/get-started"
       sectionTitle="Three writing statuses, one clear answer"

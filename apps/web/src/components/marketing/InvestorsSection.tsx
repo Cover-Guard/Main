@@ -10,7 +10,9 @@ export function InvestorsSection() {
           </h2>
           <p className="mt-4 text-lg text-gray-600">
             We&apos;re building the data infrastructure layer for property insurance decisions.
-            If you&apos;re interested in learning more about investment opportunities, we&apos;d love to hear from you.
+            Our May 2026 Business Plan refresh and Pitch Deck are available on request &mdash; including the latest
+            competitive scrub on Rhino DealShield, Matic, RealReports, and the May 2026 carrier-appetite shifts.
+            If you&apos;d like to dig in, we&apos;d love to hear from you.
           </p>
         </div>
 

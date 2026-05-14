@@ -35,8 +35,9 @@ export default function AgentsPage() {
               <span className="text-brand-600"> before they make an offer</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl leading-relaxed">
-              With State Farm, Allstate, and Farmers exiting major markets, insurance is now the #1 reason
-              deals fall through at closing. CoverGuard surfaces those risks before your client is under contract.
+              CDI is filing enforcement against State Farm in CA. Florida rates are easing. Carrier appetite is reshuffling
+              ZIP-by-ZIP every week. CoverGuard tells you &mdash; in 90 seconds &mdash; exactly who&rsquo;ll cover your client&rsquo;s next
+              property, in all 50 states, before the offer goes in.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row gap-4">
               <Link
