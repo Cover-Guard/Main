@@ -117,4 +117,13 @@ export function WhyCoverGuard() {
           </table>
           <p className="mt-3 text-xs text-gray-500">
             Comparison reflects publicly disclosed positioning as of May 13, 2026. Competitor capabilities change frequently.
-        
+            Notable May 2026 updates: RealReports expanded across CRMLS, State-Wide MLS, and FMLS &mdash; the most likely net-new MLS-embedded competitor;
+            the California Department of Insurance filed a 398-violation enforcement action against State Farm General on May 4&ndash;6, 2026 over LA-wildfire claims handling;
+            Florida residual rates are decreasing (Citizens FL &minus;8.7% spring renewal) for the first time in years;
+            Matic &times; nCino mortgage POS integration is now in deployment, widening Matic&rsquo;s mortgage-channel moat.
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}

@@ -38,4 +38,9 @@ export default function CarrierAvailabilityPage() {
       subtitle="State Farm is under CDI enforcement in California (May 2026). Florida residual rates are easing. Allstate, Farmers, and regional carriers continue to reshuffle appetite by ZIP. CoverGuard tracks which carriers are actively binding at any US address — updated continuously."
       ctaLabel="Check Carrier Availability"
       ctaHref="/get-started"
-      sectionTitle="Three writing statuses, one 
+      sectionTitle="Three writing statuses, one clear answer"
+      features={statuses}
+      gridClassName="grid-cols-1 md:grid-cols-3"
+    />
+  )
+}

@@ -36,7 +36,7 @@ export default function AgentsPage() {
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-gray-600 max-w-2xl leading-relaxed">
               CDI is filing enforcement against State Farm in CA. Florida rates are easing. Carrier appetite is reshuffling
-              ZIP-by-ZIP every week. CoverGuard tells you — in 90 seconds — exactly who&rsquo;ll cover your client&rsquo;s next
+              ZIP-by-ZIP every week. CoverGuard tells you &mdash; in 90 seconds &mdash; exactly who&rsquo;ll cover your client&rsquo;s next
               property, in all 50 states, before the offer goes in.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row gap-4">
@@ -149,3 +149,11 @@ export default function AgentsPage() {
               <Calendar className="h-4 w-4" />
               Book a Demo
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <MarketingFooter />
+    </div>
+  )
+}
