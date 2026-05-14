@@ -34,10 +34,15 @@ function getBaseUrl(): string {
   if (typeof window !== 'undefined') return '' // browser — relative works fine
 
   // Server-side — need an absolute URL for Node.js fetch()
+  // On Vercel the Express API is co-deployed in the *same* deployment and
+  // every /api/* path is rewritten to it by the root vercel.json, so the
+  // running deployment's own origin is always the correct, self-consistent
+  // target. Prefer it: API_REWRITE_URL is a local-dev convenience (it points
+  // at the standalone API on :4000) and must not be relied on for server-side
+  // fetches in production.
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
   if (process.env.API_REWRITE_URL) return process.env.API_REWRITE_URL
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL
-  // VERCEL_URL is set automatically by Vercel on every deployment
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
   return 'http://localhost:3000'
 }
 

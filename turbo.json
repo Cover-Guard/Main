@@ -6,7 +6,7 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"],
-            "env": ["COVERGUARD_2_*", "coverguard_2_*", "SUPABASE_ENV_LABEL"]
+            "env": ["COVERGUARD_2_*", "coverguard_2_*", "SUPABASE_ENV_LABEL", "API_REWRITE_URL", "NEXT_PUBLIC_API_URL"]
     },
     "dev": {
       "cache": false,
