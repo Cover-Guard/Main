@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "clean": "rm -rf .next out"
+    "clean": "rm -rf .next out",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@coverguard/shared": "file:../../packages/shared",
@@ -59,6 +60,7 @@
     "zod": "3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
