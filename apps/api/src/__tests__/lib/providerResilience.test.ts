@@ -192,4 +192,9 @@ describe('getProviderStats', () => {
     const snap = getProviderStats()
     expect(snap['snap']?.successes).toBe(1)
 
+    // Mutate the snapshot — internal counters must not move.
+    snap['snap']!.successes = 999
+    expect(getProviderStats()['snap']?.successes).toBe(1)
+  })
+})
   
