@@ -1,0 +1,48 @@
+name: E2E
+
+# Playwright E2E harness (PR-D1). Runs SEPARATELY from ci.yml and is NOT a
+# required check yet — it stays green by skipping every spec until
+# E2E_BASE_URL is wired (see apps/web/e2e/README.md). The D1.b follow-up
+# wires a seeded environment and adds this job to branch protection.
+on:
+  push:
+    branches: [main, master, 'claude/**', 'feature/**', 'fix/**']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target base URL for the E2E run (overrides E2E_BASE_URL var)'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    env:
+      # Precedence: manual dispatch input > repo variable > unset (specs skip).
+      E2E_BASE_URL: ${{ github.event.inputs.base_url || vars.E2E_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-audit --no-fund
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Run E2E suite
+        run: npm run test:e2e
+        working-directory: apps/web
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
