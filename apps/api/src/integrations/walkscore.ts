@@ -114,7 +114,7 @@ export async function fetchWalkScore(
         throw new Error(`WalkScore API returned HTTP ${response.status}`)
   }
 
-  const data: WalkScoreAPIResponse = await response.json()
+  const data = (await response.json()) as WalkScoreAPIResponse
 
   if (data.status !== 1) {
         const message = STATUS_MESSAGES[data.status] || `WalkScore API error (status ${data.status})`
