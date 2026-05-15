@@ -46,6 +46,7 @@ import type { PropertyRiskProfile, RiskLevel, RiskTrend, StateRiskContext } from
 import { RISK_CACHE_TTL_SECONDS, RISK_SCORE_THRESHOLDS } from '@coverguard/shared'
 import { RiskLevel as PrismaRiskLevel } from '../generated/prisma/client'
 import { logger } from '../utils/logger'
+import { withResilience } from '../lib/providerResilience'
 
 function scoreToLevel(score: number): PrismaRiskLevel {
   if (score <= RISK_SCORE_THRESHOLDS.LOW) return 'LOW'
@@ -343,14 +344,11 @@ export async function getOrComputeRiskProfile(
     // Fetch all risk data sources in parallel (primary + supplemental).
     // Each source is individually caught so a single upstream failure
     // (timeout, DNS, JSON parse error) cannot crash the entire profile.
-    const safe = <T>(fn: Promise<T>, fallback: T, label: string): Promise<T> =>
-      fn.catch((err) => {
-        logger.warn(`Risk data source "${label}" failed — using fallback`, {
-          propertyId,
-          error: err instanceof Error ? err.message : err,
-        })
-        return fallback
-      })
+    // Local adapter: defers the underlying fetch behind a thunk so the
+    // provider-resilience layer (timeout + retry + circuit breaker) can
+    // short-circuit a failing provider before its fetcher even runs.
+    const safe = <T>(fn: () => Promise<T>, fallback: T, label: string): Promise<T> =>
+      withResilience(fn, { name: label, fallback })
 
     const [
       floodData, fireData, earthquakeData, windData, crimeData,
@@ -360,27 +358,27 @@ export async function getOrComputeRiskProfile(
       droughtMonitor,
     ] = await Promise.all([
       // Primary sources
-      safe(fetchFloodRisk(property.lat, property.lng, property.zip ?? ''), { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }, 'FEMA Flood'),
-      safe(fetchFireRisk(property.lat, property.lng, property.state), {}, 'Fire Risk'),
-      safe(fetchEarthquakeRisk(property.lat, property.lng), {}, 'Earthquake'),
-      safe(fetchWindRisk(property.lat, property.lng, property.state), {}, 'Wind'),
-      safe(fetchCrimeRisk(property.lat, property.lng, property.zip ?? ''), {}, 'Crime'),
+      safe(() => fetchFloodRisk(property.lat, property.lng, property.zip ?? ''), { floodZone: 'UNKNOWN', inSpecialFloodHazardArea: false }, 'FEMA Flood'),
+      safe(() => fetchFireRisk(property.lat, property.lng, property.state), {}, 'Fire Risk'),
+      safe(() => fetchEarthquakeRisk(property.lat, property.lng), {}, 'Earthquake'),
+      safe(() => fetchWindRisk(property.lat, property.lng, property.state), {}, 'Wind'),
+      safe(() => fetchCrimeRisk(property.lat, property.lng, property.zip ?? ''), {}, 'Crime'),
       // Supplemental sources
-      safe(fetchElevation(property.lat, property.lng), null, 'Elevation'),
-      safe(fetchHistoricalEarthquakes(property.lat, property.lng), null, 'Historical EQ'),
-      safe(fetchLandfireFuelModel(property.lat, property.lng), null, 'LANDFIRE'),
-      safe(fetchFemaNri(property.lat, property.lng), null, 'FEMA NRI'),
-      safe(fetchSinkholeRisk(property.lat, property.lng), null, 'Sinkhole'),
-      safe(fetchDamHazard(property.lat, property.lng), null, 'Dam Hazard'),
-      safe(fetchSuperfundProximity(property.lat, property.lng), null, 'Superfund'),
+      safe(() => fetchElevation(property.lat, property.lng), null, 'Elevation'),
+      safe(() => fetchHistoricalEarthquakes(property.lat, property.lng), null, 'Historical EQ'),
+      safe(() => fetchLandfireFuelModel(property.lat, property.lng), null, 'LANDFIRE'),
+      safe(() => fetchFemaNri(property.lat, property.lng), null, 'FEMA NRI'),
+      safe(() => fetchSinkholeRisk(property.lat, property.lng), null, 'Sinkhole'),
+      safe(() => fetchDamHazard(property.lat, property.lng), null, 'Dam Hazard'),
+      safe(() => fetchSuperfundProximity(property.lat, property.lng), null, 'Superfund'),
       // Esri Living Atlas supplemental sources
-      safe(fetchEsriFloodHazard(property.lat, property.lng), null, 'Esri Flood Hazard'),
-      safe(fetchEsriLandslideRisk(property.lat, property.lng), null, 'Esri Landslide'),
-      safe(fetchEsriSocialVulnerability(property.lat, property.lng), null, 'Esri CDC SVI'),
+      safe(() => fetchEsriFloodHazard(property.lat, property.lng), null, 'Esri Flood Hazard'),
+      safe(() => fetchEsriLandslideRisk(property.lat, property.lng), null, 'Esri Landslide'),
+      safe(() => fetchEsriSocialVulnerability(property.lat, property.lng), null, 'Esri CDC SVI'),
       // Federal disaster declaration history (last 10 years, state-level)
-      safe(fetchOpenFemaDisasterHistory(property.lat, property.lng, property.state), null, 'OpenFEMA Disasters'),
+      safe(() => fetchOpenFemaDisasterHistory(property.lat, property.lng, property.state), null, 'OpenFEMA Disasters'),
       // Climate projection sources
-      safe(fetchEsriDroughtMonitor(property.lat, property.lng), null, 'US Drought Monitor (Esri)'),
+      safe(() => fetchEsriDroughtMonitor(property.lat, property.lng), null, 'US Drought Monitor (Esri)'),
     ])
 
     // Climate projection scoring. Prefer FEMA NRI HWAV_RISKR as the
